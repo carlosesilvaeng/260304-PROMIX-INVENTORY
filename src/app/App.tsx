@@ -27,7 +27,6 @@ import { ProductsSection } from "./pages/sections/ProductsSection";
 import { ReviewAndApproveSection } from "./pages/sections/ReviewAndApproveSection";
 import { ErrorBoundary } from "./utils/errorBoundary";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { EdgeFunctionDeploymentNotice } from "./components/EdgeFunctionDeploymentNotice";
 
 // ============================================================================
 // AUTO-CLEANUP: Clear expired tokens on app start
@@ -124,9 +123,6 @@ function AppContent() {
   // Main application with sidebar
   return (
     <div className="flex h-screen bg-[#F2F3F5]">
-      {/* Edge Function Deployment Notice */}
-      <EdgeFunctionDeploymentNotice />
-      
       {/* Migration Alert */}
       <MigrationAlert 
         show={showMigrationMessage} 
