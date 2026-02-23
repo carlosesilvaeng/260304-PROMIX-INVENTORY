@@ -523,6 +523,20 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           });
         }
         
+        // If month exists but has no aggregate entries yet, create from config
+        if (entries.agregados.length === 0 && config.aggregates?.length > 0) {
+          const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
+          entries.agregados = freshEntries.agregados;
+          console.log('[PlantPrefill] Month exists but no aggregate entries — created from config');
+        }
+
+        // If month exists but has no silo entries yet, create from config
+        if (entries.silos.length === 0 && config.silos?.length > 0) {
+          const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
+          entries.silos = freshEntries.silos;
+          console.log('[PlantPrefill] Month exists but no silo entries — created from config');
+        }
+
         console.log('[PlantPrefill] Using existing entries');
       } else {
         // Create empty entries from config
