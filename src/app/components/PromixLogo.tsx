@@ -1,5 +1,5 @@
 import React from 'react';
-import logo from 'https://promixpr.com/wp-content/uploads/2022/10/logo-promix-2048x779.png';
+import logo from '@/assets/logo-promix.png';
 
 interface PromixLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
