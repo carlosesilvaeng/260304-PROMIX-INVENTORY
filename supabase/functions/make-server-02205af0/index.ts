@@ -552,9 +552,35 @@ app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
     
     // Delete existing entries for this inventory month
     await supabase.from('inventory_aggregates_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    
+
+    // Whitelist only DB columns (strips frontend-only fields like _isNew, etc.)
+    const dbEntries = entries.map((e: any) => ({
+      ...(e.id ? { id: e.id } : {}),
+      inventory_month_id: e.inventory_month_id,
+      aggregate_config_id: e.aggregate_config_id,
+      aggregate_name: e.aggregate_name,
+      material_type: e.material_type,
+      location_area: e.location_area,
+      measurement_method: e.measurement_method,
+      unit: e.unit,
+      box_width_ft: e.box_width_ft,
+      box_height_ft: e.box_height_ft,
+      box_length_ft: e.box_length_ft,
+      calculated_volume_cy: e.calculated_volume_cy,
+      cone_m1: e.cone_m1,
+      cone_m2: e.cone_m2,
+      cone_m3: e.cone_m3,
+      cone_m4: e.cone_m4,
+      cone_m5: e.cone_m5,
+      cone_m6: e.cone_m6,
+      cone_d1: e.cone_d1,
+      cone_d2: e.cone_d2,
+      photo_url: e.photo_url,
+      notes: e.notes,
+    }));
+
     // Insert new entries
-    const { data, error } = await supabase.from('inventory_aggregates_entries_02205af0').insert(entries).select();
+    const { data, error } = await supabase.from('inventory_aggregates_entries_02205af0').insert(dbEntries).select();
     
     if (error) throw error;
     return c.json({ success: true, data });
