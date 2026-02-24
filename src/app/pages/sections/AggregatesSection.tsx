@@ -345,7 +345,7 @@ export function AggregatesSection() {
                       </label>
                       <NumericInput
                         value={entry.box_length_ft || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'box_length_ft', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'box_length_ft', value ?? 0)}
                         placeholder="0.00"
                         className="w-full"
                       />
@@ -374,7 +374,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M1 *</label>
                       <NumericInput
                         value={entry.cone_m1 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_m1', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m1', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -382,7 +382,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M2 *</label>
                       <NumericInput
                         value={entry.cone_m2 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_m2', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m2', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -390,7 +390,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M3 *</label>
                       <NumericInput
                         value={entry.cone_m3 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_m3', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m3', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -398,7 +398,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M4 *</label>
                       <NumericInput
                         value={entry.cone_m4 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_m4', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m4', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -406,7 +406,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M5 *</label>
                       <NumericInput
                         value={entry.cone_m5 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_m5', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m5', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -414,7 +414,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M6 *</label>
                       <NumericInput
                         value={entry.cone_m6 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_m6', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m6', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -424,7 +424,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D1 *</label>
                       <NumericInput
                         value={entry.cone_d1 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_d1', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d1', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
@@ -432,7 +432,7 @@ export function AggregatesSection() {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D2 *</label>
                       <NumericInput
                         value={entry.cone_d2 || 0}
-                        onChange={(value) => handleFieldChange(entry.id, 'cone_d2', value)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d2', value ?? 0)}
                         placeholder="0.00"
                       />
                     </div>
