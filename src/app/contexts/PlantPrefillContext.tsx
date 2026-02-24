@@ -530,6 +530,26 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           console.log('[PlantPrefill] Month exists but no aggregate entries — created from config');
         }
 
+        // Enrich aggregate entries with current config values
+        // Handles cases where config was updated after entries were saved (e.g. DRAWER→BOX/CONE)
+        if (entries.agregados.length > 0 && config.aggregates?.length > 0) {
+          entries.agregados = entries.agregados.map((entry: any) => {
+            const aggConfig = config.aggregates.find((a: any) => a.id === entry.aggregate_config_id);
+            if (!aggConfig) return entry;
+            return {
+              ...entry,
+              measurement_method: aggConfig.measurement_method,
+              box_width_ft: aggConfig.box_width_ft ?? entry.box_width_ft,
+              box_height_ft: aggConfig.box_height_ft ?? entry.box_height_ft,
+              aggregate_name: aggConfig.aggregate_name || entry.aggregate_name,
+              material_type: aggConfig.material_type || entry.material_type,
+              location_area: aggConfig.location_area || entry.location_area,
+              unit: aggConfig.unit || entry.unit,
+            };
+          });
+          console.log('[PlantPrefill] Enriched aggregate entries with current config values');
+        }
+
         // If month exists but has no silo entries yet, create from config
         if (entries.silos.length === 0 && config.silos?.length > 0) {
           const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
