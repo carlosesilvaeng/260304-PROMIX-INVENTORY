@@ -1,18 +1,18 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
-import * as kv from "./kv_store.ts";
-import * as db from "./database.ts";
-import * as seed from "./seed.ts";
-import * as auth from "./auth.ts";
+import * as kv from "./kv_store.tsx";
+import * as db from "./database.tsx";
+import * as seed from "./seed.tsx";
+import * as auth from "./auth.tsx";
 
 const app = new Hono();
 
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602182000';
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
+const BUILD_VERSION = '2602241200';
+// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/24 12:00 = Feb 24, 2026 12:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
@@ -59,6 +59,69 @@ app.use(
     maxAge: 600,
   }),
 );
+
+// ============================================================================
+// AUTH MIDDLEWARE HELPERS
+// ============================================================================
+
+async function requireAuth(c: any, next: any) {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  const token = authHeader.slice(7);
+  const { user, error } = await auth.verifyToken(token);
+  if (!user || error) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  c.set('user', user);
+  await next();
+}
+
+async function requireAdmin(c: any, next: any) {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  const token = authHeader.slice(7);
+  const { user, error } = await auth.verifyToken(token);
+  if (!user || error) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+  }
+  c.set('user', user);
+  await next();
+}
+
+function checkPlantAccess(user: any, plantId: string): boolean {
+  if (user.role === 'admin' || user.role === 'super_admin') return true;
+  return (user.assigned_plants as string[])?.includes(plantId) ?? false;
+}
+
+// ============================================================================
+// ROUTE-LEVEL AUTH MIDDLEWARE
+// ============================================================================
+
+// All inventory endpoints require at minimum a valid login
+app.use('/make-server-02205af0/inventory/*', requireAuth);
+
+// Database admin endpoints require admin or super_admin role
+app.use('/make-server-02205af0/db/*', requireAdmin);
+
+// Plant config endpoints require a valid login (plant access checked per-handler)
+app.use('/make-server-02205af0/plants/*', requireAuth);
+
+// Module config endpoints require a valid login (write ops check admin inside handler)
+app.use('/make-server-02205af0/modules/*', requireAuth);
+
+// Debug endpoint requires admin role
+app.use('/make-server-02205af0/debug/*', requireAdmin);
+
+// ============================================================================
+// PUBLIC ENDPOINTS
+// ============================================================================
 
 // Health check endpoint
 app.get("/make-server-02205af0/health", (c) => {
@@ -115,8 +178,8 @@ app.get("/make-server-02205af0/debug/env", (c) => {
 // AUTHENTICATION ENDPOINTS
 // ============================================================================
 
-// Signup - Create new user (Super Admin only)
-app.post("/make-server-02205af0/auth/signup", async (c) => {
+// Signup - Create new user (Admin / Super Admin only)
+app.post("/make-server-02205af0/auth/signup", requireAdmin, async (c) => {
   try {
     const body = await c.req.json();
     const result = await auth.signup(body);
@@ -438,8 +501,14 @@ app.post("/make-server-02205af0/db/clear", async (c) => {
 
 app.get("/make-server-02205af0/plants/:plantId/config", async (c) => {
   try {
+    const user = c.get('user');  // set by requireAuth middleware
     const plantId = c.req.param("plantId");
-    
+
+    if (!checkPlantAccess(user, plantId)) {
+      console.warn(`🚫 [GET /plants/${plantId}/config] Access denied for user ${user.email} (role: ${user.role})`);
+      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
+    }
+
     console.log(`🔍 [GET /plants/${plantId}/config] Fetching configuration...`);
     
     const config = await db.getPlantConfigPackage(plantId);
@@ -809,10 +878,15 @@ app.post("/make-server-02205af0/inventory/submit", async (c) => {
 // Approve inventory (SUBMITTED -> APPROVED)
 app.post("/make-server-02205af0/inventory/approve", async (c) => {
   try {
+    const user = c.get('user');  // set by requireAuth middleware
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+    }
+
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, approved_by, notes } = body;
-    
+
     if (!inventory_month_id || !approved_by) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
@@ -866,10 +940,15 @@ app.post("/make-server-02205af0/inventory/approve", async (c) => {
 // Reject inventory (SUBMITTED -> IN_PROGRESS)
 app.post("/make-server-02205af0/inventory/reject", async (c) => {
   try {
+    const user = c.get('user');  // set by requireAuth middleware
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+    }
+
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, rejected_by, rejection_notes } = body;
-    
+
     if (!inventory_month_id || !rejected_by || !rejection_notes) {
       return c.json({ success: false, error: "Missing required fields (inventory_month_id, rejected_by, rejection_notes)" }, 400);
     }
@@ -941,11 +1020,16 @@ app.get("/make-server-02205af0/modules/config", async (c) => {
   }
 });
 
-// Update module configuration (Super Admin only)
+// Update module configuration (Admin / Super Admin only)
 app.post("/make-server-02205af0/modules/config", async (c) => {
   try {
+    const user = c.get('user');  // set by requireAuth middleware
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+    }
+
     const body = await c.req.json();
-    
+
     console.log('[MODULES] Updating module configuration:', body);
     
     // Validate structure
