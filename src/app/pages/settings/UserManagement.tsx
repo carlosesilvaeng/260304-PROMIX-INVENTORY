@@ -495,7 +495,7 @@ export function UserManagement() {
   return (
     <div className="space-y-4">
       {/* DEBUG PANEL - TEMPORAL */}
-      {showDebugPanel && (
+      {showDebugPanel && currentUser?.role === 'super_admin' && (
         <Card>
           <div className="bg-yellow-50 border border-yellow-200 p-4 rounded">
             <div className="flex justify-between items-start mb-2">
