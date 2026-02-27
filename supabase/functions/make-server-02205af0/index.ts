@@ -11,8 +11,8 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602241200';
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/24 12:00 = Feb 24, 2026 12:00 PM
+const BUILD_VERSION = '2602271400';
+// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/27 14:00 = Feb 27, 2026 2:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
@@ -119,6 +119,31 @@ app.use('/make-server-02205af0/modules/*', requireAuth);
 // Debug endpoint requires admin role
 app.use('/make-server-02205af0/debug/*', requireAdmin);
 
+// Audit endpoints require at minimum a valid login
+app.use('/make-server-02205af0/audit/*', requireAuth);
+
+// ============================================================================
+// AUDIT HELPER
+// ============================================================================
+
+// Fire-and-forget: never throws, never delays the main response
+function logAudit(supabase: any, entry: {
+  user_email: string;
+  user_name?: string;
+  user_id?: string;
+  action: string;
+  plant_id?: string | null;
+  inventory_month_id?: string | null;
+  details?: any;
+}) {
+  supabase.from('audit_logs_02205af0').insert({
+    ...entry,
+    timestamp: new Date().toISOString(),
+  }).then(() => {}).catch((e: any) => {
+    console.error('[AUDIT] Failed to log:', e.message);
+  });
+}
+
 // ============================================================================
 // PUBLIC ENDPOINTS
 // ============================================================================
@@ -200,11 +225,23 @@ app.post("/make-server-02205af0/auth/login", async (c) => {
   try {
     const body = await c.req.json();
     const result = await auth.login(body);
-    
+
     if (!result.success) {
       return c.json(result, 400);
     }
-    
+
+    // Audit: user logged in
+    if (result.user) {
+      logAudit(db.getSupabaseClient(), {
+        user_email: result.user.email,
+        user_name: result.user.name,
+        user_id: result.user.id,
+        action: 'USER_LOGIN',
+        plant_id: null,
+        details: { role: result.user.role },
+      });
+    }
+
     return c.json(result);
   } catch (error) {
     console.error("Login error:", error);
@@ -540,14 +577,38 @@ app.get("/make-server-02205af0/plants/:plantId/config", async (c) => {
 // Get or create inventory month
 app.post("/make-server-02205af0/inventory/month", async (c) => {
   try {
+    const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { plant_id, year_month, created_by } = body;
-    
+
     if (!plant_id || !year_month || !created_by) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
-    
+
+    // Check if it already exists before creating
+    const { data: existing } = await supabase
+      .from('inventory_month_02205af0')
+      .select('id')
+      .eq('plant_id', plant_id)
+      .eq('year_month', year_month)
+      .single();
+
     const inventoryMonth = await db.getOrCreateInventoryMonth(plant_id, year_month, created_by);
+
+    // Audit: only log when a NEW inventory month is created
+    if (!existing) {
+      const user = c.get('user');
+      logAudit(supabase, {
+        user_email: user.email,
+        user_name: user.name,
+        user_id: user.id,
+        action: 'INVENTORY_STARTED',
+        plant_id: plant_id,
+        inventory_month_id: inventoryMonth.id,
+        details: { year_month },
+      });
+    }
+
     return c.json({ success: true, data: inventoryMonth });
   } catch (error) {
     console.error("Error creating/getting inventory month:", error);
@@ -614,7 +675,7 @@ app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
-    
+
     if (!inventory_month_id || !entries) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
@@ -650,8 +711,9 @@ app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
 
     // Insert new entries
     const { data, error } = await supabase.from('inventory_aggregates_entries_02205af0').insert(dbEntries).select();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'aggregates' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving aggregates entries:", error);
@@ -665,15 +727,16 @@ app.post("/make-server-02205af0/inventory/silos", async (c) => {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
-    
+
     if (!inventory_month_id || !entries) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
-    
+
     await supabase.from('inventory_silos_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
     const { data, error } = await supabase.from('inventory_silos_entries_02205af0').insert(entries).select();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'silos' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving silos entries:", error);
@@ -687,15 +750,16 @@ app.post("/make-server-02205af0/inventory/additives", async (c) => {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
-    
+
     if (!inventory_month_id || !entries) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
-    
+
     await supabase.from('inventory_additives_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
     const { data, error } = await supabase.from('inventory_additives_entries_02205af0').insert(entries).select();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'additives' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving additives entries:", error);
@@ -709,15 +773,16 @@ app.post("/make-server-02205af0/inventory/diesel", async (c) => {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, entry } = body;
-    
+
     if (!inventory_month_id || !entry) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
-    
+
     await supabase.from('inventory_diesel_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
     const { data, error } = await supabase.from('inventory_diesel_entries_02205af0').insert(entry).select().single();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'diesel' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving diesel entry:", error);
@@ -731,15 +796,16 @@ app.post("/make-server-02205af0/inventory/products", async (c) => {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
-    
+
     if (!inventory_month_id || !entries) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
-    
+
     await supabase.from('inventory_products_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
     const { data, error } = await supabase.from('inventory_products_entries_02205af0').insert(entries).select();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'products' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving products entries:", error);
@@ -753,15 +819,16 @@ app.post("/make-server-02205af0/inventory/utilities", async (c) => {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
-    
+
     if (!inventory_month_id || !entries) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
     
     await supabase.from('inventory_utilities_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
     const { data, error } = await supabase.from('inventory_utilities_entries_02205af0').insert(entries).select();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'utilities' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving utilities entries:", error);
@@ -782,8 +849,9 @@ app.post("/make-server-02205af0/inventory/petty-cash", async (c) => {
     
     await supabase.from('inventory_petty_cash_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
     const { data, error } = await supabase.from('inventory_petty_cash_entries_02205af0').insert(entry).select().single();
-    
+
     if (error) throw error;
+    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'petty-cash' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving petty cash entry:", error);
@@ -866,8 +934,21 @@ app.post("/make-server-02205af0/inventory/submit", async (c) => {
       .single();
     
     if (error) throw error;
-    
+
     console.log(`[SUBMIT] Inventory ${inventory_month_id} submitted for approval by ${submitted_by}`);
+
+    // Audit log
+    const submitUser = c.get('user');
+    logAudit(supabase, {
+      user_email: submitUser.email,
+      user_name: submitUser.name,
+      user_id: submitUser.id,
+      action: 'INVENTORY_SUBMITTED',
+      plant_id: currentMonth.plant_id,
+      inventory_month_id: inventory_month_id,
+      details: { year_month: currentMonth.year_month },
+    });
+
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error submitting inventory:", error);
@@ -928,8 +1009,20 @@ app.post("/make-server-02205af0/inventory/approve", async (c) => {
       .single();
     
     if (error) throw error;
-    
+
     console.log(`[APPROVE] Inventory ${inventory_month_id} approved by ${approved_by}`);
+
+    // Audit log
+    logAudit(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'INVENTORY_APPROVED',
+      plant_id: currentMonth.plant_id,
+      inventory_month_id: inventory_month_id,
+      details: { year_month: currentMonth.year_month, notes: notes ?? null },
+    });
+
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error approving inventory:", error);
@@ -988,8 +1081,20 @@ app.post("/make-server-02205af0/inventory/reject", async (c) => {
       .single();
     
     if (error) throw error;
-    
+
     console.log(`[REJECT] Inventory ${inventory_month_id} rejected by ${rejected_by}. Reason: ${rejection_notes}`);
+
+    // Audit log
+    logAudit(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'INVENTORY_REJECTED',
+      plant_id: currentMonth.plant_id,
+      inventory_month_id: inventory_month_id,
+      details: { year_month: currentMonth.year_month, reason: rejection_notes },
+    });
+
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error rejecting inventory:", error);
@@ -1050,6 +1155,70 @@ app.post("/make-server-02205af0/modules/config", async (c) => {
     return c.json({ success: true, data: body });
   } catch (error) {
     console.error('[MODULES] Error updating config:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// AUDIT ENDPOINTS
+// ============================================================================
+
+// Inventory workflow flow — derived from existing inventory_month table
+app.get("/make-server-02205af0/audit/flow", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const plantIdFilter = c.req.query('plant_id');
+
+    let query = supabase
+      .from('inventory_month_02205af0')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (user.role === 'plant_manager') {
+      query = query.in('plant_id', user.assigned_plants as string[]);
+    } else if (plantIdFilter) {
+      query = query.eq('plant_id', plantIdFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('[AUDIT] Error fetching flow:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Detailed event log from audit_logs table
+app.get("/make-server-02205af0/audit/logs", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const plantIdFilter = c.req.query('plant_id');
+    const limit = Math.min(parseInt(c.req.query('limit') || '100'), 500);
+
+    let query = supabase
+      .from('audit_logs_02205af0')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(limit);
+
+    if (user.role === 'plant_manager') {
+      // Plant managers see their own plant events + their own logins
+      query = query.or(
+        `plant_id.in.(${(user.assigned_plants as string[]).join(',')}),and(action.eq.USER_LOGIN,user_id.eq.${user.id})`
+      );
+    } else if (plantIdFilter) {
+      query = query.eq('plant_id', plantIdFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('[AUDIT] Error fetching logs:', error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

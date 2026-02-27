@@ -8,6 +8,7 @@ import { Alert } from '../components/Alert';
 import { Card } from '../components/Card';
 import { UserManagement } from './settings/UserManagement';
 import { ModuleManagementPanel } from './settings/ModuleManagementPanel';
+import { AuditPanel } from './settings/AuditPanel';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import type { Plant, CajonConfig } from '../types';
@@ -220,27 +221,7 @@ export function Settings() {
 
       {/* Audit Tab */}
       {activeTab === 'audit' && (
-        <div className="space-y-4">
-          <Card>
-            <h3 className="text-lg text-[#3B3A36] mb-4">Registro de Auditoría</h3>
-            <div className="space-y-3">
-              {[
-                { date: '2025-01-27 10:30', user: 'Ana García', action: 'Inventario aprobado', plant: 'PROMIX San Juan' },
-                { date: '2025-01-27 09:15', user: 'Carlos Rodríguez', action: 'Sección completada: Agregados', plant: 'PROMIX San Juan' },
-                { date: '2025-01-26 16:45', user: 'Carlos Rodríguez', action: 'Inventario iniciado', plant: 'PROMIX San Juan' },
-                { date: '2025-01-26 14:20', user: 'Ana García', action: 'Configuración actualizada', plant: 'Sistema' },
-              ].map((log, index) => (
-                <div key={index} className="p-4 bg-[#F2F3F5] rounded flex items-center justify-between">
-                  <div>
-                    <p className="text-[#3B3A36]">{log.action}</p>
-                    <p className="text-sm text-[#5F6773]">{log.user} • {log.plant}</p>
-                  </div>
-                  <p className="text-sm text-[#5F6773]">{log.date}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
+        <AuditPanel />
       )}
       
       {/* Modules Tab */}
