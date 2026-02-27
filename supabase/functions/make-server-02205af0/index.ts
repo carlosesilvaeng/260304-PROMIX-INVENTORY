@@ -11,7 +11,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602271400';
+const BUILD_VERSION = '2602271600';
 // Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/27 14:00 = Feb 27, 2026 2:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -121,6 +121,9 @@ app.use('/make-server-02205af0/debug/*', requireAdmin);
 
 // Audit endpoints require at minimum a valid login
 app.use('/make-server-02205af0/audit/*', requireAuth);
+
+// Reports endpoint requires a valid login
+app.use('/make-server-02205af0/reports', requireAuth);
 
 // ============================================================================
 // AUDIT HELPER
@@ -1219,6 +1222,47 @@ app.get("/make-server-02205af0/audit/logs", async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error('[AUDIT] Error fetching logs:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// REPORTS ENDPOINT
+// ============================================================================
+
+app.get("/make-server-02205af0/reports", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const { year_month, plant_id } = c.req.query();
+
+    let query = supabase
+      .from('inventory_month_02205af0')
+      .select(`
+        id, plant_id, year_month, status,
+        created_by, created_at,
+        submitted_by, submitted_at,
+        approved_by, approved_at, approval_notes,
+        rejected_by, rejected_at, rejection_notes
+      `)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    // Role-based filter
+    if (user.role === 'plant_manager') {
+      query = query.in('plant_id', user.assigned_plants as string[]);
+    } else if (plant_id) {
+      query = query.eq('plant_id', plant_id);
+    }
+
+    // Optional month filter (format: "2025-02")
+    if (year_month) query = query.eq('year_month', year_month);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('[REPORTS] Error fetching reports:', error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

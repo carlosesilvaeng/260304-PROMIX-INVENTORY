@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Select } from '../components/Select';
@@ -6,141 +6,136 @@ import { Alert } from '../components/Alert';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 
-// Mock historical data
-const MOCK_REPORTS = [
-  {
-    id: 'rep-1',
-    plantId: '1',
-    plantName: 'CAROLINA',
-    month: 'Diciembre',
-    year: 2024,
-    status: 'approved',
-    startTimestamp: new Date('2024-12-30T08:30:00'),
-    endTimestamp: new Date('2024-12-31T14:45:00'),
-    aggregates: 12,
-    silos: 3,
-    createdBy: 'Carlos Rodríguez',
-    createdByRole: 'Gerente de Planta',
-    approvedBy: 'Ana García',
-    approvedByRole: 'Administrador',
-    approvedAt: new Date('2024-12-31T15:30:00'),
-  },
-  {
-    id: 'rep-2',
-    plantId: '1',
-    plantName: 'CAROLINA',
-    month: 'Noviembre',
-    year: 2024,
-    status: 'approved',
-    startTimestamp: new Date('2024-11-29T09:00:00'),
-    endTimestamp: new Date('2024-11-30T13:20:00'),
-    aggregates: 15,
-    silos: 3,
-    createdBy: 'Carlos Rodríguez',
-    createdByRole: 'Gerente de Planta',
-    approvedBy: 'Ana García',
-    approvedByRole: 'Administrador',
-    approvedAt: new Date('2024-11-30T14:00:00'),
-  },
-  {
-    id: 'rep-3',
-    plantId: '3',
-    plantName: 'GUAYNABO',
-    month: 'Diciembre',
-    year: 2024,
-    status: 'approved',
-    startTimestamp: new Date('2024-12-29T08:00:00'),
-    endTimestamp: new Date('2024-12-30T12:30:00'),
-    aggregates: 10,
-    silos: 3,
-    createdBy: 'María López',
-    createdByRole: 'Gerente de Planta',
-    approvedBy: 'Ana García',
-    approvedByRole: 'Super Administrador',
-    approvedAt: new Date('2024-12-30T13:15:00'),
-  },
-  {
-    id: 'rep-4',
-    plantId: '2',
-    plantName: 'CEIBA',
-    month: 'Diciembre',
-    year: 2024,
-    status: 'completed',
-    startTimestamp: new Date('2024-12-27T07:45:00'),
-    endTimestamp: new Date('2024-12-28T15:00:00'),
-    aggregates: 8,
-    silos: 2,
-    createdBy: 'Carlos Rodríguez',
-    createdByRole: 'Gerente de Planta',
-    approvedBy: null,
-    approvedByRole: null,
-    approvedAt: null,
-  },
-  {
-    id: 'rep-5',
-    plantId: '5',
-    plantName: 'VEGA BAJA',
-    month: 'Noviembre',
-    year: 2024,
-    status: 'in-progress',
-    startTimestamp: new Date('2024-11-28T08:15:00'),
-    endTimestamp: null,
-    aggregates: 11,
-    silos: 3,
-    createdBy: 'Pedro Martínez',
-    createdByRole: 'Gerente de Planta',
-    approvedBy: null,
-    approvedByRole: null,
-    approvedAt: null,
-  },
-  {
-    id: 'rep-6',
-    plantId: '6',
-    plantName: 'HUMACAO',
-    month: 'Diciembre',
-    year: 2024,
-    status: 'approved',
-    startTimestamp: new Date('2024-12-28T09:30:00'),
-    endTimestamp: new Date('2024-12-29T14:00:00'),
-    aggregates: 9,
-    silos: 2,
-    createdBy: 'Luis Torres',
-    createdByRole: 'Gerente de Planta',
-    approvedBy: 'Ana García',
-    approvedByRole: 'Administrador',
-    approvedAt: new Date('2024-12-29T15:45:00'),
-  },
-];
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface Report {
+  id: string;
+  plant_id: string;
+  year_month: string;           // "2025-02"
+  status: 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED';
+  created_by: string;
+  created_at: string;
+  submitted_by?: string;
+  submitted_at?: string;
+  approved_by?: string;
+  approved_at?: string;
+  approval_notes?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  rejection_notes?: string;
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+const MONTH_NAMES: Record<string, string> = {
+  '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+  '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+  '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre',
+};
+
+const MONTH_TO_NUM: Record<string, string> = {
+  'Enero': '01', 'Febrero': '02', 'Marzo': '03', 'Abril': '04',
+  'Mayo': '05', 'Junio': '06', 'Julio': '07', 'Agosto': '08',
+  'Septiembre': '09', 'Octubre': '10', 'Noviembre': '11', 'Diciembre': '12',
+};
+
+function formatPeriod(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-');
+  return `${MONTH_NAMES[month] || month} ${year}`;
+}
+
+function formatDateTime(iso: string, locale: string): { date: string; time: string } {
+  const d = new Date(iso);
+  return {
+    date: d.toLocaleDateString(locale === 'es' ? 'es-PR' : 'en-US', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    }),
+    time: d.toLocaleTimeString(locale === 'es' ? 'es-PR' : 'en-US', {
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    }),
+  };
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export function Reports() {
-  const { currentPlant, user } = useAuth();
+  const { user, accessToken } = useAuth();
   const { t, language } = useLanguage();
+
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState('all');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  const [selectedYear, setSelectedYear] = useState('all');
   const [showExportSuccess, setShowExportSuccess] = useState(false);
 
-  const filteredReports = MOCK_REPORTS.filter(report => {
-    if (user?.role !== 'admin') {
-      // Gerentes solo ven su planta
-      if (report.plantId !== currentPlant?.id) return false;
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/reports`, {
+        headers: { Authorization: `Bearer ${accessToken || publicAnonKey}` },
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Error al cargar reportes');
+      setReports(json.data || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    if (selectedMonth !== 'all' && report.month !== selectedMonth) return false;
-    if (selectedYear !== 'all' && report.year.toString() !== selectedYear) return false;
+  }, [accessToken]);
+
+  useEffect(() => { fetchReports(); }, [fetchReports]);
+
+  // ── Filter client-side ────────────────────────────────────────────────────
+
+  const filteredReports = reports.filter(r => {
+    const [year, month] = r.year_month.split('-');
+    if (selectedYear !== 'all' && year !== selectedYear) return false;
+    if (selectedMonth !== 'all' && month !== MONTH_TO_NUM[selectedMonth]) return false;
     return true;
   });
 
-  const handleExportPDF = () => {
+  // ── Stats ─────────────────────────────────────────────────────────────────
+
+  const currentYear = new Date().getFullYear().toString();
+  const thisYearCount = reports.filter(r => r.year_month.startsWith(currentYear)).length;
+  const approvedCount = reports.filter(r => r.status === 'APPROVED').length;
+
+  // ── Export (placeholder) ───────────────────────────────────────────────────
+
+  const handleExport = () => {
     setShowExportSuccess(true);
     setTimeout(() => setShowExportSuccess(false), 3000);
-    // Aquí iría la lógica real de exportación
   };
 
-  const handleExportExcel = () => {
-    setShowExportSuccess(true);
-    setTimeout(() => setShowExportSuccess(false), 3000);
-    // Aquí iría la lógica real de exportación
-  };
+  // ── Status badge ──────────────────────────────────────────────────────────
+
+  function StatusBadge({ status }: { status: Report['status'] }) {
+    const config = {
+      APPROVED:    { label: t('status.approved'),   cls: 'bg-[#2ecc71]/10 text-[#2ecc71]' },
+      SUBMITTED:   { label: 'Enviado',              cls: 'bg-[#2475C7]/10 text-[#2475C7]' },
+      IN_PROGRESS: { label: t('status.inProgress'), cls: 'bg-[#f59e0b]/10 text-[#f59e0b]' },
+    }[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+    return (
+      <span className={`px-3 py-1 rounded text-sm ${config.cls}`}>{config.label}</span>
+    );
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6 space-y-6">
@@ -148,18 +143,18 @@ export function Reports() {
       <div className="flex justify-center mb-2">
         <PromixLogo size="lg" />
       </div>
-      
+
       <div>
         <h2 className="text-2xl text-[#3B3A36]">Reportes</h2>
         <p className="text-[#5F6773]">Historial y exportación de inventarios</p>
       </div>
 
       {showExportSuccess && (
-        <Alert 
-          type="success" 
-          message="Reporte exportado exitosamente" 
-          autoClose 
-        />
+        <Alert type="success" message="Reporte exportado exitosamente" autoClose />
+      )}
+
+      {error && (
+        <Alert type="error" message={`Error al cargar reportes: ${error}`} />
       )}
 
       {/* Filters */}
@@ -172,27 +167,17 @@ export function Reports() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             options={[
               { value: 'all', label: 'Todos los meses' },
-              { value: 'Enero', label: 'Enero' },
-              { value: 'Febrero', label: 'Febrero' },
-              { value: 'Marzo', label: 'Marzo' },
-              { value: 'Abril', label: 'Abril' },
-              { value: 'Mayo', label: 'Mayo' },
-              { value: 'Junio', label: 'Junio' },
-              { value: 'Julio', label: 'Julio' },
-              { value: 'Agosto', label: 'Agosto' },
-              { value: 'Septiembre', label: 'Septiembre' },
-              { value: 'Octubre', label: 'Octubre' },
-              { value: 'Noviembre', label: 'Noviembre' },
-              { value: 'Diciembre', label: 'Diciembre' },
+              ...Object.keys(MONTH_TO_NUM).map(m => ({ value: m, label: m })),
             ]}
           />
-          
+
           <Select
             label="Año"
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
             options={[
               { value: 'all', label: 'Todos los años' },
+              { value: '2026', label: '2026' },
               { value: '2025', label: '2025' },
               { value: '2024', label: '2024' },
               { value: '2023', label: '2023' },
@@ -200,10 +185,10 @@ export function Reports() {
           />
 
           <div className="flex items-end gap-2">
-            <Button variant="secondary" onClick={handleExportPDF} className="flex-1">
+            <Button variant="secondary" onClick={handleExport} className="flex-1">
               📄 PDF
             </Button>
-            <Button variant="secondary" onClick={handleExportExcel} className="flex-1">
+            <Button variant="secondary" onClick={handleExport} className="flex-1">
               📊 Excel
             </Button>
           </div>
@@ -219,138 +204,90 @@ export function Reports() {
                 <th className="px-6 py-3 text-left">Planta</th>
                 <th className="px-6 py-3 text-left">Período</th>
                 <th className="px-6 py-3 text-left">Fecha Completado</th>
-                <th className="px-6 py-3 text-center">Agregados</th>
-                <th className="px-6 py-3 text-center">Silos</th>
-                <th className="px-6 py-3 text-left">Diligenciado por</th>
+                <th className="px-6 py-3 text-left">Iniciado por</th>
                 <th className="px-6 py-3 text-left">Aprobado por</th>
                 <th className="px-6 py-3 text-center">Estado</th>
                 <th className="px-6 py-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {filteredReports.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-[#5F6773]">
+                  <td colSpan={7} className="px-6 py-12 text-center text-[#5F6773]">
+                    Cargando reportes...
+                  </td>
+                </tr>
+              ) : filteredReports.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-[#5F6773]">
                     No hay reportes que coincidan con los filtros seleccionados
                   </td>
                 </tr>
               ) : (
                 filteredReports.map((report) => {
-                  // Determinar qué timestamp mostrar en "Diligenciado por"
-                  const completionTimestamp = report.status === 'in-progress' 
-                    ? report.startTimestamp 
-                    : report.endTimestamp;
-                    
+                  const completedAt = report.approved_at || report.submitted_at;
+                  const completedDT = completedAt ? formatDateTime(completedAt, language) : null;
+                  const createdDT   = formatDateTime(report.created_at, language);
+                  const approvedDT  = report.approved_at ? formatDateTime(report.approved_at, language) : null;
+
                   return (
-                  <tr key={report.id} className="border-b border-[#9D9B9A] hover:bg-[#F2F3F5] transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="text-[#3B3A36] font-medium">
-                        {report.plantName}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-[#3B3A36]">
-                      {report.month} {report.year}
-                    </td>
-                    <td className="px-6 py-4">
-                      {report.endTimestamp ? (
-                        <>
-                          <p className="text-[#3B3A36] text-sm">
-                            {report.endTimestamp.toLocaleDateString(language === 'es' ? 'es' : 'en', { 
-                              day: '2-digit', 
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
-                          </p>
-                          <p className="text-xs text-[#5F6773]">
-                            {report.endTimestamp.toLocaleTimeString(language === 'es' ? 'es' : 'en', { 
-                              hour: '2-digit', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-[#9D9B9A] text-sm">{t('status.inProgress')}</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center text-[#3B3A36]">
-                      {report.aggregates}
-                    </td>
-                    <td className="px-6 py-4 text-center text-[#3B3A36]">
-                      {report.silos}
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-[#3B3A36] text-sm font-medium">{report.createdBy}</p>
-                      <p className="text-xs text-[#5F6773] mb-1">{report.createdByRole}</p>
-                      {completionTimestamp && (
+                    <tr key={report.id} className="border-b border-[#9D9B9A] hover:bg-[#F2F3F5] transition-colors">
+
+                      <td className="px-6 py-4">
+                        <p className="text-[#3B3A36] font-medium">{report.plant_id}</p>
+                      </td>
+
+                      <td className="px-6 py-4 text-[#3B3A36]">
+                        {formatPeriod(report.year_month)}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {completedDT ? (
+                          <>
+                            <p className="text-[#3B3A36] text-sm">{completedDT.date}</p>
+                            <p className="text-xs text-[#5F6773]">{completedDT.time}</p>
+                          </>
+                        ) : (
+                          <p className="text-[#9D9B9A] text-sm">{t('status.inProgress')}</p>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <p className="text-[#3B3A36] text-sm font-medium">{report.created_by}</p>
                         <div className="mt-1 pt-1 border-t border-[#9D9B9A]/20">
-                          <p className="text-xs text-[#2475C7] font-medium">
-                            {completionTimestamp.toLocaleDateString(language === 'es' ? 'es' : 'en', { 
-                              day: '2-digit', 
-                              month: 'short', 
-                              year: 'numeric' 
-                            })}
-                          </p>
-                          <p className="text-xs text-[#5F6773]">
-                            {completionTimestamp.toLocaleTimeString(language === 'es' ? 'es' : 'en', { 
-                              hour: '2-digit', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}
-                          </p>
+                          <p className="text-xs text-[#2475C7] font-medium">{createdDT.date}</p>
+                          <p className="text-xs text-[#5F6773]">{createdDT.time}</p>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {report.approvedBy ? (
-                        <>
-                          <p className="text-[#3B3A36] text-sm font-medium">{report.approvedBy}</p>
-                          <p className="text-xs text-[#5F6773] mb-1">{report.approvedByRole}</p>
-                          {report.approvedAt && (
-                            <div className="mt-1 pt-1 border-t border-[#9D9B9A]/20">
-                              <p className="text-xs text-[#2ecc71] font-medium">
-                                {report.approvedAt.toLocaleDateString(language === 'es' ? 'es' : 'en', { 
-                                  day: '2-digit', 
-                                  month: 'short', 
-                                  year: 'numeric' 
-                                })}
-                              </p>
-                              <p className="text-xs text-[#5F6773]">
-                                {report.approvedAt.toLocaleTimeString(language === 'es' ? 'es' : 'en', { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit',
-                                  hour12: true 
-                                })}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-[#9D9B9A] text-sm">{t('review.pendingApproval')}</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-3 py-1 rounded text-sm ${
-                        report.status === 'approved' ? 'bg-[#2ecc71]/10 text-[#2ecc71]' :
-                        report.status === 'completed' ? 'bg-[#2475C7]/10 text-[#2475C7]' :
-                        'bg-[#f59e0b]/10 text-[#f59e0b]'
-                      }`}>
-                        {report.status === 'approved' ? t('status.approved') :
-                         report.status === 'completed' ? t('status.completed') :
-                         t('status.inProgress')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button variant="ghost" size="sm">
-                          {t('common.view')}
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          📄
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {report.approved_by ? (
+                          <>
+                            <p className="text-[#3B3A36] text-sm font-medium">{report.approved_by}</p>
+                            {approvedDT && (
+                              <div className="mt-1 pt-1 border-t border-[#9D9B9A]/20">
+                                <p className="text-xs text-[#2ecc71] font-medium">{approvedDT.date}</p>
+                                <p className="text-xs text-[#5F6773]">{approvedDT.time}</p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-[#9D9B9A] text-sm">{t('review.pendingApproval')}</p>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-center">
+                        <StatusBadge status={report.status} />
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button variant="ghost" size="sm">{t('common.view')}</Button>
+                          <Button variant="ghost" size="sm">📄</Button>
+                        </div>
+                      </td>
+
+                    </tr>
                   );
                 })
               )}
@@ -365,19 +302,13 @@ export function Reports() {
           <h3 className="text-sm text-[#5F6773] mb-1">Total Reportes</h3>
           <p className="text-3xl font-bold text-[#2475C7]">{filteredReports.length}</p>
         </Card>
-        
         <Card>
           <h3 className="text-sm text-[#5F6773] mb-1">Este Año</h3>
-          <p className="text-3xl font-bold text-[#2475C7]">
-            {MOCK_REPORTS.filter(r => r.year === 2024).length}
-          </p>
+          <p className="text-3xl font-bold text-[#2475C7]">{thisYearCount}</p>
         </Card>
-        
         <Card>
-          <h3 className="text-sm text-[#5F6773] mb-1">Completados</h3>
-          <p className="text-3xl font-bold text-[#2ecc71]">
-            {MOCK_REPORTS.filter(r => r.status === 'completed').length}
-          </p>
+          <h3 className="text-sm text-[#5F6773] mb-1">Aprobados</h3>
+          <p className="text-3xl font-bold text-[#2ecc71]">{approvedCount}</p>
         </Card>
       </div>
     </div>
