@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { getCajonesByPlant } from '../config/cajonesConfig';
 
 // DIAGNOSTIC LOG - Verificar que se carguen los valores correctos
 console.log('🔍 [AuthContext] Supabase Config Loaded:');
@@ -80,12 +81,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ============================================================================
 
 const MOCK_PLANTS: Plant[] = [
-  { 
-    id: 'CAROLINA', 
-    name: 'CAROLINA', 
+  {
+    id: 'CAROLINA',
+    name: 'CAROLINA',
     code: 'CAR-001',
     location: 'Carolina, PR',
     methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
+    cajones: getCajonesByPlant('CAROLINA').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
     silos: [
       { id: '1', name: 'Silo Cemento 1', type: 'cemento' },
       { id: '2', name: 'Silo Cemento 2', type: 'cemento' },
@@ -94,12 +96,13 @@ const MOCK_PLANTS: Plant[] = [
     pettyCashEstablished: 1500,
     isActive: true
   },
-  { 
-    id: 'CEIBA', 
-    name: 'CEIBA', 
+  {
+    id: 'CEIBA',
+    name: 'CEIBA',
     code: 'CEI-002',
     location: 'Ceiba, PR',
     methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
+    cajones: getCajonesByPlant('CEIBA').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
     silos: [
       { id: '4', name: 'Silo Cemento 1', type: 'cemento' },
       { id: '5', name: 'Silo Cemento 2', type: 'cemento' },
@@ -107,12 +110,13 @@ const MOCK_PLANTS: Plant[] = [
     pettyCashEstablished: 1200,
     isActive: true
   },
-  { 
-    id: 'GUAYNABO', 
-    name: 'GUAYNABO', 
+  {
+    id: 'GUAYNABO',
+    name: 'GUAYNABO',
     code: 'GUA-003',
     location: 'Guaynabo, PR',
     methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
+    cajones: getCajonesByPlant('GUAYNABO').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
     silos: [
       { id: '6', name: 'Silo Cemento 1', type: 'cemento' },
       { id: '7', name: 'Silo Cemento 2', type: 'cemento' },
@@ -121,12 +125,13 @@ const MOCK_PLANTS: Plant[] = [
     pettyCashEstablished: 1500,
     isActive: true
   },
-  { 
-    id: 'GURABO', 
-    name: 'GURABO', 
+  {
+    id: 'GURABO',
+    name: 'GURABO',
     code: 'GUR-004',
     location: 'Gurabo, PR',
     methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
+    cajones: getCajonesByPlant('GURABO').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
     silos: [
       { id: '9', name: 'Silo Cemento 1', type: 'cemento' },
       { id: '10', name: 'Silo Cemento 2', type: 'cemento' },
@@ -134,12 +139,13 @@ const MOCK_PLANTS: Plant[] = [
     pettyCashEstablished: 1200,
     isActive: true
   },
-  { 
-    id: 'VEGA_BAJA', 
-    name: 'VEGA BAJA', 
+  {
+    id: 'VEGA_BAJA',
+    name: 'VEGA BAJA',
     code: 'VEB-005',
     location: 'Vega Baja, PR',
     methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
+    cajones: getCajonesByPlant('VEGA BAJA').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
     silos: [
       { id: '11', name: 'Silo Cemento 1', type: 'cemento' },
       { id: '12', name: 'Silo Cemento 2', type: 'cemento' },
@@ -148,12 +154,13 @@ const MOCK_PLANTS: Plant[] = [
     pettyCashEstablished: 1000,
     isActive: true
   },
-  { 
-    id: 'HUMACAO', 
-    name: 'HUMACAO', 
+  {
+    id: 'HUMACAO',
+    name: 'HUMACAO',
     code: 'HUM-006',
     location: 'Humacao, PR',
     methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
+    cajones: getCajonesByPlant('HUMACAO').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
     silos: [
       { id: '14', name: 'Silo Cemento 1', type: 'cemento' },
       { id: '15', name: 'Silo Cemento 2', type: 'cemento' },
