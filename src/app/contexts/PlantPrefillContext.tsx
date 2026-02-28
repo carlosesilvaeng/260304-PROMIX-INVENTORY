@@ -11,6 +11,7 @@ import { getDieselConfig } from '../config/dieselConfig';
 import { getPlantProductsConfig } from '../config/productsConfig';
 import { getPlantUtilitiesConfig } from '../config/utilitiesConfig';
 import { getPettyCashConfig } from '../config/pettyCashConfig';
+import { useAuth } from './AuthContext';
 
 // ============================================================================
 // TYPES
@@ -71,6 +72,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
   const [currentPlantId, setCurrentPlantId] = useState<string | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
+
+  const { allPlants } = useAuth();
 
   // ============================================================================
   // HELPER: Calculate previous month
@@ -294,32 +297,33 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         _isNew: true,
       }));
 
-    // PETTY CASH: Single entry with LOCAL config
+    // PETTY CASH: Single entry — use DB value (plants_02205af0.petty_cash_established)
+    // Fallback to local pettyCashConfig.ts if plant not yet loaded
+    const plantFromDB = allPlants.find(p => p.id === config.plant_id);
     const localPettyCashConfig = getPettyCashConfig(config.plant_id || '');
-    
-    if (localPettyCashConfig) {
-      entries.pettyCash = {
-        id: `temp_pettycash_${Date.now()}`,
-        inventory_month_id: inventoryMonthId,
-        plant_id: config.plant_id,
-        // Configuration fields (READ-ONLY)
-        established_amount: localPettyCashConfig.established_amount,
-        currency: localPettyCashConfig.currency,
-        // Manager input fields (EDITABLE)
-        receipts: 0, // Total of receipts in USD
-        cash: 0, // Cash on hand in USD
-        // Calculated fields
-        total: 0, // receipts + cash
-        difference: localPettyCashConfig.established_amount, // established - total (positive = short, negative = over)
-        // Evidence and notes
-        photo_url: null,
-        notes: '',
-        _isNew: true,
-      };
-    } else {
-      console.warn(`[PlantPrefill] No local petty cash config found for plant ${config.plant_id}`);
-      entries.pettyCash = null;
-    }
+    const establishedAmount =
+      plantFromDB?.pettyCashEstablished ??
+      localPettyCashConfig?.established_amount ??
+      0;
+
+    entries.pettyCash = {
+      id: `temp_pettycash_${Date.now()}`,
+      inventory_month_id: inventoryMonthId,
+      plant_id: config.plant_id,
+      // Configuration fields (READ-ONLY)
+      established_amount: establishedAmount,
+      currency: 'USD',
+      // Manager input fields (EDITABLE)
+      receipts: 0, // Total of receipts in USD
+      cash: 0, // Cash on hand in USD
+      // Calculated fields
+      total: 0, // receipts + cash
+      difference: establishedAmount, // established - total (positive = short, negative = over)
+      // Evidence and notes
+      photo_url: null,
+      notes: '',
+      _isNew: true,
+    };
 
     return entries;
   };
