@@ -617,7 +617,8 @@ app.put("/make-server-02205af0/plants/:plantId", async (c) => {
 
     // Only allow safe fields to be updated
     const allowed = ['name', 'location', 'petty_cash_established',
-                     'has_cone_measurement', 'has_cajon_measurement', 'is_active'];
+                     'has_cone_measurement', 'has_cajon_measurement', 'is_active',
+                     'cajones'];
     const update: Record<string, any> = {};
     for (const key of allowed) {
       if (key in body) update[key] = body[key];

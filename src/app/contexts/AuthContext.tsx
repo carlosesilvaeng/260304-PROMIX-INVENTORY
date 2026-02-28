@@ -276,9 +276,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hasConeMeasurement: p.has_cone_measurement,
             hasCajonMeasurement: p.has_cajon_measurement,
           },
-          // Cajones dimensions come from cajonesConfig.ts (ancho/alto per plant)
-          cajones: getCajonesByPlant(p.id === 'VEGA_BAJA' ? 'VEGA BAJA' : p.id)
-            .map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
+          // Use cajones from DB if saved (preserves material/procedencia),
+          // otherwise fall back to cajonesConfig.ts (dimensions only, empty material/procedencia)
+          cajones: (p.cajones && p.cajones.length > 0)
+            ? p.cajones
+            : getCajonesByPlant(p.id === 'VEGA_BAJA' ? 'VEGA BAJA' : p.id)
+                .map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
           silos: p.silos || [],
           pettyCashEstablished: Number(p.petty_cash_established) || 0,
           isActive: p.is_active,
@@ -383,6 +386,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       has_cone_measurement: plant.methods.hasConeMeasurement,
       has_cajon_measurement: plant.methods.hasCajonMeasurement,
       is_active: plant.isActive,
+      cajones: plant.cajones || [],
     }, accessToken || undefined).catch(e => {
       console.error('❌ [AuthContext] Error persisting plant update:', e);
     });
