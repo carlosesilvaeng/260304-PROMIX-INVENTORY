@@ -11,7 +11,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602271600';
+const BUILD_VERSION = '2602280900';
 // Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/27 14:00 = Feb 27, 2026 2:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -121,6 +121,9 @@ app.use('/make-server-02205af0/debug/*', requireAdmin);
 
 // Audit endpoints require at minimum a valid login
 app.use('/make-server-02205af0/audit/*', requireAuth);
+
+// Plants list endpoint requires a valid login (exact path, not covered by /plants/*)
+app.use('/make-server-02205af0/plants', requireAuth);
 
 // Reports endpoint requires a valid login
 app.use('/make-server-02205af0/reports', requireAuth);
@@ -569,6 +572,71 @@ app.get("/make-server-02205af0/plants/:plantId/config", async (c) => {
     return c.json({ success: true, data: config });
   } catch (error) {
     console.error("❌ Error fetching plant configuration:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// GET /plants — list all plants (replaces MOCK_PLANTS in frontend)
+app.get("/make-server-02205af0/plants", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+
+    let query = supabase
+      .from('plants_02205af0')
+      .select('*')
+      .order('name');
+
+    // plant_manager only sees their assigned plants
+    if (user.role === 'plant_manager' && user.assigned_plants?.length) {
+      query = query.in('id', user.assigned_plants);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    console.log(`✅ [GET /plants] Returned ${data?.length || 0} plants for ${user.email} (${user.role})`);
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error fetching plants:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId — update plant metadata (admin/super_admin only)
+app.put("/make-server-02205af0/plants/:plantId", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden: admin role required' }, 403);
+    }
+
+    const plantId = c.req.param('plantId');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+
+    // Only allow safe fields to be updated
+    const allowed = ['name', 'location', 'petty_cash_established',
+                     'has_cone_measurement', 'has_cajon_measurement', 'is_active'];
+    const update: Record<string, any> = {};
+    for (const key of allowed) {
+      if (key in body) update[key] = body[key];
+    }
+    update['updated_at'] = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('plants_02205af0')
+      .update(update)
+      .eq('id', plantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log(`✅ [PUT /plants/${plantId}] Updated by ${user.email}`);
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error updating plant:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

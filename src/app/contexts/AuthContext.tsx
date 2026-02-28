@@ -76,99 +76,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ============================================================================
-// STATIC PLANT DATA (Stays in frontend for now)
-// ============================================================================
-
-const MOCK_PLANTS: Plant[] = [
-  {
-    id: 'CAROLINA',
-    name: 'CAROLINA',
-    code: 'CAR-001',
-    location: 'Carolina, PR',
-    methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
-    cajones: getCajonesByPlant('CAROLINA').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
-    silos: [
-      { id: '1', name: 'Silo Cemento 1', type: 'cemento' },
-      { id: '2', name: 'Silo Cemento 2', type: 'cemento' },
-      { id: '3', name: 'Silo Slag 1', type: 'slag' },
-    ],
-    pettyCashEstablished: 1500,
-    isActive: true
-  },
-  {
-    id: 'CEIBA',
-    name: 'CEIBA',
-    code: 'CEI-002',
-    location: 'Ceiba, PR',
-    methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
-    cajones: getCajonesByPlant('CEIBA').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
-    silos: [
-      { id: '4', name: 'Silo Cemento 1', type: 'cemento' },
-      { id: '5', name: 'Silo Cemento 2', type: 'cemento' },
-    ],
-    pettyCashEstablished: 1200,
-    isActive: true
-  },
-  {
-    id: 'GUAYNABO',
-    name: 'GUAYNABO',
-    code: 'GUA-003',
-    location: 'Guaynabo, PR',
-    methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
-    cajones: getCajonesByPlant('GUAYNABO').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
-    silos: [
-      { id: '6', name: 'Silo Cemento 1', type: 'cemento' },
-      { id: '7', name: 'Silo Cemento 2', type: 'cemento' },
-      { id: '8', name: 'Silo Slag 1', type: 'slag' },
-    ],
-    pettyCashEstablished: 1500,
-    isActive: true
-  },
-  {
-    id: 'GURABO',
-    name: 'GURABO',
-    code: 'GUR-004',
-    location: 'Gurabo, PR',
-    methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
-    cajones: getCajonesByPlant('GURABO').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
-    silos: [
-      { id: '9', name: 'Silo Cemento 1', type: 'cemento' },
-      { id: '10', name: 'Silo Cemento 2', type: 'cemento' },
-    ],
-    pettyCashEstablished: 1200,
-    isActive: true
-  },
-  {
-    id: 'VEGA_BAJA',
-    name: 'VEGA BAJA',
-    code: 'VEB-005',
-    location: 'Vega Baja, PR',
-    methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
-    cajones: getCajonesByPlant('VEGA BAJA').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
-    silos: [
-      { id: '11', name: 'Silo Cemento 1', type: 'cemento' },
-      { id: '12', name: 'Silo Cemento 2', type: 'cemento' },
-      { id: '13', name: 'Silo Slag 1', type: 'slag' },
-    ],
-    pettyCashEstablished: 1000,
-    isActive: true
-  },
-  {
-    id: 'HUMACAO',
-    name: 'HUMACAO',
-    code: 'HUM-006',
-    location: 'Humacao, PR',
-    methods: { hasConeMeasurement: true, hasCajonMeasurement: true },
-    cajones: getCajonesByPlant('HUMACAO').map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
-    silos: [
-      { id: '14', name: 'Silo Cemento 1', type: 'cemento' },
-      { id: '15', name: 'Silo Cemento 2', type: 'cemento' },
-    ],
-    pettyCashEstablished: 1000,
-    isActive: true
-  },
-];
+// Plants are loaded from the API (plants_02205af0 table) after authentication.
 
 // ============================================================================
 // API HELPER
@@ -239,7 +147,7 @@ async function callAPI(endpoint: string, method: string = 'GET', body?: any, tok
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [currentPlant, setCurrentPlant] = useState<Plant | null>(null);
-  const [allPlants, setAllPlants] = useState<Plant[]>(MOCK_PLANTS);
+  const [allPlants, setAllPlants] = useState<Plant[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFirstTime, setIsFirstTime] = useState(false); // NEW: Indica si es first-time setup (no hay usuarios)
@@ -285,13 +193,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(response.user);
               setAccessToken(storedToken);
 
+              // Load plants from API
+              const plants = await loadPlants(storedToken);
+
               // Restaurar planta seleccionada
               if (storedPlant) {
                 try {
                   const plant = JSON.parse(storedPlant);
-                  const existingPlant = MOCK_PLANTS.find(p => p.id === plant.id);
+                  const existingPlant = plants.find(p => p.id === plant.id);
                   if (existingPlant) {
                     setCurrentPlant(existingPlant);
+                  } else {
+                    localStorage.removeItem('promix_plant');
                   }
                 } catch (e) {
                   console.error('Error loading stored plant:', e);
@@ -340,9 +253,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setCurrentPlant(null);
     setAccessToken(null);
+    setAllPlants([]);
     localStorage.removeItem('promix_access_token');
     localStorage.removeItem('promix_user');
     localStorage.removeItem('promix_plant');
+  };
+
+  // ============================================================================
+  // LOAD PLANTS FROM API
+  // ============================================================================
+
+  const loadPlants = async (token: string): Promise<Plant[]> => {
+    try {
+      const response = await callAPI('/plants', 'GET', undefined, token);
+      if (response.success && response.data) {
+        const plants: Plant[] = response.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          code: p.code,
+          location: p.location,
+          methods: {
+            hasConeMeasurement: p.has_cone_measurement,
+            hasCajonMeasurement: p.has_cajon_measurement,
+          },
+          // Cajones dimensions come from cajonesConfig.ts (ancho/alto per plant)
+          cajones: getCajonesByPlant(p.id === 'VEGA_BAJA' ? 'VEGA BAJA' : p.id)
+            .map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
+          silos: p.silos || [],
+          pettyCashEstablished: Number(p.petty_cash_established) || 0,
+          isActive: p.is_active,
+        }));
+        setAllPlants(plants);
+        console.log(`✅ [AuthContext] Loaded ${plants.length} plants from API`);
+        return plants;
+      }
+    } catch (e) {
+      console.error('❌ [AuthContext] Error loading plants from API:', e);
+    }
+    return [];
   };
 
   // ============================================================================
@@ -362,6 +310,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(response.access_token);
       localStorage.setItem('promix_access_token', response.access_token);
       localStorage.setItem('promix_user', JSON.stringify(response.user));
+
+      // Cargar plantas desde la API
+      await loadPlants(response.access_token);
 
       console.log('✅ Login exitoso:', response.user.email);
     } catch (error: any) {
@@ -422,8 +373,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updatePlant = (plant: Plant) => {
-    const updatedPlants = allPlants.map(p => p.id === plant.id ? plant : p);
-    setAllPlants(updatedPlants);
+    // Optimistic update — apply immediately in UI
+    setAllPlants(prev => prev.map(p => p.id === plant.id ? plant : p));
+    // Persist to database (fire-and-forget)
+    callAPI(`/plants/${plant.id}`, 'PUT', {
+      name: plant.name,
+      location: plant.location,
+      petty_cash_established: plant.pettyCashEstablished,
+      has_cone_measurement: plant.methods.hasConeMeasurement,
+      has_cajon_measurement: plant.methods.hasCajonMeasurement,
+      is_active: plant.isActive,
+    }, accessToken || undefined).catch(e => {
+      console.error('❌ [AuthContext] Error persisting plant update:', e);
+    });
   };
 
   const createPlant = (plant: Omit<Plant, 'id'>) => {
@@ -432,10 +394,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const togglePlantStatus = (plantId: string) => {
-    const updatedPlants = allPlants.map(p => 
-      p.id === plantId ? { ...p, isActive: !p.isActive } : p
-    );
-    setAllPlants(updatedPlants);
+    const plant = allPlants.find(p => p.id === plantId);
+    if (plant) {
+      updatePlant({ ...plant, isActive: !plant.isActive });
+    }
   };
 
   const dismissMigrationMessage = () => {
@@ -502,5 +464,4 @@ export function useAuth() {
   return context;
 }
 
-export { MOCK_PLANTS };
 export type { User, SiloConfig };
