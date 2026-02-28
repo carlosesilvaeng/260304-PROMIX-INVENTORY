@@ -23,7 +23,7 @@ async function apiRequest<T = any>(
       method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
+        'Authorization': `Bearer ${localStorage.getItem('promix_access_token') || publicAnonKey}`
       }
     };
 
