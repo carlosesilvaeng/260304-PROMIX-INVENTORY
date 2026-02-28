@@ -9,8 +9,10 @@ import { Card } from '../components/Card';
 import { UserManagement } from './settings/UserManagement';
 import { ModuleManagementPanel } from './settings/ModuleManagementPanel';
 import { AuditPanel } from './settings/AuditPanel';
+import { CatalogsPanel } from './settings/CatalogsPanel';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
+import { getMateriales, getProcedencias } from '../utils/api';
 import type { Plant, CajonConfig } from '../types';
 
 // Build Version - Update manually when deploying
@@ -20,10 +22,23 @@ const BUILD_VERSION = '2602182000';
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'account'>('plants');
+  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  // Catalog options for CajonesConfigModal dropdowns
+  const [catalogMateriales, setCatalogMateriales] = useState<string[]>([]);
+  const [catalogProcedencias, setCatalogProcedencias] = useState<string[]>([]);
+
+  useEffect(() => {
+    getMateriales().then(r => {
+      if (r.success) setCatalogMateriales((r.data || []).map((m: any) => m.nombre));
+    });
+    getProcedencias().then(r => {
+      if (r.success) setCatalogProcedencias((r.data || []).map((p: any) => p.nombre));
+    });
+  }, []);
 
   const handleSave = () => {
     setShowSaveSuccess(true);
@@ -104,6 +119,16 @@ export function Settings() {
             }`}
           >
             Auditoría
+          </button>
+          <button
+            onClick={() => setActiveTab('catalogs')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'catalogs'
+                ? 'border-[#2475C7] text-[#2475C7]'
+                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+            }`}
+          >
+            Catálogos
           </button>
           {/* Solo Super Admin puede ver Módulos */}
           {user?.role === 'super_admin' && (
@@ -252,11 +277,18 @@ export function Settings() {
         </div>
       )}
       
+      {/* Catalogs Tab */}
+      {activeTab === 'catalogs' && (
+        <CatalogsPanel />
+      )}
+
       {/* Cajones Config Modal */}
       {editingCajones && (
         <CajonesConfigModal
           plantName={editingCajones.plant.name}
           cajones={editingCajones.plant.cajones || []}
+          materiales={catalogMateriales}
+          procedencias={catalogProcedencias}
           onSave={handleSaveCajones}
           onClose={() => setEditingCajones(null)}
         />

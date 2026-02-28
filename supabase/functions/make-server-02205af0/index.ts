@@ -128,6 +128,9 @@ app.use('/make-server-02205af0/plants', requireAuth);
 // Reports endpoint requires a valid login
 app.use('/make-server-02205af0/reports', requireAuth);
 
+// Catalog endpoints (materiales, procedencias) require admin role
+app.use('/make-server-02205af0/catalogs/*', requireAdmin);
+
 // ============================================================================
 // AUDIT HELPER
 // ============================================================================
@@ -1394,6 +1397,158 @@ app.get("/make-server-02205af0/auth/validate", async (c) => {
     });
   } catch (error) {
     console.error("Token validation error:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// CATALOG ENDPOINTS — materiales y procedencias
+// ============================================================================
+
+// ── MATERIALES ──
+
+app.get("/make-server-02205af0/catalogs/materiales", async (c) => {
+  try {
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('materiales_catalog_02205af0')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error fetching materiales:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server-02205af0/catalogs/materiales", async (c) => {
+  try {
+    const { nombre } = await c.req.json();
+    if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('materiales_catalog_02205af0')
+      .insert({ nombre: nombre.trim() })
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data }, 201);
+  } catch (error) {
+    console.error("❌ Error creating material:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.put("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (body.nombre !== undefined) update.nombre = body.nombre.trim();
+    if (body.sort_order !== undefined) update.sort_order = body.sort_order;
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('materiales_catalog_02205af0')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error updating material:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.delete("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('materiales_catalog_02205af0')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("❌ Error deleting material:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ── PROCEDENCIAS ──
+
+app.get("/make-server-02205af0/catalogs/procedencias", async (c) => {
+  try {
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('procedencias_catalog_02205af0')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error fetching procedencias:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server-02205af0/catalogs/procedencias", async (c) => {
+  try {
+    const { nombre } = await c.req.json();
+    if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('procedencias_catalog_02205af0')
+      .insert({ nombre: nombre.trim() })
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data }, 201);
+  } catch (error) {
+    console.error("❌ Error creating procedencia:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.put("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (body.nombre !== undefined) update.nombre = body.nombre.trim();
+    if (body.sort_order !== undefined) update.sort_order = body.sort_order;
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('procedencias_catalog_02205af0')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error updating procedencia:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.delete("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('procedencias_catalog_02205af0')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("❌ Error deleting procedencia:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

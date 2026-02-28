@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
 import { Input } from './Input';
+import { Select } from './Select';
 import type { CajonConfig } from '../contexts/AuthContext';
 
 interface CajonesConfigModalProps {
   plantName: string;
   cajones: CajonConfig[];
+  materiales: string[];
+  procedencias: string[];
   onSave: (cajones: CajonConfig[]) => void;
   onClose: () => void;
 }
 
-export function CajonesConfigModal({ plantName, cajones: initialCajones, onSave, onClose }: CajonesConfigModalProps) {
+export function CajonesConfigModal({ plantName, cajones: initialCajones, materiales, procedencias, onSave, onClose }: CajonesConfigModalProps) {
   const [cajones, setCajones] = useState<CajonConfig[]>(initialCajones || []);
 
   const addCajon = () => {
@@ -87,20 +90,28 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, onSave,
                       placeholder="Ej: Cajón 1"
                       required
                     />
-                    <Input
+                    <Select
                       label="Material"
                       value={cajon.material}
                       onChange={(e) => updateCajon(index, { material: e.target.value })}
-                      placeholder="Ej: Piedra 3/4"
                       required
-                    />
-                    <Input
+                    >
+                      <option value="">— Seleccionar material —</option>
+                      {materiales.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </Select>
+                    <Select
                       label="Procedencia"
                       value={cajon.procedencia}
                       onChange={(e) => updateCajon(index, { procedencia: e.target.value })}
-                      placeholder="Ej: Cantera Norte"
                       required
-                    />
+                    >
+                      <option value="">— Seleccionar procedencia —</option>
+                      {procedencias.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </Select>
                   </div>
                 </div>
               ))

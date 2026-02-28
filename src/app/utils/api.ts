@@ -292,3 +292,53 @@ export async function getModuleSettings(): Promise<ApiResponse> {
 export async function updateModuleSettings(settings: any): Promise<ApiResponse> {
   return apiRequest('/modules/config', 'POST', settings);
 }
+
+// ============================================================================
+// CATALOG ENDPOINTS — Materiales y Procedencias
+// ============================================================================
+
+/** Obtiene la lista de materiales activos */
+export async function getMateriales(): Promise<ApiResponse> {
+  return apiRequest('/catalogs/materiales', 'GET');
+}
+
+/** Crea un nuevo material en el catálogo (admin only) */
+export async function createMaterial(nombre: string): Promise<ApiResponse> {
+  return apiRequest('/catalogs/materiales', 'POST', { nombre });
+}
+
+/** Actualiza un material existente (admin only) */
+export async function updateMaterial(
+  id: string,
+  data: { nombre?: string; sort_order?: number }
+): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/materiales/${id}`, 'PUT', data);
+}
+
+/** Elimina (soft delete) un material del catálogo (admin only) */
+export async function deleteMaterial(id: string): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/materiales/${id}`, 'DELETE');
+}
+
+/** Obtiene la lista de procedencias activas */
+export async function getProcedencias(): Promise<ApiResponse> {
+  return apiRequest('/catalogs/procedencias', 'GET');
+}
+
+/** Crea una nueva procedencia en el catálogo (admin only) */
+export async function createProcedencia(nombre: string): Promise<ApiResponse> {
+  return apiRequest('/catalogs/procedencias', 'POST', { nombre });
+}
+
+/** Actualiza una procedencia existente (admin only) */
+export async function updateProcedencia(
+  id: string,
+  data: { nombre?: string; sort_order?: number }
+): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/procedencias/${id}`, 'PUT', data);
+}
+
+/** Elimina (soft delete) una procedencia del catálogo (admin only) */
+export async function deleteProcedencia(id: string): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/procedencias/${id}`, 'DELETE');
+}
