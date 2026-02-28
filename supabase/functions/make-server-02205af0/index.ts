@@ -1240,10 +1240,8 @@ app.get("/make-server-02205af0/reports", async (c) => {
       .from('inventory_month_02205af0')
       .select(`
         id, plant_id, year_month, status,
-        created_by, created_at,
-        submitted_by, submitted_at,
-        approved_by, approved_at, approval_notes,
-        rejected_by, rejected_at, rejection_notes
+        created_by, created_at, updated_at,
+        approved_by, approved_at, notes
       `)
       .order('created_at', { ascending: false })
       .limit(200);

@@ -17,18 +17,14 @@ const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-
 interface Report {
   id: string;
   plant_id: string;
-  year_month: string;           // "2025-02"
+  year_month: string;     // "2025-02"
   status: 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED';
   created_by: string;
   created_at: string;
-  submitted_by?: string;
-  submitted_at?: string;
+  updated_at: string;
   approved_by?: string;
   approved_at?: string;
-  approval_notes?: string;
-  rejected_by?: string;
-  rejected_at?: string;
-  rejection_notes?: string;
+  notes?: string;
 }
 
 // ============================================================================
@@ -225,7 +221,7 @@ export function Reports() {
                 </tr>
               ) : (
                 filteredReports.map((report) => {
-                  const completedAt = report.approved_at || report.submitted_at;
+                  const completedAt = report.approved_at || (report.status !== 'IN_PROGRESS' ? report.updated_at : null);
                   const completedDT = completedAt ? formatDateTime(completedAt, language) : null;
                   const createdDT   = formatDateTime(report.created_at, language);
                   const approvedDT  = report.approved_at ? formatDateTime(report.approved_at, language) : null;
