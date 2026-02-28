@@ -64,7 +64,11 @@ function formatDateTime(iso: string, locale: string): { date: string; time: stri
 // COMPONENT
 // ============================================================================
 
-export function Reports() {
+interface ReportsProps {
+  onNavigate?: (view: string) => void;
+}
+
+export function Reports({ onNavigate }: ReportsProps) {
   const { user, accessToken } = useAuth();
   const { t, language } = useLanguage();
 
@@ -278,8 +282,14 @@ export function Reports() {
 
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
-                          <Button variant="ghost" size="sm">{t('common.view')}</Button>
-                          <Button variant="ghost" size="sm">📄</Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onNavigate?.('review')}
+                          >
+                            {t('common.view')}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={handleExport}>📄</Button>
                         </div>
                       </td>
 

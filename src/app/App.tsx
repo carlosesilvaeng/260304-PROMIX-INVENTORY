@@ -183,7 +183,7 @@ function AppContent() {
             <ReviewAndApproveSection />
           )}
 
-          {currentView === "reports" && <Reports />}
+          {currentView === "reports" && <Reports onNavigate={handleNavigate} />}
 
           {currentView === "settings" && <Settings />}
 
