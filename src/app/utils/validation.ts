@@ -441,8 +441,8 @@ export function validateAllSections(prefillData: any): OverallValidationResult {
   const sections: SectionValidationResult[] = [];
 
   // Validate Aggregates
-  if (prefillData.aggregatesEntries && prefillData.aggregatesEntries.length > 0) {
-    sections.push(validateAggregatesSection(prefillData.aggregatesEntries));
+  if (prefillData.agregadosEntries && prefillData.agregadosEntries.length > 0) {
+    sections.push(validateAggregatesSection(prefillData.agregadosEntries));
   }
 
   // Validate Silos
@@ -451,8 +451,8 @@ export function validateAllSections(prefillData: any): OverallValidationResult {
   }
 
   // Validate Additives
-  if (prefillData.additivesEntries && prefillData.additivesEntries.length > 0) {
-    sections.push(validateAdditivesSection(prefillData.additivesEntries));
+  if (prefillData.aditivosEntries && prefillData.aditivosEntries.length > 0) {
+    sections.push(validateAdditivesSection(prefillData.aditivosEntries));
   }
 
   // Validate Diesel
@@ -461,8 +461,8 @@ export function validateAllSections(prefillData: any): OverallValidationResult {
   }
 
   // Validate Products
-  if (prefillData.productsEntries && prefillData.productsEntries.length > 0) {
-    sections.push(validateProductsSection(prefillData.productsEntries));
+  if (prefillData.productosEntries && prefillData.productosEntries.length > 0) {
+    sections.push(validateProductsSection(prefillData.productosEntries));
   }
 
   // Validate Utilities

@@ -303,10 +303,10 @@ export function ReviewAndApproveSection() {
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
           <span>
-            {inventoryMonth.year_month 
-              ? new Date(inventoryMonth.year_month + '-01').toLocaleDateString('es-ES', { 
-                  month: 'long', 
-                  year: 'numeric' 
+            {inventoryMonth.year_month
+              ? new Date(inventoryMonth.year_month + '-02T12:00:00').toLocaleDateString('es-ES', {
+                  month: 'long',
+                  year: 'numeric'
                 })
               : 'Sin mes'}
           </span>
