@@ -51,9 +51,15 @@ interface NumericInputProps extends InputProps {
 
 export function NumericInput({ onValueChange, onChange, ...props }: NumericInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+    const raw = e.target.value;
+    // Clamp to min if provided
+    const min = props.min !== undefined ? Number(props.min) : 0;
+    let numValue: number | null = raw === '' ? null : parseFloat(raw);
+    if (numValue !== null && numValue < min) {
+      numValue = min;
+      e.target.value = String(min);
+    }
     if (onValueChange) {
-      const numValue = value === '' ? null : parseFloat(value);
       onValueChange(numValue);
     }
     if (onChange) {
@@ -65,6 +71,7 @@ export function NumericInput({ onValueChange, onChange, ...props }: NumericInput
     <Input
       type="number"
       step="any"
+      min={props.min !== undefined ? props.min : 0}
       onChange={handleChange}
       {...props}
     />
