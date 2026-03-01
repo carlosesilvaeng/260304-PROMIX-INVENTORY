@@ -11,7 +11,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603011400';
+const BUILD_VERSION = '2603011600';
 // Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/03/01 14:00 = Mar 01, 2026 2:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -641,6 +641,85 @@ app.put("/make-server-02205af0/plants/:plantId", async (c) => {
     return c.json({ success: true, data });
   } catch (error) {
     console.error("❌ Error updating plant:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// SILO CONFIGURATION ENDPOINTS
+// ============================================================================
+
+// GET /plants/:plantId/silos — list silos for a plant (admin/super_admin only)
+app.get("/make-server-02205af0/plants/:plantId/silos", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+    const { plantId } = c.req.param();
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('plant_silos_config_02205af0')
+      .select('id, silo_name, is_active, sort_order')
+      .eq('plant_id', plantId)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return c.json({ success: true, data: data ?? [] });
+  } catch (error: any) {
+    console.error("❌ Error fetching silos:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/silos — replace all silos for a plant (admin/super_admin only)
+app.put("/make-server-02205af0/plants/:plantId/silos", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const silos: { silo_name: string; is_active: boolean }[] = body.silos ?? [];
+
+    const supabase = db.getSupabaseClient();
+
+    // Detect default calibration curve for this plant (SILO*)
+    const { data: curves } = await supabase
+      .from('calibration_curves_02205af0')
+      .select('curve_name')
+      .eq('plant_id', plantId)
+      .ilike('curve_name', 'SILO%')
+      .limit(1);
+    const defaultCurve = curves?.[0]?.curve_name ?? null;
+
+    // Delete all existing silos for the plant
+    const { error: delError } = await supabase
+      .from('plant_silos_config_02205af0')
+      .delete()
+      .eq('plant_id', plantId);
+    if (delError) throw delError;
+
+    // Insert new silos if any
+    if (silos.length > 0) {
+      const rows = silos.map((s, i) => ({
+        plant_id: plantId,
+        silo_name: s.silo_name,
+        measurement_method: 'FEET_TO_CUBIC_YARDS',
+        calibration_curve_name: defaultCurve,
+        sort_order: i,
+        is_active: s.is_active ?? true,
+      }));
+      const { error: insError } = await supabase
+        .from('plant_silos_config_02205af0')
+        .insert(rows);
+      if (insError) throw insError;
+    }
+
+    console.log(`✅ [PUT /plants/${plantId}/silos] Saved ${silos.length} silos by ${user.email}`);
+    return c.json({ success: true, count: silos.length });
+  } catch (error: any) {
+    console.error("❌ Error saving silos:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

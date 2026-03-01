@@ -342,3 +342,19 @@ export async function updateProcedencia(
 export async function deleteProcedencia(id: string): Promise<ApiResponse> {
   return apiRequest(`/catalogs/procedencias/${id}`, 'DELETE');
 }
+// ============================================================================
+// SILO CONFIGURATION API
+// ============================================================================
+
+/** Obtiene los silos configurados para una planta (admin/super_admin only) */
+export async function getPlantSilos(plantId: string): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/silos`, 'GET');
+}
+
+/** Reemplaza todos los silos de una planta (admin/super_admin only) */
+export async function updatePlantSilos(
+  plantId: string,
+  silos: { silo_name: string; is_active: boolean }[]
+): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/silos`, 'PUT', { silos });
+}

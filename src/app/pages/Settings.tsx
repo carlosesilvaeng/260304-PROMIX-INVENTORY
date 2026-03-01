@@ -12,6 +12,7 @@ import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
+import { SilosConfigModal } from '../components/SilosConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { getMateriales, getProcedencias } from '../utils/api';
 import type { Plant, CajonConfig } from '../types';
@@ -25,6 +26,7 @@ export function Settings() {
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
+  const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
@@ -219,15 +221,22 @@ export function Settings() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingSilos(plant)}
+                        >
+                          🏗️ Silos
+                        </Button>
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => setEditingCajones({ plant })}
                         >
                           📦 Cajones
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => setViewingPlantDetails(plant)}
                         >
@@ -307,6 +316,15 @@ export function Settings() {
           procedencias={catalogProcedencias}
           onSave={handleSaveCajones}
           onClose={() => setEditingCajones(null)}
+        />
+      )}
+
+      {/* Silos Config Modal */}
+      {editingSilos && (
+        <SilosConfigModal
+          plant={editingSilos}
+          onSaved={() => setEditingSilos(null)}
+          onClose={() => setEditingSilos(null)}
         />
       )}
       
