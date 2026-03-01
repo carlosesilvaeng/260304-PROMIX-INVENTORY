@@ -8,6 +8,7 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logoUrl from '@/assets/logo-promix.png';
 
 // ============================================================================
 // TYPES
@@ -34,6 +35,12 @@ interface SectionDetail {
 interface ReportDetail {
   report: ReportSummary;
   sections: SectionDetail[];
+}
+
+interface LogoImage {
+  dataUrl: string;
+  displayW: number; // mm at target height
+  displayH: number; // mm
 }
 
 // ============================================================================
@@ -68,6 +75,39 @@ function safeNum(v: any): string {
   if (v === null || v === undefined) return '-';
   const n = Number(v);
   return isNaN(n) ? '-' : n.toFixed(2);
+}
+
+// ============================================================================
+// LOGO LOADER
+// ============================================================================
+
+const LOGO_TARGET_H = 10; // mm
+
+async function loadLogoImage(): Promise<LogoImage | null> {
+  try {
+    const res = await fetch(logoUrl);
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    // Compute natural dimensions to preserve aspect ratio
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise<void>((resolve) => { img.onload = () => resolve(); img.onerror = () => resolve(); });
+    const aspectRatio = img.naturalWidth && img.naturalHeight
+      ? img.naturalWidth / img.naturalHeight
+      : 3.5; // fallback ratio for a typical horizontal logo
+    return {
+      dataUrl,
+      displayW: aspectRatio * LOGO_TARGET_H,
+      displayH: LOGO_TARGET_H,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================================
@@ -278,26 +318,52 @@ export async function exportToExcel(
 // PDF EXPORT
 // ============================================================================
 
+const BANNER_H = 15; // mm — dark header banner on detail pages
+
 export async function exportToPDF(
   reports: ReportSummary[],
   apiBaseUrl: string,
   token: string,
+  generatedBy: string = 'Sistema',
 ): Promise<void> {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
-  const date = new Date().toLocaleDateString('es-PR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const pageH = doc.internal.pageSize.getHeight();
 
-  // ── Title ──────────────────────────────────────────────────────────────────
-  doc.setFontSize(16);
+  // Capture generation timestamp once (used in footer of every page)
+  const genNow = new Date();
+  const genDateStr =
+    genNow.toLocaleDateString('es-PR', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ', ' +
+    genNow.toLocaleTimeString('es-PR', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  // Load Promix logo (graceful — continues without logo if fetch fails)
+  const logo = await loadLogoImage();
+
+  // ── Page 1: Summary ────────────────────────────────────────────────────────
+
+  // Logo — top-left corner
+  if (logo) {
+    doc.addImage(logo.dataUrl, 'PNG', 10, 3, logo.displayW, logo.displayH);
+  }
+
+  // Title and subtitle centered
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('PROMIX – Reporte de Inventarios', pageW / 2, 14, { align: 'center' });
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Generado: ${date}  |  Total reportes: ${reports.length}`, pageW / 2, 20, { align: 'center' });
+  doc.setTextColor(59, 58, 54);
+  doc.text('PROMIX – Reporte de Inventarios', pageW / 2, 10, { align: 'center' });
 
-  // ── Summary table ──────────────────────────────────────────────────────────
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(95, 103, 115);
+  doc.text(
+    `${genDateStr}  |  Total reportes: ${reports.length}`,
+    pageW / 2, 16, { align: 'center' },
+  );
+
+  // Summary table
   autoTable(doc, {
-    startY: 25,
+    startY: 21,
     head: [['Planta', 'Período', 'Estado', 'Iniciado por', 'Fecha Inicio', 'Aprobado por', 'Fecha Aprobación']],
     body: reports.map(r => [
       r.plant_id,
@@ -324,19 +390,30 @@ export async function exportToPDF(
 
     doc.addPage();
 
-    // Report header banner
+    // Dark banner
     doc.setFillColor(59, 58, 54);
-    doc.rect(0, 0, pageW, 12, 'F');
+    doc.rect(0, 0, pageW, BANNER_H, 'F');
+
+    // Logo inside banner — white background patch to ensure visibility
+    if (logo) {
+      const logoPad = 1.5;
+      const logoY = (BANNER_H - logo.displayH) / 2;
+      doc.setFillColor(255, 255, 255);
+      doc.rect(5 - logoPad, logoY - logoPad, logo.displayW + 2 * logoPad, logo.displayH + 2 * logoPad, 'F');
+      doc.addImage(logo.dataUrl, 'PNG', 5, logoY, logo.displayW, logo.displayH);
+    }
+
+    // Banner text: plant · period · status
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text(
       `${report.plant_id}  ·  ${formatPeriod(report.year_month)}  ·  ${STATUS_LABELS[report.status] ?? report.status}`,
-      pageW / 2, 8, { align: 'center' }
+      pageW / 2, BANNER_H * 0.65, { align: 'center' },
     );
     doc.setTextColor(0, 0, 0);
 
-    let y = 18;
+    let y = BANNER_H + 5;
 
     for (const sec of sections) {
       // Section title
@@ -355,28 +432,36 @@ export async function exportToPDF(
         bodyStyles: { fontSize: 7 },
         alternateRowStyles: { fillColor: [242, 243, 245] },
         margin: { left: 10, right: 10 },
-        didDrawPage: () => { y = 18; },
       });
 
       y = (doc as any).lastAutoTable.finalY + 8;
-      if (y > doc.internal.pageSize.getHeight() - 20) {
+      if (y > pageH - 20) {
         doc.addPage();
-        y = 18;
+        y = 12;
       }
     }
   }
 
-  // ── Page numbers ───────────────────────────────────────────────────────────
+  // ── Footer on every page ───────────────────────────────────────────────────
   const totalPages = (doc as any).internal.getNumberOfPages();
+  const footerY = pageH - 5;
+
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(150);
+
+    // Left: generation timestamp + user
+    doc.text(
+      `Generado: ${genDateStr}  ·  ${generatedBy}`,
+      10, footerY, { align: 'left' },
+    );
+
+    // Right: page number
     doc.text(
       `Página ${i} de ${totalPages}`,
-      pageW - 10, doc.internal.pageSize.getHeight() - 5,
-      { align: 'right' }
+      pageW - 10, footerY, { align: 'right' },
     );
   }
 

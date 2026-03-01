@@ -142,7 +142,7 @@ export function Reports({ onNavigate }: ReportsProps) {
     setExportingPDF(true);
     setExportError(null);
     try {
-      await exportToPDF(filteredReports, API_BASE_URL, accessToken || publicAnonKey);
+      await exportToPDF(filteredReports, API_BASE_URL, accessToken || publicAnonKey, user?.name || user?.email || 'Sistema');
       setShowExportSuccess(true);
       setTimeout(() => setShowExportSuccess(false), 3000);
     } catch (err: any) {
@@ -338,7 +338,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                             variant="ghost"
                             size="sm"
                             title="Exportar PDF de este reporte"
-                            onClick={() => exportToPDF([report], API_BASE_URL, accessToken || publicAnonKey)}
+                            onClick={() => exportToPDF([report], API_BASE_URL, accessToken || publicAnonKey, user?.name || user?.email || 'Sistema')}
                           >
                             📄
                           </Button>
