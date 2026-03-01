@@ -190,7 +190,7 @@ function AppContent() {
 
           {currentView === "documentation" && <Documentation />}
           
-          {currentView === "database-setup" && <DatabaseSetup />}
+          {currentView === "database-setup" && user?.role === 'super_admin' && <DatabaseSetup />}
           
           {currentView === "connection-test" && <ConnectionTest />}
           

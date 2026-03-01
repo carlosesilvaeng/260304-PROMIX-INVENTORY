@@ -105,14 +105,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <p className="text-sm text-[#5F6773]">Ver reportes consolidados de todas las plantas</p>
               </button>
               
-              <button
-                onClick={() => onNavigate('database-setup')}
-                className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
-              >
-                <div className="text-3xl mb-2">🗄️</div>
-                <h3 className="font-semibold text-[#3B3A36] mb-1">Base de Datos</h3>
-                <p className="text-sm text-[#5F6773]">Configurar datos iniciales del sistema</p>
-              </button>
+              {user?.role === 'super_admin' && (
+                <button
+                  onClick={() => onNavigate('database-setup')}
+                  className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                >
+                  <div className="text-3xl mb-2">🗄️</div>
+                  <h3 className="font-semibold text-[#3B3A36] mb-1">Base de Datos</h3>
+                  <p className="text-sm text-[#5F6773]">Configurar datos iniciales del sistema</p>
+                </button>
+              )}
             </div>
           </Card>
         </div>
