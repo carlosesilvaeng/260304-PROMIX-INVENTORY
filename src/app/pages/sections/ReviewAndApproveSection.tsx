@@ -16,7 +16,7 @@ import {
 } from '../../utils/api';
 
 export function ReviewAndApproveSection() {
-  const { currentUser, currentPlant } = useAuth();
+  const { user, currentPlant } = useAuth();
   const { prefillData, loadPlantData } = usePlantPrefill();
   
   const [validation, setValidation] = useState<OverallValidationResult | null>(null);
@@ -89,7 +89,7 @@ export function ReviewAndApproveSection() {
       return;
     }
 
-    if (!currentUser) {
+    if (!user) {
       setActionMessage({ type: 'error', text: 'Usuario no autenticado' });
       return;
     }
@@ -105,7 +105,7 @@ export function ReviewAndApproveSection() {
     try {
       const response = await submitInventoryForApproval(
         prefillData.inventoryMonth.id,
-        currentUser.id
+        user.id
       );
 
       if (response.success) {
@@ -135,7 +135,7 @@ export function ReviewAndApproveSection() {
       return;
     }
 
-    if (!currentUser) {
+    if (!user) {
       setActionMessage({ type: 'error', text: 'Usuario no autenticado' });
       return;
     }
@@ -151,7 +151,7 @@ export function ReviewAndApproveSection() {
     try {
       const response = await approveInventory(
         prefillData.inventoryMonth.id,
-        currentUser.id
+        user.id
       );
 
       if (response.success) {
@@ -181,7 +181,7 @@ export function ReviewAndApproveSection() {
       return;
     }
 
-    if (!currentUser) {
+    if (!user) {
       setActionMessage({ type: 'error', text: 'Usuario no autenticado' });
       return;
     }
@@ -197,7 +197,7 @@ export function ReviewAndApproveSection() {
     try {
       const response = await rejectInventory(
         prefillData.inventoryMonth.id,
-        currentUser.id,
+        user.id,
         rejectionNotes
       );
 
@@ -283,9 +283,9 @@ export function ReviewAndApproveSection() {
   const isApproved = inventoryMonth.status === 'APPROVED';
 
   // Check user permissions
-  const canSubmit = isInProgress && currentUser?.role === 'PLANT_MANAGER';
-  const canApprove = isSubmitted && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN');
-  const canReject = isSubmitted && (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN');
+  const canSubmit = isInProgress && user?.role === 'PLANT_MANAGER';
+  const canApprove = isSubmitted && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN');
+  const canReject = isSubmitted && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN');
 
   // ============================================================================
   // RENDER: MAIN UI
@@ -413,13 +413,13 @@ export function ReviewAndApproveSection() {
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold text-[#3B3A36]">Progreso de Completitud</p>
               <p className="text-sm font-semibold text-[#3B3A36]">
-                {Math.round((validation.completeSections / validation.totalSections) * 100)}%
+                {validation.totalSections === 0 ? 0 : Math.round((validation.completeSections / validation.totalSections) * 100)}%
               </p>
             </div>
             <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-500"
-                style={{ width: `${(validation.completeSections / validation.totalSections) * 100}%` }}
+                style={{ width: `${validation.totalSections === 0 ? 0 : (validation.completeSections / validation.totalSections) * 100}%` }}
               />
             </div>
           </div>
