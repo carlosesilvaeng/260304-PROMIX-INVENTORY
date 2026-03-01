@@ -10,6 +10,7 @@ import { UserManagement } from './settings/UserManagement';
 import { ModuleManagementPanel } from './settings/ModuleManagementPanel';
 import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
+import { UnitsPanel } from './settings/UnitsPanel';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { getMateriales, getProcedencias } from '../utils/api';
@@ -22,7 +23,7 @@ const BUILD_VERSION = '2602182000';
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'account'>('plants');
+  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -129,6 +130,16 @@ export function Settings() {
             }`}
           >
             Catálogos
+          </button>
+          <button
+            onClick={() => setActiveTab('units')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'units'
+                ? 'border-[#2475C7] text-[#2475C7]'
+                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+            }`}
+          >
+            Unidades
           </button>
           {/* Solo Super Admin puede ver Módulos */}
           {user?.role === 'super_admin' && (
@@ -280,6 +291,11 @@ export function Settings() {
       {/* Catalogs Tab */}
       {activeTab === 'catalogs' && (
         <CatalogsPanel />
+      )}
+
+      {/* Units Tab */}
+      {activeTab === 'units' && (
+        <UnitsPanel />
       )}
 
       {/* Cajones Config Modal */}
