@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { exportToExcel, exportToPDF } from '../utils/exportReports';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
 
@@ -78,6 +79,9 @@ export function Reports({ onNavigate }: ReportsProps) {
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [showExportSuccess, setShowExportSuccess] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -115,11 +119,38 @@ export function Reports({ onNavigate }: ReportsProps) {
   const thisYearCount = reports.filter(r => r.year_month.startsWith(currentYear)).length;
   const approvedCount = reports.filter(r => r.status === 'APPROVED').length;
 
-  // ── Export (placeholder) ───────────────────────────────────────────────────
+  // ── Export ─────────────────────────────────────────────────────────────────
 
-  const handleExport = () => {
-    setShowExportSuccess(true);
-    setTimeout(() => setShowExportSuccess(false), 3000);
+  const handleExportExcel = async () => {
+    if (!filteredReports.length) return;
+    setExportingExcel(true);
+    setExportError(null);
+    try {
+      await exportToExcel(filteredReports, API_BASE_URL, accessToken || publicAnonKey);
+      setShowExportSuccess(true);
+      setTimeout(() => setShowExportSuccess(false), 3000);
+    } catch (err: any) {
+      setExportError('Error al exportar Excel: ' + err.message);
+      setTimeout(() => setExportError(null), 4000);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!filteredReports.length) return;
+    setExportingPDF(true);
+    setExportError(null);
+    try {
+      await exportToPDF(filteredReports, API_BASE_URL, accessToken || publicAnonKey);
+      setShowExportSuccess(true);
+      setTimeout(() => setShowExportSuccess(false), 3000);
+    } catch (err: any) {
+      setExportError('Error al exportar PDF: ' + err.message);
+      setTimeout(() => setExportError(null), 4000);
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   // ── Status badge ──────────────────────────────────────────────────────────
@@ -150,7 +181,11 @@ export function Reports({ onNavigate }: ReportsProps) {
       </div>
 
       {showExportSuccess && (
-        <Alert type="success" message="Reporte exportado exitosamente" autoClose />
+        <Alert type="success" message="Archivo generado y descargado exitosamente" autoClose />
+      )}
+
+      {exportError && (
+        <Alert type="error" message={exportError} />
       )}
 
       {error && (
@@ -185,11 +220,21 @@ export function Reports({ onNavigate }: ReportsProps) {
           />
 
           <div className="flex items-end gap-2">
-            <Button variant="secondary" onClick={handleExport} className="flex-1">
-              📄 PDF
+            <Button
+              variant="secondary"
+              onClick={handleExportPDF}
+              disabled={exportingPDF || !filteredReports.length}
+              className="flex-1"
+            >
+              {exportingPDF ? '⏳ Generando...' : '📄 PDF'}
             </Button>
-            <Button variant="secondary" onClick={handleExport} className="flex-1">
-              📊 Excel
+            <Button
+              variant="secondary"
+              onClick={handleExportExcel}
+              disabled={exportingExcel || !filteredReports.length}
+              className="flex-1"
+            >
+              {exportingExcel ? '⏳ Generando...' : '📊 Excel'}
             </Button>
           </div>
         </div>
@@ -289,7 +334,14 @@ export function Reports({ onNavigate }: ReportsProps) {
                           >
                             {t('common.view')}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={handleExport}>📄</Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Exportar PDF de este reporte"
+                            onClick={() => exportToPDF([report], API_BASE_URL, accessToken || publicAnonKey)}
+                          >
+                            📄
+                          </Button>
                         </div>
                       </td>
 
