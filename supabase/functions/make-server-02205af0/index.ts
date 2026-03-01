@@ -11,8 +11,8 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602280900';
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/27 14:00 = Feb 27, 2026 2:00 PM
+const BUILD_VERSION = '2602281200';
+// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/28 12:00 = Feb 28, 2026 12:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
@@ -737,6 +737,62 @@ app.put("/make-server-02205af0/inventory/month/:inventoryMonthId/status", async 
   } catch (error) {
     console.error("Error updating inventory month status:", error);
     return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// PHOTO UPLOAD — compress on client, upload binary here, return public URL
+// ============================================================================
+
+app.use('/make-server-02205af0/photos/*', requireAuth);
+
+app.post('/make-server-02205af0/photos/upload', async (c) => {
+  try {
+    const supabase = db.getSupabaseClient();
+    const { base64, filename, plant_id } = await c.req.json();
+
+    // Validate input
+    if (!base64 || !base64.startsWith('data:image/')) {
+      return c.json({ success: false, error: 'Datos de imagen inválidos' }, 400);
+    }
+
+    // Decode base64 → Uint8Array
+    const [header, raw] = base64.split(',');
+    const contentType = header.replace('data:', '').replace(';base64', '');
+    const binaryStr = atob(raw);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    // Guard: reject oversized payloads (max 3 MB after client-side compression)
+    if (bytes.length > 3 * 1024 * 1024) {
+      return c.json({ success: false, error: 'Imagen demasiado grande (máx 3 MB)' }, 400);
+    }
+
+    // Build storage path: {plant_id}/{timestamp}-{safeName}.{ext}
+    const ext = contentType.includes('png') ? 'png' : 'jpg';
+    const safeName = (filename || 'foto').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
+    const folder = (plant_id || 'general').replace(/[^a-z0-9_]/gi, '_');
+    const storagePath = `${folder}/${Date.now()}-${safeName}.${ext}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('inventory-photos')
+      .upload(storagePath, bytes, { contentType, upsert: false });
+
+    if (uploadError) {
+      console.error('[photos/upload] Storage error:', uploadError.message);
+      return c.json({ success: false, error: uploadError.message }, 500);
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('inventory-photos')
+      .getPublicUrl(uploadData.path);
+
+    return c.json({ success: true, url: urlData.publicUrl });
+  } catch (err: any) {
+    console.error('[photos/upload] Unexpected error:', err.message);
+    return c.json({ success: false, error: err.message }, 500);
   }
 });
 
