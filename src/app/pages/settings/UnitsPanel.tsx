@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { Card } from '../../components/Card';
 import { useUnits } from '../../contexts/UnitsContext';
+import { useAuth } from '../../contexts/AuthContext';
 import type { LengthUnit, AreaUnit, VolumeUnit } from '../../contexts/UnitsContext';
 
 // ============================================================================
@@ -83,10 +84,14 @@ const ROWS = [
 // ============================================================================
 
 export function UnitsPanel() {
-  const { units, setUnit } = useUnits();
+  const { units, setUnit, label } = useUnits();
+  const { user } = useAuth();
   const [saved, setSaved] = useState(false);
 
+  const canEdit = user?.role === 'admin' || user?.role === 'super_admin';
+
   const handleChange = (dimension: 'length' | 'area' | 'volume', value: string) => {
+    if (!canEdit) return;
     if (dimension === 'length')  setUnit('length',  value as LengthUnit);
     if (dimension === 'area')    setUnit('area',    value as AreaUnit);
     if (dimension === 'volume')  setUnit('volume',  value as VolumeUnit);
@@ -97,13 +102,32 @@ export function UnitsPanel() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h3 className="text-lg text-[#3B3A36]">Unidades de Medida</h3>
-        <p className="text-[#5F6773] text-sm mt-1">
-          Define las unidades que se utilizarán en todas las secciones del inventario.
-          Los cambios aplican inmediatamente y se guardan de forma automática.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-lg text-[#3B3A36]">Unidades de Medida</h3>
+          <p className="text-[#5F6773] text-sm mt-1">
+            {canEdit
+              ? 'Define las unidades que se utilizarán en todas las secciones del inventario. Los cambios aplican inmediatamente.'
+              : 'Unidades de medida configuradas para el sistema. Solo los administradores pueden modificarlas.'}
+          </p>
+        </div>
+        {/* Role badge */}
+        <span className={`shrink-0 mt-1 px-3 py-1 rounded text-xs font-medium ${
+          canEdit
+            ? 'bg-[#2475C7]/10 text-[#2475C7]'
+            : 'bg-[#9D9B9A]/15 text-[#5F6773]'
+        }`}>
+          {canEdit ? '✏️ Edición' : '👁 Solo lectura'}
+        </span>
       </div>
+
+      {/* Read-only notice for non-admins */}
+      {!canEdit && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#f59e0b]/10 border border-[#f59e0b]/30 rounded text-sm text-[#92400e]">
+          <span className="text-lg">🔒</span>
+          <span>No tienes permisos para modificar las unidades del sistema. Contacta a un administrador.</span>
+        </div>
+      )}
 
       {/* Saved indicator */}
       {saved && (
@@ -141,27 +165,35 @@ export function UnitsPanel() {
                 {/* Description */}
                 <p className="text-sm text-[#5F6773]">{row.description}</p>
 
-                {/* Toggle */}
-                <UnitToggle
-                  options={row.options as unknown as { value: string; label: string; description: string }[]}
-                  selected={currentValue}
-                  onChange={(val) => handleChange(row.key, val)}
-                />
+                {/* Toggle (admin) or read-only badge (others) */}
+                {canEdit ? (
+                  <UnitToggle
+                    options={row.options as unknown as { value: string; label: string; description: string }[]}
+                    selected={currentValue}
+                    onChange={(val) => handleChange(row.key, val)}
+                  />
+                ) : (
+                  <span className="inline-flex items-center px-4 py-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] text-sm font-semibold text-[#3B3A36] w-fit">
+                    {label(row.key)}
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
       </Card>
 
-      {/* Info box */}
-      <div className="p-4 bg-[#2475C7]/5 border border-[#2475C7]/20 rounded text-sm text-[#3B3A36]">
-        <p className="font-semibold text-[#2475C7] mb-1">ℹ️ Nota</p>
-        <p className="text-[#5F6773]">
-          Este ajuste controla cómo se muestran y etiquetan las unidades en los formularios de inventario.
-          No realiza conversión automática de datos ya guardados — si cambias las unidades,
-          asegúrate de que los valores ingresados correspondan a la nueva unidad seleccionada.
-        </p>
-      </div>
+      {/* Info box — only for admins */}
+      {canEdit && (
+        <div className="p-4 bg-[#2475C7]/5 border border-[#2475C7]/20 rounded text-sm text-[#3B3A36]">
+          <p className="font-semibold text-[#2475C7] mb-1">ℹ️ Nota</p>
+          <p className="text-[#5F6773]">
+            Este ajuste controla cómo se muestran y etiquetan las unidades en los formularios de inventario.
+            No realiza conversión automática de datos ya guardados — si cambias las unidades,
+            asegúrate de que los valores ingresados correspondan a la nueva unidad seleccionada.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
