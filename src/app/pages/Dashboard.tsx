@@ -86,7 +86,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mt-8">
               <button
                 onClick={() => onNavigate('settings')}
                 className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
@@ -95,7 +95,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <h3 className="font-semibold text-[#3B3A36] mb-1">Configuración</h3>
                 <p className="text-sm text-[#5F6773]">Gestionar usuarios, plantas y permisos</p>
               </button>
-              
+
               <button
                 onClick={() => onNavigate('reports')}
                 className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
@@ -104,7 +104,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <h3 className="font-semibold text-[#3B3A36] mb-1">Reportes</h3>
                 <p className="text-sm text-[#5F6773]">Ver reportes consolidados de todas las plantas</p>
               </button>
-              
+
+              <button
+                onClick={() => onNavigate('photos-report')}
+                className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+              >
+                <div className="text-3xl mb-2">🖼️</div>
+                <h3 className="font-semibold text-[#3B3A36] mb-1">Reporte de Fotos</h3>
+                <p className="text-sm text-[#5F6773]">Ver todas las fotos capturadas en inventarios</p>
+              </button>
+
               {user?.role === 'super_admin' && (
                 <button
                   onClick={() => onNavigate('database-setup')}

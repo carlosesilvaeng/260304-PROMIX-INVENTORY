@@ -19,6 +19,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'settings', label: t('sidebar.settings'), icon: '⚙️' },
   ];
 
+  // Reporte de Fotos — admin + super_admin
+  if (user?.role === 'admin' || user?.role === 'super_admin') {
+    menuItems.push({ id: 'photos-report', label: 'Reporte de Fotos', icon: '🖼️' });
+  }
+
   // Solo agregar Documentación y Database Setup si el usuario es super_admin
   if (user?.role === 'super_admin') {
     menuItems.push({ id: 'documentation', label: t('sidebar.documentation'), icon: '📄' });

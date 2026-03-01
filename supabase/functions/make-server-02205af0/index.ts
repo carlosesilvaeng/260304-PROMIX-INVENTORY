@@ -11,8 +11,8 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602281200';
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/28 12:00 = Feb 28, 2026 12:00 PM
+const BUILD_VERSION = '2603011400';
+// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/03/01 14:00 = Mar 01, 2026 2:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
@@ -1606,6 +1606,189 @@ app.delete("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
   } catch (error) {
     console.error("❌ Error deleting procedencia:", error);
     return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ============================================================================
+// PHOTOS REPORT ENDPOINT — admin + super_admin only
+// GET /photos/report?plant_id=&year_month=YYYY-MM
+// Returns flat list of all inventory entries that have a non-empty photo_url
+// ============================================================================
+
+app.get('/make-server-02205af0/photos/report', async (c) => {
+  try {
+    const user = c.get('user');
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const supabase = db.getSupabaseClient();
+    const { plant_id: plantFilter, year_month: monthFilter } = c.req.query();
+
+    // ── Round 1: fetch inventory months (with optional filters) ──────────────
+    let monthQuery = supabase
+      .from('inventory_month_02205af0')
+      .select('id, plant_id, year_month, created_at')
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (plantFilter) monthQuery = monthQuery.eq('plant_id', plantFilter);
+    if (monthFilter) monthQuery = monthQuery.eq('year_month', monthFilter);
+
+    const { data: months, error: monthsError } = await monthQuery;
+    if (monthsError) throw monthsError;
+    if (!months || months.length === 0) {
+      return c.json({ success: true, data: [], total: 0 });
+    }
+
+    const monthIds = months.map((m: any) => m.id);
+    const monthMap: Record<string, { plant_id: string; year_month: string; created_at: string }> = {};
+    months.forEach((m: any) => { monthMap[m.id] = m; });
+
+    // ── Round 2a: fetch all 7 section tables in parallel ────────────────────
+    const [
+      aggregatesRes,
+      silosRes,
+      additivesRes,
+      dieselRes,
+      productsRes,
+      utilitiesRes,
+      pettyCashRes,
+    ] = await Promise.all([
+      supabase
+        .from('inventory_aggregates_entries_02205af0')
+        .select('id, inventory_month_id, aggregate_name, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+
+      supabase
+        .from('inventory_silos_entries_02205af0')
+        .select('id, inventory_month_id, silo_config_id, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+
+      supabase
+        .from('inventory_additives_entries_02205af0')
+        .select('id, inventory_month_id, additive_config_id, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+
+      supabase
+        .from('inventory_diesel_entries_02205af0')
+        .select('id, inventory_month_id, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+
+      supabase
+        .from('inventory_products_entries_02205af0')
+        .select('id, inventory_month_id, product_config_id, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+
+      supabase
+        .from('inventory_utilities_entries_02205af0')
+        .select('id, inventory_month_id, utility_config_id, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+
+      supabase
+        .from('inventory_petty_cash_entries_02205af0')
+        .select('id, inventory_month_id, photo_url, notes, created_at')
+        .in('inventory_month_id', monthIds)
+        .not('photo_url', 'is', null)
+        .neq('photo_url', ''),
+    ]);
+
+    // ── Round 2b: resolve names — plants + 4 config tables ──────────────────
+    const uniquePlantIds = [...new Set(months.map((m: any) => m.plant_id))];
+
+    const siloConfigIds = [...new Set((silosRes.data     || []).map((e: any) => e.silo_config_id).filter(Boolean))];
+    const addConfigIds  = [...new Set((additivesRes.data || []).map((e: any) => e.additive_config_id).filter(Boolean))];
+    const prodConfigIds = [...new Set((productsRes.data  || []).map((e: any) => e.product_config_id).filter(Boolean))];
+    const utilConfigIds = [...new Set((utilitiesRes.data || []).map((e: any) => e.utility_config_id).filter(Boolean))];
+
+    const [plantsRes, siloNamesRes, addNamesRes, prodNamesRes, utilNamesRes] = await Promise.all([
+      supabase.from('plants_02205af0').select('id, name').in('id', uniquePlantIds),
+      siloConfigIds.length
+        ? supabase.from('plant_silos_config_02205af0').select('id, silo_name').in('id', siloConfigIds)
+        : Promise.resolve({ data: [] }),
+      addConfigIds.length
+        ? supabase.from('plant_additives_config_02205af0').select('id, additive_name').in('id', addConfigIds)
+        : Promise.resolve({ data: [] }),
+      prodConfigIds.length
+        ? supabase.from('plant_products_config_02205af0').select('id, product_name').in('id', prodConfigIds)
+        : Promise.resolve({ data: [] }),
+      utilConfigIds.length
+        ? supabase.from('plant_utilities_meters_config_02205af0').select('id, meter_name').in('id', utilConfigIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // Build lookup maps
+    const plantNameMap: Record<string, string> = {};
+    const siloNameMap:  Record<string, string> = {};
+    const addNameMap:   Record<string, string> = {};
+    const prodNameMap:  Record<string, string> = {};
+    const utilNameMap:  Record<string, string> = {};
+
+    (plantsRes.data    || []).forEach((r: any) => { plantNameMap[r.id] = r.name; });
+    (siloNamesRes.data || []).forEach((r: any) => { siloNameMap[r.id]  = r.silo_name; });
+    (addNamesRes.data  || []).forEach((r: any) => { addNameMap[r.id]   = r.additive_name; });
+    (prodNamesRes.data || []).forEach((r: any) => { prodNameMap[r.id]  = r.product_name; });
+    (utilNamesRes.data || []).forEach((r: any) => { utilNameMap[r.id]  = r.meter_name; });
+
+    // ── Flatten into a single sorted array ──────────────────────────────────
+    interface PhotoRecord {
+      id: string;
+      section: string;
+      item_name: string;
+      plant_id: string;
+      plant_name: string;
+      year_month: string;
+      photo_url: string;
+      notes: string | null;
+      created_at: string;
+    }
+
+    const photos: PhotoRecord[] = [];
+
+    const push = (e: any, section: string, item_name: string) => {
+      const month = monthMap[e.inventory_month_id];
+      if (!month || !e.photo_url) return;
+      photos.push({
+        id: e.id,
+        section,
+        item_name,
+        plant_id: month.plant_id,
+        plant_name: plantNameMap[month.plant_id] || month.plant_id,
+        year_month: month.year_month,
+        photo_url: e.photo_url,
+        notes: e.notes || null,
+        created_at: e.created_at,
+      });
+    };
+
+    (aggregatesRes.data || []).forEach((e: any) => push(e, 'Agregados',  e.aggregate_name                         || 'Agregado'));
+    (silosRes.data      || []).forEach((e: any) => push(e, 'Silos',      siloNameMap[e.silo_config_id]             || 'Silo'));
+    (additivesRes.data  || []).forEach((e: any) => push(e, 'Aditivos',   addNameMap[e.additive_config_id]          || 'Aditivo'));
+    (dieselRes.data     || []).forEach((e: any) => push(e, 'Diesel',     'Diesel'));
+    (productsRes.data   || []).forEach((e: any) => push(e, 'Productos',  prodNameMap[e.product_config_id]          || 'Producto'));
+    (utilitiesRes.data  || []).forEach((e: any) => push(e, 'Utilidades', utilNameMap[e.utility_config_id]          || 'Medidor'));
+    (pettyCashRes.data  || []).forEach((e: any) => push(e, 'Caja Chica', 'Caja Chica'));
+
+    // Sort newest first
+    photos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    console.log(`[photos/report] Returning ${photos.length} photos for user ${user.email}`);
+    return c.json({ success: true, data: photos, total: photos.length });
+  } catch (err: any) {
+    console.error('[photos/report] Error:', err.message);
+    return c.json({ success: false, error: err.message }, 500);
   }
 });
 

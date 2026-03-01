@@ -17,6 +17,7 @@ import { ReviewAndApprove } from "./pages/ReviewAndApprove";
 import { Documentation } from "./pages/Documentation";
 import { DatabaseSetup } from "./pages/DatabaseSetup";
 import { ConnectionTest } from "./pages/ConnectionTest";
+import { PhotosReport } from "./pages/PhotosReport";
 import { AggregatesSection } from "./pages/sections/AggregatesSection";
 import { SilosSection } from "./pages/sections/SilosSection";
 import { AdditivesSection } from "./pages/sections/AdditivesSection";
@@ -191,6 +192,10 @@ function AppContent() {
           {currentView === "documentation" && <Documentation />}
           
           {currentView === "database-setup" && user?.role === 'super_admin' && <DatabaseSetup />}
+
+          {currentView === "photos-report" &&
+            (user?.role === 'admin' || user?.role === 'super_admin') &&
+            <PhotosReport />}
           
           {currentView === "connection-test" && <ConnectionTest />}
           
