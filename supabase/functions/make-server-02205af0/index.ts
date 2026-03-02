@@ -11,7 +11,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603011600';
+const BUILD_VERSION = '2603011900';
 // Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/03/01 14:00 = Mar 01, 2026 2:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -598,8 +598,20 @@ app.get("/make-server-02205af0/plants", async (c) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    console.log(`✅ [GET /plants] Returned ${data?.length || 0} plants for ${user.email} (${user.role})`);
-    return c.json({ success: true, data });
+    // Fetch silos for all plants from the config table (source of truth)
+    const { data: allSilos } = await supabase
+      .from('plant_silos_config_02205af0')
+      .select('plant_id, id, silo_name, is_active, sort_order')
+      .order('sort_order', { ascending: true });
+
+    // Merge: replace legacy JSONB silos with real silos from config table
+    const plantsWithSilos = (data ?? []).map((plant: any) => ({
+      ...plant,
+      silos: (allSilos ?? []).filter((s: any) => s.plant_id === plant.id),
+    }));
+
+    console.log(`✅ [GET /plants] Returned ${plantsWithSilos.length} plants for ${user.email} (${user.role})`);
+    return c.json({ success: true, data: plantsWithSilos });
   } catch (error) {
     console.error("❌ Error fetching plants:", error);
     return c.json({ success: false, error: error.message }, 500);
@@ -1560,12 +1572,12 @@ app.get("/make-server-02205af0/catalogs/materiales", async (c) => {
 
 app.post("/make-server-02205af0/catalogs/materiales", async (c) => {
   try {
-    const { nombre } = await c.req.json();
+    const { nombre, clase } = await c.req.json();
     if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
       .from('materiales_catalog_02205af0')
-      .insert({ nombre: nombre.trim() })
+      .insert({ nombre: nombre.trim(), clase: clase?.trim() ?? null })
       .select()
       .single();
     if (error) throw error;
@@ -1582,6 +1594,7 @@ app.put("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
     const body = await c.req.json();
     const update: Record<string, any> = { updated_at: new Date().toISOString() };
     if (body.nombre !== undefined) update.nombre = body.nombre.trim();
+    if (body.clase !== undefined) update.clase = body.clase?.trim() ?? null;
     if (body.sort_order !== undefined) update.sort_order = body.sort_order;
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase

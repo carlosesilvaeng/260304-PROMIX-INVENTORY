@@ -303,14 +303,14 @@ export async function getMateriales(): Promise<ApiResponse> {
 }
 
 /** Crea un nuevo material en el catálogo (admin only) */
-export async function createMaterial(nombre: string): Promise<ApiResponse> {
-  return apiRequest('/catalogs/materiales', 'POST', { nombre });
+export async function createMaterial(nombre: string, clase?: string): Promise<ApiResponse> {
+  return apiRequest('/catalogs/materiales', 'POST', { nombre, clase });
 }
 
 /** Actualiza un material existente (admin only) */
 export async function updateMaterial(
   id: string,
-  data: { nombre?: string; sort_order?: number }
+  data: { nombre?: string; clase?: string; sort_order?: number }
 ): Promise<ApiResponse> {
   return apiRequest(`/catalogs/materiales/${id}`, 'PUT', data);
 }

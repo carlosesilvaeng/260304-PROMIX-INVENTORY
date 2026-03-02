@@ -1,14 +1,13 @@
 /**
  * CatalogsPanel
  * Admin panel to manage standardized catalogs:
- * - Materiales (materials for cajones)
- * - Procedencias (source/origin of materials)
+ * - Materiales (materials for cajones) — includes nombre + clase
+ * - Procedencias (source/origin of materials) — nombre only
  */
 
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { Input } from '../../components/Input';
 import {
   getMateriales, createMaterial, updateMaterial, deleteMaterial,
   getProcedencias, createProcedencia, updateProcedencia, deleteProcedencia,
@@ -17,6 +16,7 @@ import {
 interface CatalogItem {
   id: string;
   nombre: string;
+  clase?: string;
   sort_order: number;
 }
 
@@ -25,8 +25,9 @@ interface CatalogTableProps {
   description: string;
   items: CatalogItem[];
   loading: boolean;
-  onAdd: (nombre: string) => Promise<void>;
-  onUpdate: (id: string, nombre: string) => Promise<void>;
+  hasClase?: boolean;
+  onAdd: (nombre: string, clase?: string) => Promise<void>;
+  onUpdate: (id: string, nombre: string, clase?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
@@ -35,34 +36,40 @@ function CatalogTable({
   description,
   items,
   loading,
+  hasClase = false,
   onAdd,
   onUpdate,
   onDelete,
 }: CatalogTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [editClase, setEditClase] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [newClase, setNewClase] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const startEdit = (item: CatalogItem) => {
     setEditingId(item.id);
     setEditValue(item.nombre);
+    setEditClase(item.clase ?? '');
     setConfirmDeleteId(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditValue('');
+    setEditClase('');
   };
 
   const handleSaveEdit = async () => {
     if (!editingId || !editValue.trim()) return;
     setSaving(true);
     try {
-      await onUpdate(editingId, editValue.trim());
+      await onUpdate(editingId, editValue.trim(), hasClase ? editClase.trim() : undefined);
       setEditingId(null);
       setEditValue('');
+      setEditClase('');
     } finally {
       setSaving(false);
     }
@@ -72,8 +79,9 @@ function CatalogTable({
     if (!newValue.trim()) return;
     setSaving(true);
     try {
-      await onAdd(newValue.trim());
+      await onAdd(newValue.trim(), hasClase ? newClase.trim() : undefined);
       setNewValue('');
+      setNewClase('');
     } finally {
       setSaving(false);
     }
@@ -104,13 +112,16 @@ function CatalogTable({
             <thead className="bg-[#F2F3F5]">
               <tr>
                 <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Nombre</th>
+                {hasClase && (
+                  <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Clase</th>
+                )}
                 <th className="px-4 py-2 text-center text-sm text-[#5F6773] font-medium w-28">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="px-4 py-6 text-center text-[#5F6773] text-sm">
+                  <td colSpan={hasClase ? 3 : 2} className="px-4 py-6 text-center text-[#5F6773] text-sm">
                     No hay entradas. Agrega la primera abajo.
                   </td>
                 </tr>
@@ -134,6 +145,25 @@ function CatalogTable({
                         <span className="text-sm text-[#3B3A36]">{item.nombre}</span>
                       )}
                     </td>
+                    {hasClase && (
+                      <td className="px-4 py-2">
+                        {editingId === item.id ? (
+                          <input
+                            type="text"
+                            value={editClase}
+                            onChange={(e) => setEditClase(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEdit();
+                              if (e.key === 'Escape') cancelEdit();
+                            }}
+                            placeholder="Clase..."
+                            className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          />
+                        ) : (
+                          <span className="text-sm text-[#5F6773]">{item.clase ?? '—'}</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-2 text-center">
                       {editingId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
@@ -194,9 +224,19 @@ function CatalogTable({
               value={newValue}
               onChange={(e) => setNewValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-              placeholder="Nuevo valor..."
+              placeholder="Nombre..."
               className="flex-1 px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
             />
+            {hasClase && (
+              <input
+                type="text"
+                value={newClase}
+                onChange={(e) => setNewClase(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+                placeholder="Clase..."
+                className="w-32 px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+              />
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -246,14 +286,14 @@ export function CatalogsPanel() {
 
   // ── Materiales handlers ──
 
-  const handleAddMaterial = async (nombre: string) => {
-    const res = await createMaterial(nombre);
+  const handleAddMaterial = async (nombre: string, clase?: string) => {
+    const res = await createMaterial(nombre, clase);
     if (res.success) await loadMateriales();
     else alert('Error: ' + res.error);
   };
 
-  const handleUpdateMaterial = async (id: string, nombre: string) => {
-    const res = await updateMaterial(id, { nombre });
+  const handleUpdateMaterial = async (id: string, nombre: string, clase?: string) => {
+    const res = await updateMaterial(id, { nombre, clase });
     if (res.success) await loadMateriales();
     else alert('Error: ' + res.error);
   };
@@ -306,6 +346,7 @@ export function CatalogsPanel() {
           description="Tipos de material que pueden asignarse a un cajón (ej. Piedra 3/4, Arena Fina)"
           items={materiales}
           loading={loadingMat}
+          hasClase={true}
           onAdd={handleAddMaterial}
           onUpdate={handleUpdateMaterial}
           onDelete={handleDeleteMaterial}
