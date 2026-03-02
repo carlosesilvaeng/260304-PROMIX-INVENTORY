@@ -429,7 +429,7 @@ export function Documentation() {
             </div>
             <div className="text-right">
               <p className="text-xs text-[#5F6773]">Versión 1.0.0</p>
-              <p className="text-xs text-[#5F6773]">© 2025 PROMIX. Todos los derechos reservados.</p>
+              <p className="text-xs text-[#5F6773]">© 2026 PROMIX. Todos los derechos reservados.</p>
             </div>
           </div>
         </div>

@@ -65,7 +65,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       {/* Footer */}
       <div className="p-4 border-t border-[#5F6773]">
         <p className="text-xs text-white/50 text-center">
-          © 2025 PROMIX
+          © 2026 PROMIX
         </p>
       </div>
     </div>
