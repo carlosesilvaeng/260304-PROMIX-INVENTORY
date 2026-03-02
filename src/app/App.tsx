@@ -75,11 +75,17 @@ function AppContent() {
   const [currentSection, setCurrentSection] = useState<
     string | null
   >(null);
+  const [reportContext, setReportContext] = useState<{ plantId: string; yearMonth: string } | null>(null);
 
-  const handleNavigate = (view: string, sectionId?: string) => {
+  const handleNavigate = (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => {
     setCurrentView(view);
     if (sectionId) {
       setCurrentSection(sectionId);
+    }
+    if (context?.plantId && context?.yearMonth) {
+      setReportContext({ plantId: context.plantId, yearMonth: context.yearMonth });
+    } else if (!context) {
+      setReportContext(null);
     }
   };
 
@@ -182,7 +188,7 @@ function AppContent() {
             )}
 
           {currentView === "review" && (
-            <ReviewAndApproveSection />
+            <ReviewAndApproveSection reportContext={reportContext} />
           )}
 
           {currentView === "reports" && <Reports onNavigate={handleNavigate} />}

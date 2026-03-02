@@ -15,7 +15,11 @@ import {
   saveInventoryDraft,
 } from '../../utils/api';
 
-export function ReviewAndApproveSection() {
+interface ReviewAndApproveSectionProps {
+  reportContext?: { plantId: string; yearMonth: string } | null;
+}
+
+export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSectionProps) {
   const { user, currentPlant } = useAuth();
   const { prefillData, loadPlantData } = usePlantPrefill();
   
@@ -28,15 +32,18 @@ export function ReviewAndApproveSection() {
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  // Load data when component mounts
+  // Load data when component mounts — supports reportContext (from Reports "Ver" button) or falls back to currentPlant + current month
   useEffect(() => {
-    if (currentPlant) {
-      console.log('[ReviewAndApprove] Loading data for plant:', currentPlant.id, currentPlant.name);
-      const now = new Date();
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      loadPlantData(currentPlant.id, yearMonth);
+    const targetPlantId = reportContext?.plantId ?? currentPlant?.id;
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const targetYearMonth = reportContext?.yearMonth ?? currentYearMonth;
+
+    if (targetPlantId) {
+      console.log('[ReviewAndApprove] Loading data for plant:', targetPlantId, targetYearMonth);
+      loadPlantData(targetPlantId, targetYearMonth);
     }
-  }, [currentPlant, loadPlantData]);
+  }, [currentPlant, reportContext, loadPlantData]);
 
   // Run validation whenever prefillData changes
   useEffect(() => {

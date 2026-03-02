@@ -66,7 +66,7 @@ function formatDateTime(iso: string, locale: string): { date: string; time: stri
 // ============================================================================
 
 interface ReportsProps {
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
 }
 
 export function Reports({ onNavigate }: ReportsProps) {
@@ -82,6 +82,7 @@ export function Reports({ onNavigate }: ReportsProps) {
   const [exportingPDF, setExportingPDF] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [generatingRowPDFId, setGeneratingRowPDFId] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,10 @@ export function Reports({ onNavigate }: ReportsProps) {
 
       {showExportSuccess && (
         <Alert type="success" message="Archivo generado y descargado exitosamente" autoClose />
+      )}
+
+      {generatingRowPDFId && (
+        <Alert type="info" message="⏳ Generando PDF..." />
       )}
 
       {exportError && (
@@ -330,7 +335,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onNavigate?.('review')}
+                            onClick={() => onNavigate?.('review', undefined, { plantId: report.plant_id, yearMonth: report.year_month })}
                           >
                             {t('common.view')}
                           </Button>
@@ -338,9 +343,20 @@ export function Reports({ onNavigate }: ReportsProps) {
                             variant="ghost"
                             size="sm"
                             title="Exportar PDF de este reporte"
-                            onClick={() => exportToPDF([report], API_BASE_URL, accessToken || publicAnonKey, user?.name || user?.email || 'Sistema')}
+                            disabled={generatingRowPDFId === report.id}
+                            onClick={async () => {
+                              setGeneratingRowPDFId(report.id);
+                              try {
+                                await exportToPDF([report], API_BASE_URL, accessToken || publicAnonKey, user?.name || user?.email || 'Sistema');
+                              } catch (err: any) {
+                                setExportError('Error al exportar PDF: ' + err.message);
+                                setTimeout(() => setExportError(null), 4000);
+                              } finally {
+                                setGeneratingRowPDFId(null);
+                              }
+                            }}
                           >
-                            📄
+                            {generatingRowPDFId === report.id ? '⏳' : '📄'}
                           </Button>
                         </div>
                       </td>
