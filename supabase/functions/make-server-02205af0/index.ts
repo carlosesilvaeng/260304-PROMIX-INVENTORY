@@ -1,6 +1,6 @@
-import { Hono } from "npm:hono";
-import { cors } from "npm:hono/cors";
-import { logger } from "npm:hono/logger";
+import { Hono } from "npm:hono@4.6";
+import { cors } from "npm:hono@4.6/cors";
+import { logger } from "npm:hono@4.6/logger";
 import * as kv from "./kv_store.tsx";
 import * as db from "./database.tsx";
 import * as seed from "./seed.tsx";
@@ -11,8 +11,8 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603011900';
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/03/01 14:00 = Mar 01, 2026 2:00 PM
+const BUILD_VERSION = '2603031800';
+// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');

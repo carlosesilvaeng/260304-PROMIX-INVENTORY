@@ -95,12 +95,15 @@ export interface ChangePasswordResponse {
 
 export async function verifyToken(accessToken: string): Promise<{ user: User | null; error: string | null }> {
   console.log('🔐 [verifyToken] Starting token verification...');
-  
+
   try {
-    const anonClient = getSupabaseAnonClient();
-    
+    // Use service role client for server-side token verification.
+    // anonClient.auth.getUser(jwt) is unreliable in newer supabase-js on Deno edge functions
+    // (behavior changed between package versions; service role is the correct server-side pattern).
+    const serviceClient = getSupabaseClient();
+
     // Get user from token - this validates the token is valid
-    const { data: { user: authUser }, error: authError } = await anonClient.auth.getUser(accessToken);
+    const { data: { user: authUser }, error: authError } = await serviceClient.auth.getUser(accessToken);
     
     if (authError) {
       console.error('❌ [verifyToken] Token verification failed:', authError.message);
