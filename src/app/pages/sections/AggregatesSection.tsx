@@ -99,10 +99,12 @@ export function AggregatesSection() {
   };
 
   const calculateConeVolume = (m1: number, m2: number, m3: number, m4: number, m5: number, m6: number, d1: number, d2: number): number => {
-    // Fórmula del cono truncado según especificación existente
+    // V = (π × r² × h) / 3  —  r = (D1+D2)/4 (radio promedio), h = √(avgM² − r²) (altura por Pitágoras)
+    const r = (d1 + d2) / 4;
     const avgM = (m1 + m2 + m3 + m4 + m5 + m6) / 6;
-    const avgD = (d1 + d2) / 2;
-    return (Math.PI * avgM * (avgD * avgD)) / 4 / 27;
+    const hSquared = Math.pow(avgM, 2) - Math.pow(r, 2);
+    if (hSquared <= 0) return 0; // geometría inválida: avgM debe ser mayor que r
+    return (Math.PI * Math.pow(r, 2) * Math.sqrt(hSquared)) / 3;
   };
 
   // ============================================================================
@@ -117,13 +119,11 @@ export function AggregatesSection() {
 
     // Auto-calculate volume based on method
     if (entry.measurement_method === 'BOX') {
-      // BOX method: calculate when length changes
-      if (field === 'box_length_ft' && entry.box_width_ft && entry.box_height_ft) {
-        updates.calculated_volume_cy = calculateBoxVolume(
-          entry.box_width_ft,
-          entry.box_height_ft,
-          value
-        );
+      // BOX method: calculate when length changes (usa ?? 0 para evitar fallo por width/height = 0 o null)
+      if (field === 'box_length_ft') {
+        const w = entry.box_width_ft ?? 0;
+        const h = entry.box_height_ft ?? 0;
+        updates.calculated_volume_cy = calculateBoxVolume(w, h, value ?? 0);
       }
     } else if (entry.measurement_method === 'CONE') {
       // CONE method: calculate when any measurement changes
@@ -344,7 +344,7 @@ export function AggregatesSection() {
                         Largo (ft) *
                       </label>
                       <NumericInput
-                        value={entry.box_length_ft || 0}
+                        value={entry.box_length_ft ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'box_length_ft', value ?? 0)}
                         placeholder="0.00"
                         className="w-full"
@@ -373,7 +373,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M1 *</label>
                       <NumericInput
-                        value={entry.cone_m1 || 0}
+                        value={entry.cone_m1 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m1', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -381,7 +381,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M2 *</label>
                       <NumericInput
-                        value={entry.cone_m2 || 0}
+                        value={entry.cone_m2 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m2', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -389,7 +389,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M3 *</label>
                       <NumericInput
-                        value={entry.cone_m3 || 0}
+                        value={entry.cone_m3 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m3', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -397,7 +397,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M4 *</label>
                       <NumericInput
-                        value={entry.cone_m4 || 0}
+                        value={entry.cone_m4 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m4', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -405,7 +405,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M5 *</label>
                       <NumericInput
-                        value={entry.cone_m5 || 0}
+                        value={entry.cone_m5 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m5', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -413,7 +413,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M6 *</label>
                       <NumericInput
-                        value={entry.cone_m6 || 0}
+                        value={entry.cone_m6 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m6', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -423,7 +423,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D1 *</label>
                       <NumericInput
-                        value={entry.cone_d1 || 0}
+                        value={entry.cone_d1 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_d1', value ?? 0)}
                         placeholder="0.00"
                       />
@@ -431,7 +431,7 @@ export function AggregatesSection() {
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D2 *</label>
                       <NumericInput
-                        value={entry.cone_d2 || 0}
+                        value={entry.cone_d2 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_d2', value ?? 0)}
                         placeholder="0.00"
                       />
