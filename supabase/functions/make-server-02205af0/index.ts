@@ -1484,6 +1484,93 @@ app.get("/make-server-02205af0/reports", async (c) => {
   }
 });
 
+// DELETE /reports/:id — admin/super_admin only
+// Deletes the inventory month record, all child entries, and associated photos from storage
+app.delete("/make-server-02205af0/reports/:id", requireAdmin, async (c) => {
+  try {
+    const reportId = c.req.param('id');
+    const supabase = db.getSupabaseClient();
+
+    // Verify the report exists
+    const { data: report, error: reportError } = await supabase
+      .from('inventory_month_02205af0')
+      .select('id, plant_id, year_month')
+      .eq('id', reportId)
+      .single();
+
+    if (reportError || !report) {
+      return c.json({ success: false, error: 'Reporte no encontrado' }, 404);
+    }
+
+    // Collect photo_url values from all 7 child entry tables
+    const childTables = [
+      'inventory_aggregates_entries_02205af0',
+      'inventory_silos_entries_02205af0',
+      'inventory_additives_entries_02205af0',
+      'inventory_diesel_entries_02205af0',
+      'inventory_products_entries_02205af0',
+      'inventory_utilities_entries_02205af0',
+      'inventory_petty_cash_entries_02205af0',
+    ];
+
+    const photoUrls: string[] = [];
+    for (const table of childTables) {
+      const { data: rows } = await supabase
+        .from(table)
+        .select('photo_url')
+        .eq('inventory_month_id', reportId);
+      rows?.forEach((row: any) => row.photo_url && photoUrls.push(row.photo_url));
+    }
+
+    // Delete photos from the 'inventory-photos' storage bucket
+    if (photoUrls.length > 0) {
+      const storagePaths = photoUrls
+        .filter((url: string) => url.includes('/inventory-photos/'))
+        .map((url: string) => url.split('/inventory-photos/')[1]);
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('inventory-photos')
+          .remove(storagePaths);
+        if (storageError) {
+          console.warn('[DELETE REPORT] Storage removal warning:', storageError.message);
+        }
+      }
+    }
+
+    // Delete all child entry records
+    for (const table of childTables) {
+      await supabase.from(table).delete().eq('inventory_month_id', reportId);
+    }
+
+    // Delete the parent inventory_month record
+    const { error: deleteError } = await supabase
+      .from('inventory_month_02205af0')
+      .delete()
+      .eq('id', reportId);
+
+    if (deleteError) throw deleteError;
+
+    // Audit log
+    const user = c.get('user');
+    logAudit(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'REPORT_DELETED',
+      plant_id: report.plant_id,
+      inventory_month_id: reportId,
+      details: { year_month: report.year_month, photos_deleted: photoUrls.length },
+    });
+
+    console.log(`[DELETE REPORT] Report ${reportId} deleted. Photos removed: ${photoUrls.length}`);
+    return c.json({ success: true, deleted_photos: photoUrls.length });
+
+  } catch (error: any) {
+    console.error('[DELETE REPORT] Error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // ============================================================================
 // DEBUG ENDPOINTS
 // ============================================================================

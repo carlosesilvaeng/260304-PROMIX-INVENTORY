@@ -14,6 +14,7 @@ interface PhotoCaptureProps {
   error?: string;
   compress?: boolean; // Default true - compress photos before callback
   compressionQuality?: 'high' | 'medium' | 'low'; // Default 'medium'
+  fit?: 'cover' | 'contain'; // Default 'cover' — use 'contain' to show full image without cropping
 }
 
 export function PhotoCapture({
@@ -23,7 +24,8 @@ export function PhotoCapture({
   currentPhoto,
   error,
   compress = true, // Enable compression by default
-  compressionQuality = 'medium'
+  compressionQuality = 'medium',
+  fit = 'cover'
 }: PhotoCaptureProps) {
   const { accessToken, currentPlant } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,7 +147,7 @@ export function PhotoCapture({
             <img
               src={preview}
               alt="Captura"
-              className="w-full h-48 object-cover rounded border-2 border-[#9D9B9A]"
+              className={`w-full h-48 object-${fit} rounded border-2 border-[#9D9B9A]${fit === 'contain' ? ' bg-gray-100' : ''}`}
             />
             <button
               onClick={handleRemove}

@@ -83,6 +83,8 @@ export function Reports({ onNavigate }: ReportsProps) {
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [generatingRowPDFId, setGeneratingRowPDFId] = useState<string | null>(null);
+  const [confirmDeleteReport, setConfirmDeleteReport] = useState<Report | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -151,6 +153,27 @@ export function Reports({ onNavigate }: ReportsProps) {
       setTimeout(() => setExportError(null), 4000);
     } finally {
       setExportingPDF(false);
+    }
+  };
+
+  // ── Delete report ─────────────────────────────────────────────────────────
+
+  const handleDeleteReport = async (report: Report) => {
+    setDeletingReportId(report.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/reports/${report.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken || publicAnonKey}` },
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Error al eliminar');
+      setReports(prev => prev.filter(r => r.id !== report.id));
+      setConfirmDeleteReport(null);
+    } catch (err: any) {
+      setExportError('Error al eliminar reporte: ' + err.message);
+      setTimeout(() => setExportError(null), 4000);
+    } finally {
+      setDeletingReportId(null);
     }
   };
 
@@ -358,6 +381,16 @@ export function Reports({ onNavigate }: ReportsProps) {
                           >
                             {generatingRowPDFId === report.id ? '⏳' : '📄'}
                           </Button>
+                          {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Eliminar reporte"
+                              onClick={() => setConfirmDeleteReport(report)}
+                            >
+                              🗑️
+                            </Button>
+                          )}
                         </div>
                       </td>
 
@@ -385,6 +418,38 @@ export function Reports({ onNavigate }: ReportsProps) {
           <p className="text-3xl font-bold text-[#2ecc71]">{approvedCount}</p>
         </Card>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteReport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <h3 className="text-lg font-bold text-[#C94A4A] mb-2">⚠️ Eliminar Reporte</h3>
+            <p className="text-[#5F6773] mb-4">
+              ¿Estás seguro que deseas eliminar el reporte de{' '}
+              <strong>{formatPeriod(confirmDeleteReport.year_month)}</strong>{' '}
+              (planta: <strong>{confirmDeleteReport.plant_id}</strong>)?{' '}
+              Esta acción también eliminará todas las fotos asociadas y{' '}
+              <strong>no puede deshacerse</strong>.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDeleteReport(null)}
+                disabled={!!deletingReportId}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#C94A4A] hover:bg-[#a03838] text-white"
+                disabled={!!deletingReportId}
+                onClick={() => handleDeleteReport(confirmDeleteReport)}
+              >
+                {deletingReportId ? '⏳ Eliminando...' : '🗑️ Eliminar'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

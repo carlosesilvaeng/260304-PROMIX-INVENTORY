@@ -477,6 +477,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   label=""
                   onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
                   currentPhoto={entry.photo_url}
+                  fit="contain"
                 />
               </div>
             </Card>
