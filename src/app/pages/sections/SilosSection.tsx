@@ -8,7 +8,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { saveSilosEntries } from '../../utils/api';
 
-export function SilosSection() {
+interface SilosSectionProps {
+  onBack?: () => void;
+}
+
+export function SilosSection({ onBack }: SilosSectionProps) {
   const { currentPlant } = useAuth();
   const { prefillData, loadPlantData, updateEntry } = usePlantPrefill();
   
@@ -372,7 +376,7 @@ export function SilosSection() {
           <div className="flex gap-4">
             <Button
               variant="outline"
-              onClick={() => window.history.back()}
+              onClick={() => onBack?.()}
             >
               Cancelar
             </Button>

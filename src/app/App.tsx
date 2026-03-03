@@ -158,11 +158,13 @@ function AppContent() {
 
           {currentView === "section" &&
             currentSection === "agregados" && (
-              <AggregatesSection />
+              <AggregatesSection onBack={handleBackToDashboard} />
             )}
 
           {currentView === "section" &&
-            currentSection === "silos" && <SilosSection />}
+            currentSection === "silos" && (
+              <SilosSection onBack={handleBackToDashboard} />
+            )}
 
           {currentView === "section" &&
             currentSection === "aditivos" && (

@@ -8,7 +8,11 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { saveAggregatesEntries } from '../../utils/api';
 
-export function AggregatesSection() {
+interface AggregatesSectionProps {
+  onBack?: () => void;
+}
+
+export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const { currentPlant } = useAuth();
   const { t } = useLanguage();
   const { prefillData, loadPlantData, updateEntry } = usePlantPrefill();
@@ -488,7 +492,7 @@ export function AggregatesSection() {
           <div className="flex gap-4">
             <Button
               variant="outline"
-              onClick={() => window.history.back()}
+              onClick={() => onBack?.()}
             >
               Cancelar
             </Button>
@@ -499,6 +503,14 @@ export function AggregatesSection() {
             >
               {saving ? 'Guardando...' : 'Guardar Agregados'}
             </Button>
+            {completedCount === totalCount && totalCount > 0 && (
+              <Button
+                onClick={() => onBack?.()}
+                className="bg-[#2ecc71] hover:bg-[#27ae60] text-white"
+              >
+                ✅ Terminar
+              </Button>
+            )}
           </div>
         </div>
       </div>
