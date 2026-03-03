@@ -38,6 +38,8 @@ export interface CajonConfig {
   name: string; // Ej: "Cajón 1", "Cajón 2"
   material: string; // Ej: "Piedra 3/4"
   procedencia: string; // Ej: "Cantera Norte"
+  ancho?: number; // Ancho por defecto en pies (fijo, se usa en inventario como valor bloqueado)
+  alto?: number;  // Alto por defecto en pies (fijo, se usa en inventario como valor bloqueado)
 }
 
 export interface Plant {

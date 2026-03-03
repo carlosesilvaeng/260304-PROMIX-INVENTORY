@@ -126,7 +126,14 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     }));
 
     // AGREGADOS: Create entry for each agregado in config
-    entries.agregados = config.aggregates.map((agg: any) => ({
+    // Look up cajones from the current plant to use as dimension fallback for BOX method
+    const currentPlantForAgg = allPlants.find((p: any) => p.id === config.plant_id);
+    const cajonesForAgg = currentPlantForAgg?.cajones || [];
+
+    entries.agregados = config.aggregates.map((agg: any) => {
+      // Find matching cajón by name for dimension fallback (e.g. "Cajón 1" ↔ aggregate_name "Cajón 1")
+      const matchingCajon = cajonesForAgg.find((c: any) => c.name === agg.aggregate_name);
+      return {
       id: `temp_${agg.id}_${Date.now()}`,
       inventory_month_id: inventoryMonthId,
       aggregate_config_id: agg.id,
@@ -135,9 +142,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       location_area: agg.location_area,
       measurement_method: agg.measurement_method,
       unit: agg.unit,
-      // BOX fields
-      box_width_ft: agg.box_width_ft,
-      box_height_ft: agg.box_height_ft,
+      // BOX fields — use cajón config dimensions as fallback when plant_aggregates_config has no value
+      box_width_ft: agg.box_width_ft || matchingCajon?.ancho || 0,
+      box_height_ft: agg.box_height_ft || matchingCajon?.alto || 0,
       box_length_ft: 0, // To be filled by manager
       // CONE fields
       cone_m1: 0,
@@ -152,7 +159,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       photo_url: null,
       notes: '',
       _isNew: true,
-    }));
+      };
+    });
 
     // ADITIVOS: Create entry for each aditivo in LOCAL config (not from API)
     // Use local additivesConfig.ts instead of config.additives from API
@@ -537,14 +545,23 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         // Enrich aggregate entries with current config values
         // Handles cases where config was updated after entries were saved (e.g. DRAWER→BOX/CONE)
         if (entries.agregados.length > 0 && config.aggregates?.length > 0) {
+          // Look up cajones from the current plant for dimension fallback
+          const currentPlantForEnrich = allPlants.find((p: any) => p.id === config.plant_id);
+          const cajonesForEnrich = currentPlantForEnrich?.cajones || [];
+
           entries.agregados = entries.agregados.map((entry: any) => {
             const aggConfig = config.aggregates.find((a: any) => a.id === entry.aggregate_config_id);
             if (!aggConfig) return entry;
+            // Find matching cajón by name for dimension fallback
+            const matchingCajon = cajonesForEnrich.find(
+              (c: any) => c.name === (aggConfig.aggregate_name || entry.aggregate_name)
+            );
             return {
               ...entry,
               measurement_method: aggConfig.measurement_method,
-              box_width_ft: aggConfig.box_width_ft ?? entry.box_width_ft,
-              box_height_ft: aggConfig.box_height_ft ?? entry.box_height_ft,
+              // BOX dimensions: use aggConfig → cajón config → existing entry value
+              box_width_ft: aggConfig.box_width_ft || matchingCajon?.ancho || entry.box_width_ft,
+              box_height_ft: aggConfig.box_height_ft || matchingCajon?.alto || entry.box_height_ft,
               aggregate_name: aggConfig.aggregate_name || entry.aggregate_name,
               material_type: aggConfig.material_type || entry.material_type,
               location_area: aggConfig.location_area || entry.location_area,

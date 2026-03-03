@@ -22,6 +22,8 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
       name: '',
       material: '',
       procedencia: '',
+      ancho: 0,
+      alto: 0,
     };
     setCajones([...cajones, newCajon]);
   };
@@ -112,6 +114,38 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </Select>
+                  </div>
+
+                  {/* Dimensiones fijas — valores por defecto bloqueados en inventario */}
+                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-[#E4E4E4]">
+                    <div>
+                      <label className="block text-sm font-medium text-[#3B3A36] mb-1">
+                        Ancho (ft) <span className="text-xs text-[#5F6773] font-normal">— valor fijo en inventario 🔒</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={cajon.ancho ?? 0}
+                        onChange={(e) => updateCajon(index, { ancho: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:border-[#2475C7]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#3B3A36] mb-1">
+                        Alto (ft) <span className="text-xs text-[#5F6773] font-normal">— valor fijo en inventario 🔒</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={cajon.alto ?? 0}
+                        onChange={(e) => updateCajon(index, { alto: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:border-[#2475C7]"
+                      />
+                    </div>
                   </div>
                 </div>
               ))
