@@ -195,6 +195,24 @@ export function AuditPanel() {
 
   // Unique plant IDs from flows for the filter dropdown
   const availablePlants = Array.from(new Set(flows.map(f => f.plant_id))).sort();
+  const userOptions = users.length > 0
+    ? users.map((u) => ({
+        id: u.id,
+        label: `${u.name} (${u.email})`,
+      }))
+    : Array.from(
+        new Map(
+          logs
+            .filter((l) => !!l.user_id)
+            .map((l) => [
+              l.user_id!,
+              {
+                id: l.user_id!,
+                label: `${l.user_name || l.user_email} (${l.user_email})`,
+              },
+            ])
+        ).values()
+      ).sort((a, b) => a.label.localeCompare(b.label, 'es'));
 
   // ============================================================================
   // RENDER
@@ -222,16 +240,19 @@ export function AuditPanel() {
               ))}
             </select>
           )}
-          {isAdmin && users.length > 0 && (
+          {isAdmin && (
             <select
               value={userFilter}
               onChange={e => setUserFilter(e.target.value)}
+              disabled={userOptions.length === 0}
               className="text-sm border border-[#9D9B9A] rounded px-3 py-1.5 text-[#3B3A36] bg-white"
             >
-              <option value="">Todos los usuarios</option>
-              {users.map(u => (
+              <option value="">
+                {userOptions.length === 0 ? 'Sin usuarios disponibles' : 'Todos los usuarios'}
+              </option>
+              {userOptions.map(u => (
                 <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
+                  {u.label}
                 </option>
               ))}
             </select>
