@@ -1525,6 +1525,7 @@ app.get("/make-server/audit/logs", async (c) => {
     const user = c.get('user');
     const supabase = db.getSupabaseClient();
     const plantIdFilter = c.req.query('plant_id');
+    const userIdFilter = c.req.query('user_id');
     const limit = Math.min(parseInt(c.req.query('limit') || '100'), 500);
 
     let query = supabase
@@ -1538,13 +1539,32 @@ app.get("/make-server/audit/logs", async (c) => {
       query = query.or(
         `plant_id.in.(${(user.assigned_plants as string[]).join(',')}),and(action.eq.USER_LOGIN,user_id.eq.${user.id})`
       );
-    } else if (plantIdFilter) {
-      query = query.eq('plant_id', plantIdFilter);
+    } else {
+      if (plantIdFilter) {
+        query = query.eq('plant_id', plantIdFilter);
+      }
+      if (userIdFilter) {
+        query = query.eq('user_id', userIdFilter);
+      }
     }
 
     const { data, error } = await query;
     if (error) throw error;
-    return c.json({ success: true, data });
+
+    // Security rule: admins cannot see super_admin events in event logs
+    let filtered = data ?? [];
+    if (user.role === 'admin') {
+      const { data: superAdmins, error: superAdminError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'super_admin');
+      if (superAdminError) throw superAdminError;
+
+      const superAdminIds = new Set((superAdmins ?? []).map((u: any) => u.id));
+      filtered = filtered.filter((log: any) => !superAdminIds.has(log.user_id));
+    }
+
+    return c.json({ success: true, data: filtered });
   } catch (error) {
     console.error('[AUDIT] Error fetching logs:', error);
     return c.json({ success: false, error: error.message }, 500);

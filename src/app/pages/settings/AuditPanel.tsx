@@ -29,6 +29,7 @@ interface InventoryFlow {
 interface AuditLog {
   id: string;
   timestamp: string;
+  user_id?: string;
   user_email: string;
   user_name?: string;
   action: string;
@@ -41,6 +42,14 @@ interface AuditLog {
     notes?: string;
     role?: string;
   };
+}
+
+interface AuditUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'plant_manager' | 'admin' | 'super_admin';
+  is_active: boolean;
 }
 
 // ============================================================================
@@ -113,9 +122,11 @@ export function AuditPanel() {
   const { user, accessToken } = useAuth();
   const [flows, setFlows] = useState<InventoryFlow[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [users, setUsers] = useState<AuditUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [plantFilter, setPlantFilter] = useState<string>('');
+  const [userFilter, setUserFilter] = useState<string>('');
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
@@ -131,14 +142,39 @@ export function AuditPanel() {
     return json.data;
   }, [accessToken]);
 
+  const fetchUsers = useCallback(async () => {
+    if (!isAdmin) return;
+
+    const res = await fetch(`${API_BASE_URL}/auth/users`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken || publicAnonKey}`,
+      },
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Error al cargar usuarios');
+
+    const sourceUsers: AuditUser[] = json.users || [];
+    const filteredUsers = sourceUsers
+      .filter((u) => u.is_active)
+      .filter((u) => user?.role === 'super_admin' || u.role !== 'super_admin')
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+    setUsers(filteredUsers);
+  }, [accessToken, isAdmin, user?.role]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const plantQuery = plantFilter ? `?plant_id=${plantFilter}` : '';
+      const flowQuery = plantFilter ? `?plant_id=${encodeURIComponent(plantFilter)}` : '';
+      const logParams = new URLSearchParams();
+      if (plantFilter) logParams.set('plant_id', plantFilter);
+      if (userFilter) logParams.set('user_id', userFilter);
+      const logsQuery = logParams.toString() ? `?${logParams.toString()}` : '';
       const [flowData, logData] = await Promise.all([
-        callAPI(`/audit/flow${plantQuery}`),
-        callAPI(`/audit/logs${plantQuery}`),
+        callAPI(`/audit/flow${flowQuery}`),
+        callAPI(`/audit/logs${logsQuery}`),
       ]);
       setFlows(flowData || []);
       setLogs(logData || []);
@@ -147,7 +183,11 @@ export function AuditPanel() {
     } finally {
       setLoading(false);
     }
-  }, [callAPI, plantFilter]);
+  }, [callAPI, plantFilter, userFilter]);
+
+  useEffect(() => {
+    fetchUsers().catch((err: any) => setError(err.message));
+  }, [fetchUsers]);
 
   useEffect(() => {
     fetchData();
@@ -179,6 +219,20 @@ export function AuditPanel() {
               <option value="">Todas las plantas</option>
               {availablePlants.map(p => (
                 <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
+          {isAdmin && users.length > 0 && (
+            <select
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
+              className="text-sm border border-[#9D9B9A] rounded px-3 py-1.5 text-[#3B3A36] bg-white"
+            >
+              <option value="">Todos los usuarios</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.email})
+                </option>
               ))}
             </select>
           )}
