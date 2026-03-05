@@ -590,9 +590,14 @@ app.get("/make-server/plants", async (c) => {
       .select('*')
       .order('name');
 
-    // plant_manager only sees their assigned plants
-    if (user.role === 'plant_manager' && user.assigned_plants?.length) {
-      query = query.in('id', user.assigned_plants);
+    // plant_manager only sees their assigned plants; with no assignments, sees none.
+    if (user.role === 'plant_manager') {
+      const assignedPlants = Array.isArray(user.assigned_plants) ? user.assigned_plants : [];
+      if (assignedPlants.length === 0) {
+        console.log(`✅ [GET /plants] Returned 0 plants for ${user.email} (${user.role}) - no assignments`);
+        return c.json({ success: true, data: [] });
+      }
+      query = query.in('id', assignedPlants);
     }
 
     const { data, error } = await query;
@@ -1347,12 +1352,12 @@ app.get("/make-server/modules/config", async (c) => {
   }
 });
 
-// Update module configuration (Admin / Super Admin only)
+// Update module configuration (Super Admin only)
 app.post("/make-server/modules/config", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
-      return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+    if (user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Forbidden: Super Admin access required' }, 403);
     }
 
     const body = await c.req.json();
