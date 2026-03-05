@@ -126,8 +126,11 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                         type="number"
                         min="0"
                         step="0.01"
-                        value={cajon.ancho ?? 0}
-                        onChange={(e) => updateCajon(index, { ancho: parseFloat(e.target.value) || 0 })}
+                        value={cajon.ancho === 0 ? '' : (cajon.ancho ?? '')}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          updateCajon(index, { ancho: value === '' ? 0 : parseFloat(value) || 0 });
+                        }}
                         placeholder="0"
                         className="w-full px-3 py-2 border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:border-[#2475C7]"
                       />
@@ -140,8 +143,11 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                         type="number"
                         min="0"
                         step="0.01"
-                        value={cajon.alto ?? 0}
-                        onChange={(e) => updateCajon(index, { alto: parseFloat(e.target.value) || 0 })}
+                        value={cajon.alto === 0 ? '' : (cajon.alto ?? '')}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          updateCajon(index, { alto: value === '' ? 0 : parseFloat(value) || 0 });
+                        }}
                         placeholder="0"
                         className="w-full px-3 py-2 border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:border-[#2475C7]"
                       />
