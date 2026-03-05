@@ -39,7 +39,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
       console.log('🔧 [InitialSetup] Initializing database schema...');
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/db/initialize`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/db/initialize`,
         {
           method: 'POST',
           headers: {
@@ -100,7 +100,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
       console.log('👤 [InitialSetup] Creating Super Admin user...');
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/auth/signup`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/auth/signup`,
         {
           method: 'POST',
           headers: {

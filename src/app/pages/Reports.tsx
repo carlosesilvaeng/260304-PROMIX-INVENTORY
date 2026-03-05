@@ -9,7 +9,7 @@ import { PromixLogo } from '../components/PromixLogo';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { exportToExcel, exportToPDF } from '../utils/exportReports';
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 // ============================================================================
 // TYPES

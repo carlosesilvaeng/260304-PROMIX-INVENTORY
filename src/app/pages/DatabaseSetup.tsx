@@ -37,7 +37,7 @@ export function DatabaseSetup() {
     // Test 1: Health Check
     try {
       const healthRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/health`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/health`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`
@@ -61,7 +61,7 @@ export function DatabaseSetup() {
     // Test 2: Database Check
     try {
       const dbRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/db/initialize`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/db/initialize`,
         {
           method: 'POST',
           headers: {
@@ -91,7 +91,7 @@ export function DatabaseSetup() {
       data: {
         projectId: projectId,
         hasAnonKey: !!publicAnonKey,
-        edgeFunctionUrl: `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`
+        edgeFunctionUrl: `https://${projectId}.supabase.co/functions/v1/make-server`
       }
     });
 

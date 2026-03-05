@@ -7,7 +7,7 @@ import { Modal } from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 // Broken image placeholder (grey camera icon)
 const PLACEHOLDER_SVG = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(

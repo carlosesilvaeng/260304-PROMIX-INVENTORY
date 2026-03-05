@@ -105,31 +105,31 @@ function checkPlantAccess(user: any, plantId: string): boolean {
 // ============================================================================
 
 // All inventory endpoints require at minimum a valid login
-app.use('/make-server-02205af0/inventory/*', requireAuth);
+app.use('/make-server/inventory/*', requireAuth);
 
 // Database admin endpoints require admin or super_admin role
-app.use('/make-server-02205af0/db/*', requireAdmin);
+app.use('/make-server/db/*', requireAdmin);
 
 // Plant config endpoints require a valid login (plant access checked per-handler)
-app.use('/make-server-02205af0/plants/*', requireAuth);
+app.use('/make-server/plants/*', requireAuth);
 
 // Module config endpoints require a valid login (write ops check admin inside handler)
-app.use('/make-server-02205af0/modules/*', requireAuth);
+app.use('/make-server/modules/*', requireAuth);
 
 // Debug endpoint requires admin role
-app.use('/make-server-02205af0/debug/*', requireAdmin);
+app.use('/make-server/debug/*', requireAdmin);
 
 // Audit endpoints require at minimum a valid login
-app.use('/make-server-02205af0/audit/*', requireAuth);
+app.use('/make-server/audit/*', requireAuth);
 
 // Plants list endpoint requires a valid login (exact path, not covered by /plants/*)
-app.use('/make-server-02205af0/plants', requireAuth);
+app.use('/make-server/plants', requireAuth);
 
 // Reports endpoint requires a valid login
-app.use('/make-server-02205af0/reports', requireAuth);
+app.use('/make-server/reports', requireAuth);
 
 // Catalog endpoints (materiales, procedencias) require admin role
-app.use('/make-server-02205af0/catalogs/*', requireAdmin);
+app.use('/make-server/catalogs/*', requireAdmin);
 
 // ============================================================================
 // AUDIT HELPER
@@ -158,12 +158,12 @@ function logAudit(supabase: any, entry: {
 // ============================================================================
 
 // Health check endpoint
-app.get("/make-server-02205af0/health", (c) => {
+app.get("/make-server/health", (c) => {
   return c.json({ status: "ok" });
 });
 
 // Get BUILD version endpoint
-app.get("/make-server-02205af0/build-version", (c) => {
+app.get("/make-server/build-version", (c) => {
   return c.json({ 
     success: true, 
     buildVersion: BUILD_VERSION,
@@ -172,7 +172,7 @@ app.get("/make-server-02205af0/build-version", (c) => {
 });
 
 // Debug environment endpoint - Check backend configuration
-app.get("/make-server-02205af0/debug/env", (c) => {
+app.get("/make-server/debug/env", (c) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const clientAnonKey = Deno.env.get('CLIENT_ANON_KEY');
   const legacyAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
@@ -213,7 +213,7 @@ app.get("/make-server-02205af0/debug/env", (c) => {
 // ============================================================================
 
 // Signup - Create new user (Admin / Super Admin only)
-app.post("/make-server-02205af0/auth/signup", requireAdmin, async (c) => {
+app.post("/make-server/auth/signup", requireAdmin, async (c) => {
   try {
     const body = await c.req.json();
     const result = await auth.signup(body);
@@ -230,7 +230,7 @@ app.post("/make-server-02205af0/auth/signup", requireAdmin, async (c) => {
 });
 
 // Login - Authenticate user
-app.post("/make-server-02205af0/auth/login", async (c) => {
+app.post("/make-server/auth/login", async (c) => {
   try {
     const body = await c.req.json();
     const result = await auth.login(body);
@@ -259,7 +259,7 @@ app.post("/make-server-02205af0/auth/login", async (c) => {
 });
 
 // Change Password - Cambiar contraseña del usuario autenticado
-app.post("/make-server-02205af0/auth/change-password", async (c) => {
+app.post("/make-server/auth/change-password", async (c) => {
   try {
     const accessToken = c.req.header("Authorization")?.replace("Bearer ", "");
     
@@ -282,7 +282,7 @@ app.post("/make-server-02205af0/auth/change-password", async (c) => {
 });
 
 // Check if this is first-time setup (no users exist)
-app.get("/make-server-02205af0/auth/check-first-time", async (c) => {
+app.get("/make-server/auth/check-first-time", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     
@@ -311,7 +311,7 @@ app.get("/make-server-02205af0/auth/check-first-time", async (c) => {
 });
 
 // Verify token - Check if user is authenticated
-app.post("/make-server-02205af0/auth/verify", async (c) => {
+app.post("/make-server/auth/verify", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
     const token = authHeader?.split(" ")[1];
@@ -334,7 +334,7 @@ app.post("/make-server-02205af0/auth/verify", async (c) => {
 });
 
 // Get all users (Super Admin and Admin)
-app.get("/make-server-02205af0/auth/users", async (c) => {
+app.get("/make-server/auth/users", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
     const token = authHeader?.split(" ")[1];
@@ -375,7 +375,7 @@ app.get("/make-server-02205af0/auth/users", async (c) => {
 });
 
 // Update user (Super Admin and Admin with restrictions)
-app.put("/make-server-02205af0/auth/users/:userId", async (c) => {
+app.put("/make-server/auth/users/:userId", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
     const token = authHeader?.split(" ")[1];
@@ -407,7 +407,7 @@ app.put("/make-server-02205af0/auth/users/:userId", async (c) => {
 });
 
 // Delete user (Super Admin can delete all, Admin can delete Plant Managers and Admins)
-app.delete("/make-server-02205af0/auth/users/:userId", async (c) => {
+app.delete("/make-server/auth/users/:userId", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
     const token = authHeader?.split(" ")[1];
@@ -442,7 +442,7 @@ app.delete("/make-server-02205af0/auth/users/:userId", async (c) => {
 // ============================================================================
 
 // Database initialization endpoint
-app.post("/make-server-02205af0/db/initialize", async (c) => {
+app.post("/make-server/db/initialize", async (c) => {
   try {
     const result = await db.initializeDatabaseSchema();
     
@@ -458,7 +458,7 @@ app.post("/make-server-02205af0/db/initialize", async (c) => {
 });
 
 // Reload PostgREST schema cache endpoint
-app.post("/make-server-02205af0/db/reload-cache", async (c) => {
+app.post("/make-server/db/reload-cache", async (c) => {
   try {
     console.log('🔄 [RELOAD CACHE] Reloading PostgREST schema cache...');
     
@@ -499,7 +499,7 @@ app.post("/make-server-02205af0/db/reload-cache", async (c) => {
 });
 
 // Seed plant configurations
-app.post("/make-server-02205af0/db/seed", async (c) => {
+app.post("/make-server/db/seed", async (c) => {
   try {
     await seed.seedPlantConfigurations();
     return c.json({ success: true, message: "Plant configurations seeded successfully" });
@@ -510,7 +510,7 @@ app.post("/make-server-02205af0/db/seed", async (c) => {
 });
 
 // Seed test users
-app.post("/make-server-02205af0/db/seed-users", async (c) => {
+app.post("/make-server/db/seed-users", async (c) => {
   try {
     await seed.seedTestUsers();
     return c.json({ 
@@ -531,7 +531,7 @@ app.post("/make-server-02205af0/db/seed-users", async (c) => {
 });
 
 // Clear all configurations (use with caution!)
-app.post("/make-server-02205af0/db/clear", async (c) => {
+app.post("/make-server/db/clear", async (c) => {
   try {
     await seed.clearAllConfigurations();
     return c.json({ success: true, message: "All configurations cleared" });
@@ -545,7 +545,7 @@ app.post("/make-server-02205af0/db/clear", async (c) => {
 // PLANT CONFIGURATION ENDPOINTS
 // ============================================================================
 
-app.get("/make-server-02205af0/plants/:plantId/config", async (c) => {
+app.get("/make-server/plants/:plantId/config", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
     const plantId = c.req.param("plantId");
@@ -580,7 +580,7 @@ app.get("/make-server-02205af0/plants/:plantId/config", async (c) => {
 });
 
 // GET /plants — list all plants (replaces MOCK_PLANTS in frontend)
-app.get("/make-server-02205af0/plants", async (c) => {
+app.get("/make-server/plants", async (c) => {
   try {
     const user = c.get('user');
     const supabase = db.getSupabaseClient();
@@ -619,7 +619,7 @@ app.get("/make-server-02205af0/plants", async (c) => {
 });
 
 // PUT /plants/:plantId — update plant metadata (admin/super_admin only)
-app.put("/make-server-02205af0/plants/:plantId", async (c) => {
+app.put("/make-server/plants/:plantId", async (c) => {
   try {
     const user = c.get('user');
     if (!['admin', 'super_admin'].includes(user.role)) {
@@ -662,7 +662,7 @@ app.put("/make-server-02205af0/plants/:plantId", async (c) => {
 // ============================================================================
 
 // GET /plants/:plantId/silos — list silos for a plant (admin/super_admin only)
-app.get("/make-server-02205af0/plants/:plantId/silos", async (c) => {
+app.get("/make-server/plants/:plantId/silos", async (c) => {
   try {
     const user = c.get('user');
     if (!['admin', 'super_admin'].includes(user.role)) {
@@ -684,7 +684,7 @@ app.get("/make-server-02205af0/plants/:plantId/silos", async (c) => {
 });
 
 // PUT /plants/:plantId/silos — replace all silos for a plant (admin/super_admin only)
-app.put("/make-server-02205af0/plants/:plantId/silos", async (c) => {
+app.put("/make-server/plants/:plantId/silos", async (c) => {
   try {
     const user = c.get('user');
     if (!['admin', 'super_admin'].includes(user.role)) {
@@ -741,7 +741,7 @@ app.put("/make-server-02205af0/plants/:plantId/silos", async (c) => {
 // ============================================================================
 
 // Get or create inventory month
-app.post("/make-server-02205af0/inventory/month", async (c) => {
+app.post("/make-server/inventory/month", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -783,7 +783,7 @@ app.post("/make-server-02205af0/inventory/month", async (c) => {
 });
 
 // Get full inventory month data
-app.get("/make-server-02205af0/inventory/month/:inventoryMonthId", async (c) => {
+app.get("/make-server/inventory/month/:inventoryMonthId", async (c) => {
   try {
     const inventoryMonthId = c.req.param("inventoryMonthId");
     const data = await db.getInventoryMonthData(inventoryMonthId);
@@ -795,7 +795,7 @@ app.get("/make-server-02205af0/inventory/month/:inventoryMonthId", async (c) => 
 });
 
 // Get inventory month by plant and year_month
-app.get("/make-server-02205af0/inventory/month/:plantId/:yearMonth", async (c) => {
+app.get("/make-server/inventory/month/:plantId/:yearMonth", async (c) => {
   try {
     const plantId = c.req.param("plantId");
     const yearMonth = c.req.param("yearMonth");
@@ -813,7 +813,7 @@ app.get("/make-server-02205af0/inventory/month/:plantId/:yearMonth", async (c) =
 });
 
 // Update inventory month status
-app.put("/make-server-02205af0/inventory/month/:inventoryMonthId/status", async (c) => {
+app.put("/make-server/inventory/month/:inventoryMonthId/status", async (c) => {
   try {
     const inventoryMonthId = c.req.param("inventoryMonthId");
     const body = await c.req.json();
@@ -835,9 +835,9 @@ app.put("/make-server-02205af0/inventory/month/:inventoryMonthId/status", async 
 // PHOTO UPLOAD — compress on client, upload binary here, return public URL
 // ============================================================================
 
-app.use('/make-server-02205af0/photos/*', requireAuth);
+app.use('/make-server/photos/*', requireAuth);
 
-app.post('/make-server-02205af0/photos/upload', async (c) => {
+app.post('/make-server/photos/upload', async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const { base64, filename, plant_id } = await c.req.json();
@@ -892,7 +892,7 @@ app.post('/make-server-02205af0/photos/upload', async (c) => {
 // ============================================================================
 
 // Save aggregates entries
-app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
+app.post("/make-server/inventory/aggregates", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -944,7 +944,7 @@ app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
 });
 
 // Save silos entries
-app.post("/make-server-02205af0/inventory/silos", async (c) => {
+app.post("/make-server/inventory/silos", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -967,7 +967,7 @@ app.post("/make-server-02205af0/inventory/silos", async (c) => {
 });
 
 // Save additives entries
-app.post("/make-server-02205af0/inventory/additives", async (c) => {
+app.post("/make-server/inventory/additives", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -990,7 +990,7 @@ app.post("/make-server-02205af0/inventory/additives", async (c) => {
 });
 
 // Save diesel entry
-app.post("/make-server-02205af0/inventory/diesel", async (c) => {
+app.post("/make-server/inventory/diesel", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -1013,7 +1013,7 @@ app.post("/make-server-02205af0/inventory/diesel", async (c) => {
 });
 
 // Save products entries
-app.post("/make-server-02205af0/inventory/products", async (c) => {
+app.post("/make-server/inventory/products", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -1036,7 +1036,7 @@ app.post("/make-server-02205af0/inventory/products", async (c) => {
 });
 
 // Save utilities entries
-app.post("/make-server-02205af0/inventory/utilities", async (c) => {
+app.post("/make-server/inventory/utilities", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -1059,7 +1059,7 @@ app.post("/make-server-02205af0/inventory/utilities", async (c) => {
 });
 
 // Save petty cash entry
-app.post("/make-server-02205af0/inventory/petty-cash", async (c) => {
+app.post("/make-server/inventory/petty-cash", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -1086,7 +1086,7 @@ app.post("/make-server-02205af0/inventory/petty-cash", async (c) => {
 // ============================================================================
 
 // Save inventory as draft (keeps IN_PROGRESS status)
-app.post("/make-server-02205af0/inventory/save-draft", async (c) => {
+app.post("/make-server/inventory/save-draft", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -1115,7 +1115,7 @@ app.post("/make-server-02205af0/inventory/save-draft", async (c) => {
 });
 
 // Submit inventory for approval (IN_PROGRESS -> SUBMITTED)
-app.post("/make-server-02205af0/inventory/submit", async (c) => {
+app.post("/make-server/inventory/submit", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
@@ -1179,7 +1179,7 @@ app.post("/make-server-02205af0/inventory/submit", async (c) => {
 });
 
 // Approve inventory (SUBMITTED -> APPROVED)
-app.post("/make-server-02205af0/inventory/approve", async (c) => {
+app.post("/make-server/inventory/approve", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
     if (user.role !== 'admin' && user.role !== 'super_admin') {
@@ -1253,7 +1253,7 @@ app.post("/make-server-02205af0/inventory/approve", async (c) => {
 });
 
 // Reject inventory (SUBMITTED -> IN_PROGRESS)
-app.post("/make-server-02205af0/inventory/reject", async (c) => {
+app.post("/make-server/inventory/reject", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
     if (user.role !== 'admin' && user.role !== 'super_admin') {
@@ -1329,7 +1329,7 @@ app.post("/make-server-02205af0/inventory/reject", async (c) => {
 // ============================================================================
 
 // Get module configuration
-app.get("/make-server-02205af0/modules/config", async (c) => {
+app.get("/make-server/modules/config", async (c) => {
   try {
     console.log('[MODULES] Fetching module configuration');
     const config = await kv.get('module_config');
@@ -1348,7 +1348,7 @@ app.get("/make-server-02205af0/modules/config", async (c) => {
 });
 
 // Update module configuration (Admin / Super Admin only)
-app.post("/make-server-02205af0/modules/config", async (c) => {
+app.post("/make-server/modules/config", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
     if (user.role !== 'admin' && user.role !== 'super_admin') {
@@ -1386,7 +1386,7 @@ app.post("/make-server-02205af0/modules/config", async (c) => {
 // ============================================================================
 
 // Inventory workflow flow — derived from existing inventory_month table
-app.get("/make-server-02205af0/audit/flow", async (c) => {
+app.get("/make-server/audit/flow", async (c) => {
   try {
     const user = c.get('user');
     const supabase = db.getSupabaseClient();
@@ -1414,7 +1414,7 @@ app.get("/make-server-02205af0/audit/flow", async (c) => {
 });
 
 // Detailed event log from audit_logs table
-app.get("/make-server-02205af0/audit/logs", async (c) => {
+app.get("/make-server/audit/logs", async (c) => {
   try {
     const user = c.get('user');
     const supabase = db.getSupabaseClient();
@@ -1449,7 +1449,7 @@ app.get("/make-server-02205af0/audit/logs", async (c) => {
 // REPORTS ENDPOINT
 // ============================================================================
 
-app.get("/make-server-02205af0/reports", async (c) => {
+app.get("/make-server/reports", async (c) => {
   try {
     const user = c.get('user');
     const supabase = db.getSupabaseClient();
@@ -1486,7 +1486,7 @@ app.get("/make-server-02205af0/reports", async (c) => {
 
 // DELETE /reports/:id — admin/super_admin only
 // Deletes the inventory month record, all child entries, and associated photos from storage
-app.delete("/make-server-02205af0/reports/:id", requireAdmin, async (c) => {
+app.delete("/make-server/reports/:id", requireAdmin, async (c) => {
   try {
     const reportId = c.req.param('id');
     const supabase = db.getSupabaseClient();
@@ -1576,7 +1576,7 @@ app.delete("/make-server-02205af0/reports/:id", requireAdmin, async (c) => {
 // ============================================================================
 
 // Validate JWT token
-app.get("/make-server-02205af0/auth/validate", async (c) => {
+app.get("/make-server/auth/validate", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
     const token = authHeader?.split(" ")[1];
@@ -1641,7 +1641,7 @@ app.get("/make-server-02205af0/auth/validate", async (c) => {
 
 // ── MATERIALES ──
 
-app.get("/make-server-02205af0/catalogs/materiales", async (c) => {
+app.get("/make-server/catalogs/materiales", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
@@ -1657,7 +1657,7 @@ app.get("/make-server-02205af0/catalogs/materiales", async (c) => {
   }
 });
 
-app.post("/make-server-02205af0/catalogs/materiales", async (c) => {
+app.post("/make-server/catalogs/materiales", async (c) => {
   try {
     const { nombre, clase } = await c.req.json();
     if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
@@ -1675,7 +1675,7 @@ app.post("/make-server-02205af0/catalogs/materiales", async (c) => {
   }
 });
 
-app.put("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
+app.put("/make-server/catalogs/materiales/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
@@ -1698,7 +1698,7 @@ app.put("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
   }
 });
 
-app.delete("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
+app.delete("/make-server/catalogs/materiales/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const supabase = db.getSupabaseClient();
@@ -1716,7 +1716,7 @@ app.delete("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
 
 // ── PROCEDENCIAS ──
 
-app.get("/make-server-02205af0/catalogs/procedencias", async (c) => {
+app.get("/make-server/catalogs/procedencias", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
@@ -1732,7 +1732,7 @@ app.get("/make-server-02205af0/catalogs/procedencias", async (c) => {
   }
 });
 
-app.post("/make-server-02205af0/catalogs/procedencias", async (c) => {
+app.post("/make-server/catalogs/procedencias", async (c) => {
   try {
     const { nombre } = await c.req.json();
     if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
@@ -1750,7 +1750,7 @@ app.post("/make-server-02205af0/catalogs/procedencias", async (c) => {
   }
 });
 
-app.put("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
+app.put("/make-server/catalogs/procedencias/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
@@ -1772,7 +1772,7 @@ app.put("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
   }
 });
 
-app.delete("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
+app.delete("/make-server/catalogs/procedencias/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const supabase = db.getSupabaseClient();
@@ -1794,7 +1794,7 @@ app.delete("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
 // Returns flat list of all inventory entries that have a non-empty photo_url
 // ============================================================================
 
-app.get('/make-server-02205af0/photos/report', async (c) => {
+app.get('/make-server/photos/report', async (c) => {
   try {
     const user = c.get('user');
     if (user.role !== 'admin' && user.role !== 'super_admin') {

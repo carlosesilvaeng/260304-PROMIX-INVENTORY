@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/Card';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 // ============================================================================
 // TYPES

@@ -4,7 +4,7 @@ import { compressInventoryPhoto } from '../utils/imageCompression';
 import { useAuth } from '../contexts/AuthContext';
 import { projectId } from '/utils/supabase/info';
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 interface PhotoCaptureProps {
   label: string;

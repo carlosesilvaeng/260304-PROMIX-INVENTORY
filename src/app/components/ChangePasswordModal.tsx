@@ -45,7 +45,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
     setLoading(true);
 
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-02205af0/auth/change-password`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

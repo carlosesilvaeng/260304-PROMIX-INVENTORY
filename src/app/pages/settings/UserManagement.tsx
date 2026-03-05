@@ -44,7 +44,7 @@ interface EditUserFormData {
 // API HELPER
 // ============================================================================
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 async function callAPI(endpoint: string, method: string = 'GET', body?: any, token?: string) {
   const headers: HeadersInit = {

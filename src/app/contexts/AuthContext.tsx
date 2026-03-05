@@ -7,8 +7,8 @@ console.log('🔍 [AuthContext] Supabase Config Loaded:');
 console.log('   ProjectId:', projectId);
 console.log('   AnonKey Length:', publicAnonKey.length);
 console.log('   AnonKey Prefix:', publicAnonKey.substring(0, 50) + '...');
-console.log('   Expected ProjectId: olieryxyhakumgyohlrr');
-console.log('   Match:', projectId === 'olieryxyhakumgyohlrr' ? '✅' : '❌');
+console.log('   Expected ProjectId: jnlsahsxqiufusfamccz');
+console.log('   Match:', projectId === 'jnlsahsxqiufusfamccz' ? '✅' : '❌');
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -84,7 +84,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // API HELPER
 // ============================================================================
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`;
+const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 async function callAPI(endpoint: string, method: string = 'GET', body?: any, token?: string) {
   const headers: HeadersInit = {

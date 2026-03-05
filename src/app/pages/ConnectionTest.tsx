@@ -41,7 +41,7 @@ export function ConnectionTest() {
     // Test 1: Health Check
     try {
       const healthRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/health`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/health`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`
@@ -65,7 +65,7 @@ export function ConnectionTest() {
     // Test 2: Database Check
     try {
       const dbRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/db/initialize`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/db/initialize`,
         {
           method: 'POST',
           headers: {
@@ -97,7 +97,7 @@ export function ConnectionTest() {
         hasAnonKey: !!publicAnonKey,
         anonKeyPreview: publicAnonKey.substring(0, 50) + '...',
         anonKeyLength: publicAnonKey.length,
-        edgeFunctionUrl: `https://${projectId}.supabase.co/functions/v1/make-server-02205af0`
+        edgeFunctionUrl: `https://${projectId}.supabase.co/functions/v1/make-server`
       }
     });
 
@@ -107,7 +107,7 @@ export function ConnectionTest() {
       try {
         // Intentar verificar el token con el endpoint correcto
         const validateRes = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/auth/verify`,
+          `https://${projectId}.supabase.co/functions/v1/make-server/auth/verify`,
           {
             method: 'POST',
             headers: {
@@ -171,13 +171,13 @@ export function ConnectionTest() {
     // Test 5: Backend Environment Check
     try {
       console.log('🧪 Test #5: Backend Build & Environment Check');
-      console.log('   Endpoint:', `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/debug/env`);
+      console.log('   Endpoint:', `https://${projectId}.supabase.co/functions/v1/make-server/debug/env`);
       console.log('   Method: GET');
       console.log('   Frontend ANON Key:', publicAnonKey.substring(0, 50) + '...');
       console.log('   Frontend ANON Key Length:', publicAnonKey.length);
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-02205af0/debug/env`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/debug/env`,
         {
           method: 'GET',
           headers: {
