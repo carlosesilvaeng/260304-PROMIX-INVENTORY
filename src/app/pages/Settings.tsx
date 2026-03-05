@@ -19,7 +19,7 @@ import type { Plant, CajonConfig } from '../types';
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
-const BUILD_VERSION = '2603042146';
+const BUILD_VERSION = '2603050601';
 
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant } = useAuth();
