@@ -22,7 +22,7 @@ import type { Plant, CajonConfig } from '../types';
 const BUILD_VERSION = '2603050601';
 
 export function Settings() {
-  const { user, allPlants, togglePlantStatus, updatePlant, createPlant } = useAuth();
+  const { user, allPlants, togglePlantStatus, updatePlant, createPlant, savePlantCajones } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
@@ -54,12 +54,12 @@ export function Settings() {
 
   const handleSaveCajones = (cajones: CajonConfig[]) => {
     if (editingCajones) {
-      const updatedPlant: Plant = {
-        ...editingCajones.plant,
-        cajones,
-      };
-      updatePlant(updatedPlant);
-      handleSave();
+      savePlantCajones(editingCajones.plant.id, cajones)
+        .then(() => handleSave())
+        .catch((error) => {
+          console.error('❌ Error guardando cajones:', error);
+          window.alert(error?.message || 'No se pudo guardar la configuración de cajones.');
+        });
     }
   };
 

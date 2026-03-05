@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { getCajonesByPlant } from '../config/cajonesConfig';
 
 // DIAGNOSTIC LOG - Verificar que se carguen los valores correctos
 console.log('🔍 [AuthContext] Supabase Config Loaded:');
@@ -71,6 +70,7 @@ interface AuthContextType {
   updatePlant: (plant: Plant) => void;
   createPlant: (plant: Omit<Plant, 'id'>) => void;
   togglePlantStatus: (plantId: string) => void;
+  savePlantCajones: (plantId: string, cajones: CajonConfig[]) => Promise<void>;
   dismissMigrationMessage: () => void;
   refreshUser: () => Promise<void>;
   refreshFirstTimeCheck: () => Promise<void>; // NEW: Re-verificar si hay usuarios
@@ -278,12 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hasConeMeasurement: p.has_cone_measurement,
             hasCajonMeasurement: p.has_cajon_measurement,
           },
-          // Use cajones from DB if saved (preserves material/procedencia),
-          // otherwise fall back to cajonesConfig.ts (dimensions only, empty material/procedencia)
-          cajones: (p.cajones && p.cajones.length > 0)
-            ? p.cajones
-            : getCajonesByPlant(p.id === 'VEGA_BAJA' ? 'VEGA BAJA' : p.id)
-                .map(c => ({ id: c.id, name: c.name, material: '', procedencia: '' })),
+          cajones: p.cajones || [],
           silos: p.silos || [],
           pettyCashEstablished: Number(p.petty_cash_established) || 0,
           isActive: p.is_active,
@@ -388,7 +383,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       has_cone_measurement: plant.methods.hasConeMeasurement,
       has_cajon_measurement: plant.methods.hasCajonMeasurement,
       is_active: plant.isActive,
-      cajones: plant.cajones || [],
     }, accessToken || undefined).catch(e => {
       console.error('❌ [AuthContext] Error persisting plant update:', e);
     });
@@ -403,6 +397,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const plant = allPlants.find(p => p.id === plantId);
     if (plant) {
       updatePlant({ ...plant, isActive: !plant.isActive });
+    }
+  };
+
+  const savePlantCajones = async (plantId: string, cajones: CajonConfig[]) => {
+    // Optimistic update in UI
+    setAllPlants(prev =>
+      prev.map(p => (p.id === plantId ? { ...p, cajones } : p))
+    );
+
+    try {
+      await callAPI(
+        `/plants/${plantId}/cajones`,
+        'PUT',
+        {
+          cajones: cajones.map((c, index) => ({
+            id: c.id,
+            name: c.name,
+            material: c.material,
+            procedencia: c.procedencia,
+            ancho: c.ancho ?? 0,
+            alto: c.alto ?? 0,
+            sort_order: index,
+            is_active: true,
+          })),
+        },
+        accessToken || undefined
+      );
+    } catch (e) {
+      console.error('❌ [AuthContext] Error persisting cajones update:', e);
+      throw e;
     }
   };
 
@@ -446,6 +470,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updatePlant,
     createPlant,
     togglePlantStatus,
+    savePlantCajones,
     dismissMigrationMessage,
     refreshUser,
     refreshFirstTimeCheck,

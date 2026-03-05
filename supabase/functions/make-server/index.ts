@@ -603,16 +603,32 @@ app.get("/make-server/plants", async (c) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Fetch silos for all plants from the config table (source of truth)
-    const { data: allSilos } = await supabase
-      .from('plant_silos_config')
-      .select('plant_id, id, silo_name, is_active, sort_order')
-      .order('sort_order', { ascending: true });
+    // Fetch silos and cajones from configuration tables (source of truth)
+    const [{ data: allSilos }, { data: allCajones }] = await Promise.all([
+      supabase
+        .from('plant_silos_config')
+        .select('plant_id, id, silo_name, is_active, sort_order')
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('plant_cajones_config')
+        .select('plant_id, id, cajon_name, material, procedencia, box_width_ft, box_height_ft, is_active, sort_order')
+        .order('sort_order', { ascending: true }),
+    ]);
 
-    // Merge: replace legacy JSONB silos with real silos from config table
+    // Merge: replace legacy JSONB fields with normalized configuration tables
     const plantsWithSilos = (data ?? []).map((plant: any) => ({
       ...plant,
       silos: (allSilos ?? []).filter((s: any) => s.plant_id === plant.id),
+      cajones: (allCajones ?? [])
+        .filter((c: any) => c.plant_id === plant.id && c.is_active !== false)
+        .map((c: any) => ({
+          id: c.id,
+          name: c.cajon_name,
+          material: c.material ?? '',
+          procedencia: c.procedencia ?? '',
+          ancho: Number(c.box_width_ft ?? 0),
+          alto: Number(c.box_height_ft ?? 0),
+        })),
     }));
 
     console.log(`✅ [GET /plants] Returned ${plantsWithSilos.length} plants for ${user.email} (${user.role})`);
@@ -637,8 +653,7 @@ app.put("/make-server/plants/:plantId", async (c) => {
 
     // Only allow safe fields to be updated
     const allowed = ['name', 'location', 'petty_cash_established',
-                     'has_cone_measurement', 'has_cajon_measurement', 'is_active',
-                     'cajones'];
+                     'has_cone_measurement', 'has_cajon_measurement', 'is_active'];
     const update: Record<string, any> = {};
     for (const key of allowed) {
       if (key in body) update[key] = body[key];
@@ -665,6 +680,92 @@ app.put("/make-server/plants/:plantId", async (c) => {
 // ============================================================================
 // SILO CONFIGURATION ENDPOINTS
 // ============================================================================
+
+// GET /plants/:plantId/cajones — list cajones for a plant (admin/super_admin only)
+app.get("/make-server/plants/:plantId/cajones", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+    const { plantId } = c.req.param();
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('plant_cajones_config')
+      .select('id, cajon_name, material, procedencia, box_width_ft, box_height_ft, is_active, sort_order')
+      .eq('plant_id', plantId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return c.json({
+      success: true,
+      data: (data ?? []).map((cajon: any) => ({
+        id: cajon.id,
+        name: cajon.cajon_name,
+        material: cajon.material ?? '',
+        procedencia: cajon.procedencia ?? '',
+        ancho: Number(cajon.box_width_ft ?? 0),
+        alto: Number(cajon.box_height_ft ?? 0),
+      })),
+    });
+  } catch (error: any) {
+    console.error("❌ Error fetching cajones:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/cajones — replace all cajones for a plant (admin/super_admin only)
+app.put("/make-server/plants/:plantId/cajones", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const cajones: {
+      id?: string;
+      name: string;
+      material?: string;
+      procedencia?: string;
+      ancho?: number;
+      alto?: number;
+      sort_order?: number;
+      is_active?: boolean;
+    }[] = body.cajones ?? [];
+
+    const supabase = db.getSupabaseClient();
+
+    const { error: delError } = await supabase
+      .from('plant_cajones_config')
+      .delete()
+      .eq('plant_id', plantId);
+    if (delError) throw delError;
+
+    if (cajones.length > 0) {
+      const rows = cajones.map((cajon, i) => ({
+        plant_id: plantId,
+        cajon_name: cajon.name,
+        material: cajon.material ?? '',
+        procedencia: cajon.procedencia ?? '',
+        box_width_ft: cajon.ancho ?? 0,
+        box_height_ft: cajon.alto ?? 0,
+        sort_order: cajon.sort_order ?? i,
+        is_active: cajon.is_active ?? true,
+      }));
+      const { error: insError } = await supabase
+        .from('plant_cajones_config')
+        .insert(rows);
+      if (insError) throw insError;
+    }
+
+    console.log(`✅ [PUT /plants/${plantId}/cajones] Saved ${cajones.length} cajones by ${user.email}`);
+    return c.json({ success: true, count: cajones.length });
+  } catch (error: any) {
+    console.error("❌ Error saving cajones:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
 
 // GET /plants/:plantId/silos — list silos for a plant (admin/super_admin only)
 app.get("/make-server/plants/:plantId/silos", async (c) => {

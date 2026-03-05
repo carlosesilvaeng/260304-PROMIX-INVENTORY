@@ -32,6 +32,7 @@ export async function initializeDatabaseSchema() {
       'calibration_curves',
       'plant_aggregates_config',
       'plant_silos_config',
+      'plant_cajones_config',
       'silo_allowed_products',
       'plant_additives_config',
       'plant_diesel_config',

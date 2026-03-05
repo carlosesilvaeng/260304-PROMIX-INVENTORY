@@ -143,6 +143,21 @@ CREATE TABLE IF NOT EXISTS plant_silos_config (
   UNIQUE (plant_id, silo_name)
 );
 
+CREATE TABLE IF NOT EXISTS plant_cajones_config (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  plant_id TEXT NOT NULL,
+  cajon_name TEXT NOT NULL,
+  material TEXT,
+  procedencia TEXT,
+  box_width_ft NUMERIC(12,2),
+  box_height_ft NUMERIC(12,2),
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (plant_id, cajon_name)
+);
+
 CREATE TABLE IF NOT EXISTS silo_allowed_products (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   silo_config_id TEXT NOT NULL,
@@ -413,6 +428,7 @@ CREATE INDEX IF NOT EXISTS idx_kv_store_prefix ON kv_store(key text_pattern_ops)
 CREATE INDEX IF NOT EXISTS idx_calibration_curves_plant_id ON calibration_curves(plant_id);
 CREATE INDEX IF NOT EXISTS idx_plant_aggregates_plant_id ON plant_aggregates_config(plant_id);
 CREATE INDEX IF NOT EXISTS idx_plant_silos_plant_id ON plant_silos_config(plant_id);
+CREATE INDEX IF NOT EXISTS idx_plant_cajones_plant_id ON plant_cajones_config(plant_id);
 CREATE INDEX IF NOT EXISTS idx_silo_allowed_products_silo_id ON silo_allowed_products(silo_config_id);
 CREATE INDEX IF NOT EXISTS idx_plant_additives_plant_id ON plant_additives_config(plant_id);
 CREATE INDEX IF NOT EXISTS idx_plant_diesel_plant_id ON plant_diesel_config(plant_id);
@@ -488,7 +504,7 @@ DECLARE
   t TEXT;
   tables_with_updated_at TEXT[] := ARRAY[
     'users','plants','audit_logs','materiales_catalog','procedencias_catalog','kv_store',
-    'calibration_curves','plant_aggregates_config','plant_silos_config','plant_additives_config',
+    'calibration_curves','plant_aggregates_config','plant_silos_config','plant_cajones_config','plant_additives_config',
     'plant_diesel_config','plant_products_config','plant_utilities_meters_config','plant_petty_cash_config',
     'inventory_month','inventory_aggregates_entries','inventory_silos_entries','inventory_additives_entries',
     'inventory_diesel_entries','inventory_products_entries','inventory_utilities_entries','inventory_petty_cash_entries'

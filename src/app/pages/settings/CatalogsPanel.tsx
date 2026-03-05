@@ -343,7 +343,7 @@ export function CatalogsPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CatalogTable
           title="Materiales"
-          description="Tipos de material que pueden asignarse a un cajón (ej. Piedra 3/4, Arena Fina)"
+          description="Tipos de material que pueden asignarse a un cajón (ej. Piedra No 4, Arena Manufacturada)"
           items={materiales}
           loading={loadingMat}
           hasClase={true}
@@ -354,7 +354,7 @@ export function CatalogsPanel() {
 
         <CatalogTable
           title="Procedencias"
-          description="Origen o proveedor del material (ej. Cantera Norte, Cantera Sur)"
+          description="Nombre del proveedor del material (ej. Cantera Carraizo, Canarico, etc)"
           items={procedencias}
           loading={loadingProc}
           onAdd={handleAddProcedencia}
