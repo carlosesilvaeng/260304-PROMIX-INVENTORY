@@ -22,13 +22,17 @@ import type { Plant, CajonConfig } from '../types';
 const BUILD_VERSION = '2603050601';
 
 export function Settings() {
-  const { user, allPlants, togglePlantStatus, updatePlant } = useAuth();
+  const { user, allPlants, togglePlantStatus, updatePlant, createPlant } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showCreatePlantModal, setShowCreatePlantModal] = useState(false);
+  const [newPlantName, setNewPlantName] = useState('');
+  const [newPlantCode, setNewPlantCode] = useState('');
+  const [newPlantLocation, setNewPlantLocation] = useState('');
 
   // Catalog options for CajonesConfigModal dropdowns
   const [catalogMateriales, setCatalogMateriales] = useState<string[]>([]);
@@ -57,6 +61,53 @@ export function Settings() {
       updatePlant(updatedPlant);
       handleSave();
     }
+  };
+
+  const handleTogglePlantStatus = (plant: Plant) => {
+    const nextStatus = plant.isActive ? 'inactiva' : 'activa';
+    const confirmed = window.confirm(
+      `¿Confirmas cambiar la planta "${plant.name}" a estado ${nextStatus}?`
+    );
+    if (!confirmed) return;
+    togglePlantStatus(plant.id);
+    handleSave();
+  };
+
+  const handleCreatePlant = () => {
+    const name = newPlantName.trim();
+    const code = newPlantCode.trim().toUpperCase();
+    const location = newPlantLocation.trim();
+
+    if (!name || !code || !location) {
+      window.alert('Completa nombre, código y ubicación para agregar la planta.');
+      return;
+    }
+
+    const duplicatedCode = allPlants.some((p) => p.code.toUpperCase() === code);
+    if (duplicatedCode) {
+      window.alert(`Ya existe una planta con el código "${code}".`);
+      return;
+    }
+
+    createPlant({
+      name,
+      code,
+      location,
+      methods: {
+        hasConeMeasurement: true,
+        hasCajonMeasurement: true,
+      },
+      cajones: [],
+      silos: [],
+      pettyCashEstablished: 0,
+      isActive: true,
+    });
+
+    setNewPlantName('');
+    setNewPlantCode('');
+    setNewPlantLocation('');
+    setShowCreatePlantModal(false);
+    handleSave();
   };
 
   if (user?.role !== 'admin' && user?.role !== 'super_admin') {
@@ -175,8 +226,10 @@ export function Settings() {
         <div className="space-y-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
-            {user?.role === 'super_admin' && (
-              <Button variant="secondary">+ Nueva Planta</Button>
+            {(user?.role === 'super_admin' || user?.role === 'admin') && (
+              <Button variant="secondary" onClick={() => setShowCreatePlantModal(true)}>
+                + Agregar Planta
+              </Button>
             )}
           </div>
 
@@ -186,7 +239,6 @@ export function Settings() {
                 <tr>
                   <th className="px-6 py-3 text-left">Nombre</th>
                   <th className="px-6 py-3 text-left">Código</th>
-                  <th className="px-6 py-3 text-left">Ubicación</th>
                   <th className="px-6 py-3 text-center">Silos</th>
                   <th className="px-6 py-3 text-center">Cajones</th>
                   <th className="px-6 py-3 text-center">Estado</th>
@@ -198,7 +250,6 @@ export function Settings() {
                   <tr key={plant.id} className="border-b border-[#9D9B9A]">
                     <td className="px-6 py-4 text-[#3B3A36] font-medium">{plant.name}</td>
                     <td className="px-6 py-4 text-[#5F6773]">{plant.code}</td>
-                    <td className="px-6 py-4 text-[#5F6773]">{plant.location}</td>
                     <td className="px-6 py-4 text-center text-[#3B3A36]">
                       {plant.silos.length}
                     </td>
@@ -209,7 +260,7 @@ export function Settings() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button
-                        onClick={() => togglePlantStatus(plant.id)}
+                        onClick={() => handleTogglePlantStatus(plant)}
                         className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                           plant.isActive
                             ? 'bg-[#2ecc71]/10 text-[#2ecc71] hover:bg-[#2ecc71]/20'
@@ -438,6 +489,66 @@ export function Settings() {
             setTimeout(() => setShowSaveSuccess(false), 3000);
           }}
         />
+      )}
+
+      {/* Create Plant Modal */}
+      {showCreatePlantModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-[#E4E4E4]">
+              <h3 className="text-xl font-bold text-[#3B3A36]">Agregar Planta</h3>
+              <p className="text-sm text-[#5F6773] mt-1">Completa los datos para crear una nueva planta</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm text-[#3B3A36] mb-1">Nombre</label>
+                <input
+                  value={newPlantName}
+                  onChange={(e) => setNewPlantName(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]/30"
+                  placeholder="Ej: Bayamón"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-[#3B3A36] mb-1">Código</label>
+                <input
+                  value={newPlantCode}
+                  onChange={(e) => setNewPlantCode(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]/30"
+                  placeholder="Ej: BAYAMON"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-[#3B3A36] mb-1">Ubicación</label>
+                <input
+                  value={newPlantLocation}
+                  onChange={(e) => setNewPlantLocation(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]/30"
+                  placeholder="Ej: Puerto Rico"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex gap-3">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => {
+                  setShowCreatePlantModal(false);
+                  setNewPlantName('');
+                  setNewPlantCode('');
+                  setNewPlantLocation('');
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={handleCreatePlant}>
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* Build Version Footer */}
