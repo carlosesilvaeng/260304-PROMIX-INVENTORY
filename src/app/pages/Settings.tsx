@@ -18,8 +18,8 @@ import { getMateriales, getProcedencias } from '../utils/api';
 import type { Plant, CajonConfig } from '../types';
 
 // Build Version - Update manually when deploying
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
-const BUILD_VERSION = '2603011900';
+// Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
+const BUILD_VERSION = '2603042146';
 
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant } = useAuth();

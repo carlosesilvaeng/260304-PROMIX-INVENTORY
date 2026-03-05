@@ -1,5 +1,5 @@
 -- ============================================================================
--- MIGRATION: REMOVE LEGACY "_02205af0" TABLE SUFFIX
+-- MIGRATION: RENAME LEGACY DEMO-SUFFIX TABLES TO STANDARD NAMES
 -- ============================================================================
 -- Run this in Supabase SQL Editor once, before deploying the updated Edge Function.
 -- It preserves all existing data by renaming tables in-place.

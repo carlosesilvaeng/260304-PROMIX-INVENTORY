@@ -8,8 +8,8 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2602182000';
-// Format: YYMMDDHHMI (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
+const BUILD_VERSION = '2603042146';
+// Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
 
 interface InitialSetupProps {
   onSetupComplete: () => void;

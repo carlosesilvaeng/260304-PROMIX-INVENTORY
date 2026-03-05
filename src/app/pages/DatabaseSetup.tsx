@@ -7,9 +7,9 @@ import { PromixLogo } from '../components/PromixLogo';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { initializeDatabase, seedPlantConfigurations, clearAllConfigurations, reloadSchemaCache } from '../utils/api';
 
-// Build Version - Format: YYMMDDHHMI (GMT-5 Puerto Rico Time)
+// Build Version - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
 // 26/02/18 20:00 = February 18, 2026 at 8:00 PM
-const BUILD_VERSION = '2602182000';
+const BUILD_VERSION = '2603042146';
 
 interface SetupState {
   loading: boolean;

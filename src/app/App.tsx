@@ -64,9 +64,9 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 // Key para forzar remount durante desarrollo
 const APP_KEY = Date.now();
 
-// Build version for tracking - Format: YYMMDDHHMI (GMT-5 Puerto Rico Time)
+// Build version for tracking - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
 // 26/02/18 20:00 = February 18, 2026 at 8:00 PM
-const BUILD_VERSION = '2602182000';
+const BUILD_VERSION = '2603042146';
 
 function AppContent() {
   const { user, currentPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
