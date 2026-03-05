@@ -3,7 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 // ============================================================================
 // AUTHENTICATION SERVICE
 // ============================================================================
-// Maneja autenticación de usuarios con Supabase Auth y tabla users_02205af0
+// Maneja autenticación de usuarios con Supabase Auth y tabla users
 
 const getSupabaseClient = () => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -127,7 +127,7 @@ export async function verifyToken(accessToken: string): Promise<{ user: User | n
     // Get full user data from our users table
     const supabase = getSupabaseClient();
     const { data: userData, error: userError } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('*')
       .eq('auth_user_id', authUser.id)
       .single();
@@ -176,7 +176,7 @@ export async function login({ email, password }: LoginRequest): Promise<LoginRes
     // Get user data from our table
     const supabase = getSupabaseClient();
     const { data: userData, error: userError } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('*')
       .eq('auth_user_id', authData.user.id)
       .single();
@@ -193,7 +193,7 @@ export async function login({ email, password }: LoginRequest): Promise<LoginRes
     
     // Update last login
     await supabase
-      .from('users_02205af0')
+      .from('users')
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', userData.id);
     
@@ -223,7 +223,7 @@ export async function signup(data: SignupData): Promise<AuthResult> {
     
     // Check if user already exists
     const { data: existingUser } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('id')
       .eq('email', data.email)
       .single();
@@ -246,7 +246,7 @@ export async function signup(data: SignupData): Promise<AuthResult> {
     
     // Create user in our table
     const { data: userData, error: userError } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .insert({
         name: data.name,
         email: data.email,
@@ -290,7 +290,7 @@ export async function getAllUsers(requestingUserId: string): Promise<{ success: 
     
     // Get requesting user's role
     const { data: requestingUser } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('role')
       .eq('id', requestingUserId)
       .single();
@@ -301,7 +301,7 @@ export async function getAllUsers(requestingUserId: string): Promise<{ success: 
     
     // Get all users
     const { data: users, error } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -330,7 +330,7 @@ export async function updateUser(
     
     // Get requesting user's role
     const { data: requestingUser } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('role')
       .eq('id', requestingUserId)
       .single();
@@ -341,7 +341,7 @@ export async function updateUser(
     
     // Update user
     const { data: updatedUser, error } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
@@ -374,7 +374,7 @@ export async function deleteUser(
     
     // Get requesting user's role
     const { data: requestingUser } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('role')
       .eq('id', requestingUserId)
       .single();
@@ -385,7 +385,7 @@ export async function deleteUser(
     
     // Get user to delete
     const { data: userToDelete } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('auth_user_id')
       .eq('id', userId)
       .single();
@@ -396,7 +396,7 @@ export async function deleteUser(
     
     // Delete from our table
     const { error: deleteError } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .delete()
       .eq('id', userId);
     
@@ -484,7 +484,7 @@ export async function isFirstTimeSetup(): Promise<boolean> {
     const supabase = getSupabaseClient();
     
     const { data: users, error } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('id')
       .limit(1);
     

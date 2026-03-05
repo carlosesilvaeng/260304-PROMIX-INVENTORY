@@ -78,7 +78,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Plants are loaded from the API (plants_02205af0 table) after authentication.
+// Plants are loaded from the API (plants table) after authentication.
 
 // ============================================================================
 // API HELPER

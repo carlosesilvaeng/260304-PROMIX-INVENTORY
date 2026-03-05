@@ -99,7 +99,7 @@ export async function seedPlantConfigurations() {
       // 1. Petty Cash Configuration
       const pettyCashAmount = PETTY_CASH_BY_PLANT[plantId] || 1000.00;
       await supabase
-        .from('plant_petty_cash_config_02205af0')
+        .from('plant_petty_cash_config')
         .upsert({
           id: `${plantId}_petty_cash`,
           plant_id: plantId,
@@ -115,7 +115,7 @@ export async function seedPlantConfigurations() {
       
       // Create diesel calibration curve
       await supabase
-        .from('calibration_curves_02205af0')
+        .from('calibration_curves')
         .upsert({
           id: dieselCurveId,
           plant_id: plantId,
@@ -139,7 +139,7 @@ export async function seedPlantConfigurations() {
       
       // 3. Seed Diesel Configuration
       const { error: dieselError } = await supabase
-        .from('plant_diesel_config_02205af0')
+        .from('plant_diesel_config')
         .upsert({
           plant_id: plantId,
           measurement_method: 'INCHES_TO_GALLONS',
@@ -162,7 +162,7 @@ export async function seedPlantConfigurations() {
         const silo = DEFAULT_SILOS[i];
         
         const { data: siloData, error: siloError } = await supabase
-          .from('plant_silos_config_02205af0')
+          .from('plant_silos_config')
           .upsert({
             plant_id: plantId,
             silo_name: silo.silo_name,
@@ -190,7 +190,7 @@ export async function seedPlantConfigurations() {
           }));
           
           const { error: productsError } = await supabase
-            .from('silo_allowed_products_02205af0')
+            .from('silo_allowed_products')
             .upsert(allowedProducts, {
               onConflict: 'silo_config_id,product_name',
               ignoreDuplicates: false
@@ -209,7 +209,7 @@ export async function seedPlantConfigurations() {
         const agg = DEFAULT_AGGREGATES[i];
         
         const { error: aggError } = await supabase
-          .from('plant_aggregates_config_02205af0')
+          .from('plant_aggregates_config')
           .upsert({
             plant_id: plantId,
             aggregate_name: agg.aggregate_name,
@@ -271,7 +271,7 @@ Las columnas necesarias NO existen en las tablas de configuración.
         
         // Create calibration curve for additive
         await supabase
-          .from('calibration_curves_02205af0')
+          .from('calibration_curves')
           .upsert({
             id: curveName,
             plant_id: plantId,
@@ -291,7 +291,7 @@ Las columnas necesarias NO existen en las tablas de configuración.
           });
         
         const { error: additiveError } = await supabase
-          .from('plant_additives_config_02205af0')
+          .from('plant_additives_config')
           .upsert({
             plant_id: plantId,
             additive_name: additive.additive_name,
@@ -316,7 +316,7 @@ Las columnas necesarias NO existen en las tablas de configuración.
         const product = DEFAULT_PRODUCTS[i];
         
         const { error: productError } = await supabase
-          .from('plant_products_config_02205af0')
+          .from('plant_products_config')
           .upsert({
             plant_id: plantId,
             product_name: product.product_name,
@@ -340,7 +340,7 @@ Las columnas necesarias NO existen en las tablas de configuración.
         const meter = DEFAULT_UTILITIES[i];
         
         const { error: meterError } = await supabase
-          .from('plant_utilities_meters_config_02205af0')
+          .from('plant_utilities_meters_config')
           .upsert({
             plant_id: plantId,
             meter_type: meter.meter_type,
@@ -380,15 +380,15 @@ export async function clearAllConfigurations() {
   console.log('⚠️  Clearing all plant configurations...');
   
   // Delete in reverse order of dependencies
-  await supabase.from('silo_allowed_products_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_utilities_meters_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_products_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_additives_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_diesel_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_silos_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_aggregates_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('plant_petty_cash_config_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await supabase.from('calibration_curves_02205af0').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('silo_allowed_products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_utilities_meters_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_products_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_additives_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_diesel_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_silos_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_aggregates_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('plant_petty_cash_config').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  await supabase.from('calibration_curves').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   
   console.log('✅ All configurations cleared!');
 }
@@ -446,7 +446,7 @@ export async function seedTestUsers() {
       
       // Check if user already exists in users table
       const { data: existingUser } = await supabase
-        .from('users_02205af0')
+        .from('users')
         .select('id, email, auth_user_id')
         .eq('email', userData.email)
         .single();
@@ -465,7 +465,7 @@ export async function seedTestUsers() {
         
         // If no auth user, delete the incomplete record and recreate
         console.log(`  🔧 Cleaning up incomplete user record...`);
-        await supabase.from('users_02205af0').delete().eq('id', existingUser.id);
+        await supabase.from('users').delete().eq('id', existingUser.id);
       }
       
       // Create auth user
@@ -493,7 +493,7 @@ export async function seedTestUsers() {
           if (authUser) {
             // Create user record with existing auth ID
             const { data: newUser, error: userError } = await supabase
-              .from('users_02205af0')
+              .from('users')
               .insert({
                 name: userData.name,
                 email: userData.email,
@@ -526,7 +526,7 @@ export async function seedTestUsers() {
       
       // Create user in users table
       const { data: newUser, error: userError } = await supabase
-        .from('users_02205af0')
+        .from('users')
         .insert({
           name: userData.name,
           email: userData.email,

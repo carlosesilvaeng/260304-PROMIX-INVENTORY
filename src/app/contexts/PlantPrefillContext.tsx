@@ -305,7 +305,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         _isNew: true,
       }));
 
-    // PETTY CASH: Single entry — use DB value (plants_02205af0.petty_cash_established)
+    // PETTY CASH: Single entry — use DB value (plants.petty_cash_established)
     // Fallback to local pettyCashConfig.ts if plant not yet loaded
     const plantFromDB = allPlants.find(p => p.id === config.plant_id);
     const localPettyCashConfig = getPettyCashConfig(config.plant_id || '');

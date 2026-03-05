@@ -145,7 +145,7 @@ function logAudit(supabase: any, entry: {
   inventory_month_id?: string | null;
   details?: any;
 }) {
-  supabase.from('audit_logs_02205af0').insert({
+  supabase.from('audit_logs').insert({
     ...entry,
     timestamp: new Date().toISOString(),
   }).then(() => {}).catch((e: any) => {
@@ -288,7 +288,7 @@ app.get("/make-server-02205af0/auth/check-first-time", async (c) => {
     
     // Count total users
     const { count, error } = await supabase
-      .from('users_02205af0')
+      .from('users')
       .select('id', { count: 'exact', head: true });
     
     if (error) {
@@ -586,7 +586,7 @@ app.get("/make-server-02205af0/plants", async (c) => {
     const supabase = db.getSupabaseClient();
 
     let query = supabase
-      .from('plants_02205af0')
+      .from('plants')
       .select('*')
       .order('name');
 
@@ -600,7 +600,7 @@ app.get("/make-server-02205af0/plants", async (c) => {
 
     // Fetch silos for all plants from the config table (source of truth)
     const { data: allSilos } = await supabase
-      .from('plant_silos_config_02205af0')
+      .from('plant_silos_config')
       .select('plant_id, id, silo_name, is_active, sort_order')
       .order('sort_order', { ascending: true });
 
@@ -641,7 +641,7 @@ app.put("/make-server-02205af0/plants/:plantId", async (c) => {
     update['updated_at'] = new Date().toISOString();
 
     const { data, error } = await supabase
-      .from('plants_02205af0')
+      .from('plants')
       .update(update)
       .eq('id', plantId)
       .select()
@@ -671,7 +671,7 @@ app.get("/make-server-02205af0/plants/:plantId/silos", async (c) => {
     const { plantId } = c.req.param();
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('plant_silos_config_02205af0')
+      .from('plant_silos_config')
       .select('id, silo_name, is_active, sort_order')
       .eq('plant_id', plantId)
       .order('sort_order', { ascending: true });
@@ -698,7 +698,7 @@ app.put("/make-server-02205af0/plants/:plantId/silos", async (c) => {
 
     // Detect default calibration curve for this plant (SILO*)
     const { data: curves } = await supabase
-      .from('calibration_curves_02205af0')
+      .from('calibration_curves')
       .select('curve_name')
       .eq('plant_id', plantId)
       .ilike('curve_name', 'SILO%')
@@ -707,7 +707,7 @@ app.put("/make-server-02205af0/plants/:plantId/silos", async (c) => {
 
     // Delete all existing silos for the plant
     const { error: delError } = await supabase
-      .from('plant_silos_config_02205af0')
+      .from('plant_silos_config')
       .delete()
       .eq('plant_id', plantId);
     if (delError) throw delError;
@@ -723,7 +723,7 @@ app.put("/make-server-02205af0/plants/:plantId/silos", async (c) => {
         is_active: s.is_active ?? true,
       }));
       const { error: insError } = await supabase
-        .from('plant_silos_config_02205af0')
+        .from('plant_silos_config')
         .insert(rows);
       if (insError) throw insError;
     }
@@ -753,7 +753,7 @@ app.post("/make-server-02205af0/inventory/month", async (c) => {
 
     // Check if it already exists before creating
     const { data: existing } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('id')
       .eq('plant_id', plant_id)
       .eq('year_month', year_month)
@@ -903,7 +903,7 @@ app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
     }
     
     // Delete existing entries for this inventory month
-    await supabase.from('inventory_aggregates_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
+    await supabase.from('inventory_aggregates_entries').delete().eq('inventory_month_id', inventory_month_id);
 
     // Whitelist only DB columns (strips frontend-only fields like _isNew, etc.)
     const dbEntries = entries.map((e: any) => ({
@@ -932,7 +932,7 @@ app.post("/make-server-02205af0/inventory/aggregates", async (c) => {
     }));
 
     // Insert new entries
-    const { data, error } = await supabase.from('inventory_aggregates_entries_02205af0').insert(dbEntries).select();
+    const { data, error } = await supabase.from('inventory_aggregates_entries').insert(dbEntries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'aggregates' } });
@@ -954,8 +954,8 @@ app.post("/make-server-02205af0/inventory/silos", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_silos_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_silos_entries_02205af0').insert(entries).select();
+    await supabase.from('inventory_silos_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { data, error } = await supabase.from('inventory_silos_entries').insert(entries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'silos' } });
@@ -977,8 +977,8 @@ app.post("/make-server-02205af0/inventory/additives", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_additives_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_additives_entries_02205af0').insert(entries).select();
+    await supabase.from('inventory_additives_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { data, error } = await supabase.from('inventory_additives_entries').insert(entries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'additives' } });
@@ -1000,8 +1000,8 @@ app.post("/make-server-02205af0/inventory/diesel", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_diesel_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_diesel_entries_02205af0').insert(entry).select().single();
+    await supabase.from('inventory_diesel_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { data, error } = await supabase.from('inventory_diesel_entries').insert(entry).select().single();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'diesel' } });
@@ -1023,8 +1023,8 @@ app.post("/make-server-02205af0/inventory/products", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_products_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_products_entries_02205af0').insert(entries).select();
+    await supabase.from('inventory_products_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { data, error } = await supabase.from('inventory_products_entries').insert(entries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'products' } });
@@ -1046,8 +1046,8 @@ app.post("/make-server-02205af0/inventory/utilities", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
     
-    await supabase.from('inventory_utilities_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_utilities_entries_02205af0').insert(entries).select();
+    await supabase.from('inventory_utilities_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { data, error } = await supabase.from('inventory_utilities_entries').insert(entries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'utilities' } });
@@ -1069,8 +1069,8 @@ app.post("/make-server-02205af0/inventory/petty-cash", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
     
-    await supabase.from('inventory_petty_cash_entries_02205af0').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_petty_cash_entries_02205af0').insert(entry).select().single();
+    await supabase.from('inventory_petty_cash_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { data, error } = await supabase.from('inventory_petty_cash_entries').insert(entry).select().single();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'petty-cash' } });
@@ -1098,7 +1098,7 @@ app.post("/make-server-02205af0/inventory/save-draft", async (c) => {
     
     // Just update the updated_at timestamp
     const { data, error } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', inventory_month_id)
       .select()
@@ -1127,7 +1127,7 @@ app.post("/make-server-02205af0/inventory/submit", async (c) => {
     
     // Get current inventory month
     const { data: currentMonth, error: fetchError } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('*')
       .eq('id', inventory_month_id)
       .single();
@@ -1144,7 +1144,7 @@ app.post("/make-server-02205af0/inventory/submit", async (c) => {
     
     // Update status to SUBMITTED
     const { data, error } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .update({ 
         status: 'SUBMITTED',
         submitted_by: submitted_by,
@@ -1196,7 +1196,7 @@ app.post("/make-server-02205af0/inventory/approve", async (c) => {
     
     // Get current inventory month
     const { data: currentMonth, error: fetchError } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('*')
       .eq('id', inventory_month_id)
       .single();
@@ -1224,7 +1224,7 @@ app.post("/make-server-02205af0/inventory/approve", async (c) => {
     }
     
     const { data, error } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .update(updateData)
       .eq('id', inventory_month_id)
       .select()
@@ -1270,7 +1270,7 @@ app.post("/make-server-02205af0/inventory/reject", async (c) => {
     
     // Get current inventory month
     const { data: currentMonth, error: fetchError } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('*')
       .eq('id', inventory_month_id)
       .single();
@@ -1287,7 +1287,7 @@ app.post("/make-server-02205af0/inventory/reject", async (c) => {
     
     // Update status back to IN_PROGRESS
     const { data, error } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .update({ 
         status: 'IN_PROGRESS',
         rejected_by: rejected_by,
@@ -1332,7 +1332,7 @@ app.post("/make-server-02205af0/inventory/reject", async (c) => {
 app.get("/make-server-02205af0/modules/config", async (c) => {
   try {
     console.log('[MODULES] Fetching module configuration');
-    const config = await kv.get('module_config_02205af0');
+    const config = await kv.get('module_config');
     
     if (!config) {
       console.log('[MODULES] No configuration found, returning null');
@@ -1365,7 +1365,7 @@ app.post("/make-server-02205af0/modules/config", async (c) => {
     }
     
     // Save to KV store
-    await kv.set('module_config_02205af0', body);
+    await kv.set('module_config', body);
     
     console.log('[MODULES] Configuration updated successfully by', body.lastUpdatedBy);
     console.log('[MODULES] Enabled modules:', 
@@ -1393,7 +1393,7 @@ app.get("/make-server-02205af0/audit/flow", async (c) => {
     const plantIdFilter = c.req.query('plant_id');
 
     let query = supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
@@ -1422,7 +1422,7 @@ app.get("/make-server-02205af0/audit/logs", async (c) => {
     const limit = Math.min(parseInt(c.req.query('limit') || '100'), 500);
 
     let query = supabase
-      .from('audit_logs_02205af0')
+      .from('audit_logs')
       .select('*')
       .order('timestamp', { ascending: false })
       .limit(limit);
@@ -1456,7 +1456,7 @@ app.get("/make-server-02205af0/reports", async (c) => {
     const { year_month, plant_id } = c.req.query();
 
     let query = supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select(`
         id, plant_id, year_month, status,
         created_by, created_at, updated_at,
@@ -1493,7 +1493,7 @@ app.delete("/make-server-02205af0/reports/:id", requireAdmin, async (c) => {
 
     // Verify the report exists
     const { data: report, error: reportError } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('id, plant_id, year_month')
       .eq('id', reportId)
       .single();
@@ -1504,13 +1504,13 @@ app.delete("/make-server-02205af0/reports/:id", requireAdmin, async (c) => {
 
     // Collect photo_url values from all 7 child entry tables
     const childTables = [
-      'inventory_aggregates_entries_02205af0',
-      'inventory_silos_entries_02205af0',
-      'inventory_additives_entries_02205af0',
-      'inventory_diesel_entries_02205af0',
-      'inventory_products_entries_02205af0',
-      'inventory_utilities_entries_02205af0',
-      'inventory_petty_cash_entries_02205af0',
+      'inventory_aggregates_entries',
+      'inventory_silos_entries',
+      'inventory_additives_entries',
+      'inventory_diesel_entries',
+      'inventory_products_entries',
+      'inventory_utilities_entries',
+      'inventory_petty_cash_entries',
     ];
 
     const photoUrls: string[] = [];
@@ -1544,7 +1544,7 @@ app.delete("/make-server-02205af0/reports/:id", requireAdmin, async (c) => {
 
     // Delete the parent inventory_month record
     const { error: deleteError } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .delete()
       .eq('id', reportId);
 
@@ -1645,7 +1645,7 @@ app.get("/make-server-02205af0/catalogs/materiales", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('materiales_catalog_02205af0')
+      .from('materiales_catalog')
       .select('*')
       .eq('is_active', true)
       .order('sort_order');
@@ -1663,7 +1663,7 @@ app.post("/make-server-02205af0/catalogs/materiales", async (c) => {
     if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('materiales_catalog_02205af0')
+      .from('materiales_catalog')
       .insert({ nombre: nombre.trim(), clase: clase?.trim() ?? null })
       .select()
       .single();
@@ -1685,7 +1685,7 @@ app.put("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
     if (body.sort_order !== undefined) update.sort_order = body.sort_order;
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('materiales_catalog_02205af0')
+      .from('materiales_catalog')
       .update(update)
       .eq('id', id)
       .select()
@@ -1703,7 +1703,7 @@ app.delete("/make-server-02205af0/catalogs/materiales/:id", async (c) => {
     const id = c.req.param('id');
     const supabase = db.getSupabaseClient();
     const { error } = await supabase
-      .from('materiales_catalog_02205af0')
+      .from('materiales_catalog')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
@@ -1720,7 +1720,7 @@ app.get("/make-server-02205af0/catalogs/procedencias", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('procedencias_catalog_02205af0')
+      .from('procedencias_catalog')
       .select('*')
       .eq('is_active', true)
       .order('sort_order');
@@ -1738,7 +1738,7 @@ app.post("/make-server-02205af0/catalogs/procedencias", async (c) => {
     if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('procedencias_catalog_02205af0')
+      .from('procedencias_catalog')
       .insert({ nombre: nombre.trim() })
       .select()
       .single();
@@ -1759,7 +1759,7 @@ app.put("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
     if (body.sort_order !== undefined) update.sort_order = body.sort_order;
     const supabase = db.getSupabaseClient();
     const { data, error } = await supabase
-      .from('procedencias_catalog_02205af0')
+      .from('procedencias_catalog')
       .update(update)
       .eq('id', id)
       .select()
@@ -1777,7 +1777,7 @@ app.delete("/make-server-02205af0/catalogs/procedencias/:id", async (c) => {
     const id = c.req.param('id');
     const supabase = db.getSupabaseClient();
     const { error } = await supabase
-      .from('procedencias_catalog_02205af0')
+      .from('procedencias_catalog')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
@@ -1806,7 +1806,7 @@ app.get('/make-server-02205af0/photos/report', async (c) => {
 
     // ── Round 1: fetch inventory months (with optional filters) ──────────────
     let monthQuery = supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('id, plant_id, year_month, created_at')
       .order('created_at', { ascending: false })
       .limit(500);
@@ -1835,49 +1835,49 @@ app.get('/make-server-02205af0/photos/report', async (c) => {
       pettyCashRes,
     ] = await Promise.all([
       supabase
-        .from('inventory_aggregates_entries_02205af0')
+        .from('inventory_aggregates_entries')
         .select('id, inventory_month_id, aggregate_name, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
 
       supabase
-        .from('inventory_silos_entries_02205af0')
+        .from('inventory_silos_entries')
         .select('id, inventory_month_id, silo_config_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
 
       supabase
-        .from('inventory_additives_entries_02205af0')
+        .from('inventory_additives_entries')
         .select('id, inventory_month_id, additive_config_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
 
       supabase
-        .from('inventory_diesel_entries_02205af0')
+        .from('inventory_diesel_entries')
         .select('id, inventory_month_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
 
       supabase
-        .from('inventory_products_entries_02205af0')
+        .from('inventory_products_entries')
         .select('id, inventory_month_id, product_config_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
 
       supabase
-        .from('inventory_utilities_entries_02205af0')
+        .from('inventory_utilities_entries')
         .select('id, inventory_month_id, utility_config_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
 
       supabase
-        .from('inventory_petty_cash_entries_02205af0')
+        .from('inventory_petty_cash_entries')
         .select('id, inventory_month_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
@@ -1893,18 +1893,18 @@ app.get('/make-server-02205af0/photos/report', async (c) => {
     const utilConfigIds = [...new Set((utilitiesRes.data || []).map((e: any) => e.utility_config_id).filter(Boolean))];
 
     const [plantsRes, siloNamesRes, addNamesRes, prodNamesRes, utilNamesRes] = await Promise.all([
-      supabase.from('plants_02205af0').select('id, name').in('id', uniquePlantIds),
+      supabase.from('plants').select('id, name').in('id', uniquePlantIds),
       siloConfigIds.length
-        ? supabase.from('plant_silos_config_02205af0').select('id, silo_name').in('id', siloConfigIds)
+        ? supabase.from('plant_silos_config').select('id, silo_name').in('id', siloConfigIds)
         : Promise.resolve({ data: [] }),
       addConfigIds.length
-        ? supabase.from('plant_additives_config_02205af0').select('id, additive_name').in('id', addConfigIds)
+        ? supabase.from('plant_additives_config').select('id, additive_name').in('id', addConfigIds)
         : Promise.resolve({ data: [] }),
       prodConfigIds.length
-        ? supabase.from('plant_products_config_02205af0').select('id, product_name').in('id', prodConfigIds)
+        ? supabase.from('plant_products_config').select('id, product_name').in('id', prodConfigIds)
         : Promise.resolve({ data: [] }),
       utilConfigIds.length
-        ? supabase.from('plant_utilities_meters_config_02205af0').select('id, meter_name').in('id', utilConfigIds)
+        ? supabase.from('plant_utilities_meters_config').select('id, meter_name').in('id', utilConfigIds)
         : Promise.resolve({ data: [] }),
     ]);
 

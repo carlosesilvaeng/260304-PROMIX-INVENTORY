@@ -29,23 +29,23 @@ export async function initializeDatabaseSchema() {
     
     // Check if tables exist by attempting to query them
     const tablesToCheck = [
-      'calibration_curves_02205af0',
-      'plant_aggregates_config_02205af0',
-      'plant_silos_config_02205af0',
-      'silo_allowed_products_02205af0',
-      'plant_additives_config_02205af0',
-      'plant_diesel_config_02205af0',
-      'plant_products_config_02205af0',
-      'plant_utilities_meters_config_02205af0',
-      'plant_petty_cash_config_02205af0',
-      'inventory_month_02205af0',
-      'inventory_aggregates_entries_02205af0',
-      'inventory_silos_entries_02205af0',
-      'inventory_additives_entries_02205af0',
-      'inventory_diesel_entries_02205af0',
-      'inventory_products_entries_02205af0',
-      'inventory_utilities_entries_02205af0',
-      'inventory_petty_cash_entries_02205af0'
+      'calibration_curves',
+      'plant_aggregates_config',
+      'plant_silos_config',
+      'silo_allowed_products',
+      'plant_additives_config',
+      'plant_diesel_config',
+      'plant_products_config',
+      'plant_utilities_meters_config',
+      'plant_petty_cash_config',
+      'inventory_month',
+      'inventory_aggregates_entries',
+      'inventory_silos_entries',
+      'inventory_additives_entries',
+      'inventory_diesel_entries',
+      'inventory_products_entries',
+      'inventory_utilities_entries',
+      'inventory_petty_cash_entries'
     ];
     
     const results = [];
@@ -94,7 +94,7 @@ export async function getPlantConfigPackage(plantId: string) {
   try {
     console.log(`🔍 [getPlantConfigPackage] Starting fetch for plant: ${plantId}`);
     
-    // Fetch all configuration tables (CON sufijo _02205af0)
+    // Fetch all configuration tables
     const [
       aggregatesRes,
       silosRes,
@@ -104,13 +104,13 @@ export async function getPlantConfigPackage(plantId: string) {
       utilitiesRes,
       pettyCashRes
     ] = await Promise.all([
-      supabase.from('plant_aggregates_config_02205af0').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_silos_config_02205af0').select('*, silo_allowed_products_02205af0(product_name)').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_additives_config_02205af0').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_diesel_config_02205af0').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
-      supabase.from('plant_products_config_02205af0').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_utilities_meters_config_02205af0').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_petty_cash_config_02205af0').select('*').eq('plant_id', plantId).eq('is_active', true).single()
+      supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_silos_config').select('*, silo_allowed_products(product_name)').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
+      supabase.from('plant_products_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single()
     ]);
     
     console.log(`📊 [getPlantConfigPackage] Aggregates query result:`, {
@@ -137,7 +137,7 @@ export async function getPlantConfigPackage(plantId: string) {
     let calibration_curves = {};
     if (curveIds.size > 0) {
       const { data: curves } = await supabase
-        .from('calibration_curves_02205af0')
+        .from('calibration_curves')
         .select('*')
         .in('id', Array.from(curveIds));
       
@@ -150,7 +150,7 @@ export async function getPlantConfigPackage(plantId: string) {
     // Format silos with allowed products
     const silos = (silosRes.data || []).map(silo => ({
       ...silo,
-      allowed_products: silo.silo_allowed_products_02205af0?.map(p => p.product_name) || []
+      allowed_products: silo.silo_allowed_products?.map(p => p.product_name) || []
     }));
     
     return {
@@ -177,9 +177,9 @@ export async function getPlantConfigPackage(plantId: string) {
 export async function getOrCreateInventoryMonth(plantId: string, yearMonth: string, createdBy: string) {
   const supabase = getSupabaseClient();
   
-  // Try to get existing inventory month (CON sufijo _02205af0)
+  // Try to get existing inventory month
   const { data: existing } = await supabase
-    .from('inventory_month_02205af0')
+    .from('inventory_month')
     .select('*')
     .eq('plant_id', plantId)
     .eq('year_month', yearMonth)
@@ -191,7 +191,7 @@ export async function getOrCreateInventoryMonth(plantId: string, yearMonth: stri
   
   // Create new inventory month
   const { data: newMonth, error } = await supabase
-    .from('inventory_month_02205af0')
+    .from('inventory_month')
     .insert({
       plant_id: plantId,
       year_month: yearMonth,
@@ -219,14 +219,14 @@ export async function getInventoryMonthData(inventoryMonthId: string) {
       utilitiesRes,
       pettyCashRes
     ] = await Promise.all([
-      supabase.from('inventory_month_02205af0').select('*').eq('id', inventoryMonthId).single(),
-      supabase.from('inventory_aggregates_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_silos_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_additives_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_diesel_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId).single(),
-      supabase.from('inventory_products_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_utilities_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_petty_cash_entries_02205af0').select('*').eq('inventory_month_id', inventoryMonthId).single()
+      supabase.from('inventory_month').select('*').eq('id', inventoryMonthId).single(),
+      supabase.from('inventory_aggregates_entries').select('*').eq('inventory_month_id', inventoryMonthId),
+      supabase.from('inventory_silos_entries').select('*').eq('inventory_month_id', inventoryMonthId),
+      supabase.from('inventory_additives_entries').select('*').eq('inventory_month_id', inventoryMonthId),
+      supabase.from('inventory_diesel_entries').select('*').eq('inventory_month_id', inventoryMonthId).single(),
+      supabase.from('inventory_products_entries').select('*').eq('inventory_month_id', inventoryMonthId),
+      supabase.from('inventory_utilities_entries').select('*').eq('inventory_month_id', inventoryMonthId),
+      supabase.from('inventory_petty_cash_entries').select('*').eq('inventory_month_id', inventoryMonthId).single()
     ]);
     
     return {
@@ -260,7 +260,7 @@ export async function updateInventoryMonthStatus(
   }
   
   const { data, error } = await supabase
-    .from('inventory_month_02205af0')
+    .from('inventory_month')
     .update(updateData)
     .eq('id', inventoryMonthId)
     .select()
@@ -274,9 +274,9 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
   const supabase = getSupabaseClient();
   
   try {
-    // Get inventory month (CON sufijo _02205af0)
+    // Get inventory month
     const { data: month, error: monthError } = await supabase
-      .from('inventory_month_02205af0')
+      .from('inventory_month')
       .select('*')
       .eq('plant_id', plantId)
       .eq('year_month', yearMonth)
@@ -286,7 +286,7 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
       return null;
     }
     
-    // Get all entries for this month (CON sufijo _02205af0)
+    // Get all entries for this month
     const [
       silosRes,
       agregadosRes,
@@ -296,13 +296,13 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
       utilitiesRes,
       pettyCashRes
     ] = await Promise.all([
-      supabase.from('inventory_silos_entries_02205af0').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_aggregates_entries_02205af0').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_additives_entries_02205af0').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_diesel_entries_02205af0').select('*').eq('inventory_month_id', month.id).maybeSingle(),
-      supabase.from('inventory_products_entries_02205af0').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_utilities_entries_02205af0').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_petty_cash_entries_02205af0').select('*').eq('inventory_month_id', month.id).maybeSingle()
+      supabase.from('inventory_silos_entries').select('*').eq('inventory_month_id', month.id),
+      supabase.from('inventory_aggregates_entries').select('*').eq('inventory_month_id', month.id),
+      supabase.from('inventory_additives_entries').select('*').eq('inventory_month_id', month.id),
+      supabase.from('inventory_diesel_entries').select('*').eq('inventory_month_id', month.id).maybeSingle(),
+      supabase.from('inventory_products_entries').select('*').eq('inventory_month_id', month.id),
+      supabase.from('inventory_utilities_entries').select('*').eq('inventory_month_id', month.id),
+      supabase.from('inventory_petty_cash_entries').select('*').eq('inventory_month_id', month.id).maybeSingle()
     ]);
     
     return {
