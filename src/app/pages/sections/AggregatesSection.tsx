@@ -15,7 +15,7 @@ interface AggregatesSectionProps {
 export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const { currentPlant } = useAuth();
   const { t } = useLanguage();
-  const { prefillData, loadPlantData, updateEntry } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -24,14 +24,13 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   useEffect(() => {
     if (currentPlant) {
       console.log('[AggregatesSection] Loading data for plant:', currentPlant.id, currentPlant.name);
-      const now = new Date();
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const yearMonth = getCurrentYearMonth();
       console.log('[AggregatesSection] Year-Month:', yearMonth);
       loadPlantData(currentPlant.id, yearMonth);
     } else {
       console.warn('[AggregatesSection] No currentPlant available');
     }
-  }, [currentPlant, loadPlantData]);
+  }, [currentPlant, loadPlantData, getCurrentYearMonth]);
 
   // Show loading state
   if (prefillData.loading) {
@@ -75,8 +74,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                 <Button
                   onClick={() => {
                     if (currentPlant) {
-                      const now = new Date();
-                      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                      const yearMonth = getCurrentYearMonth();
                       loadPlantData(currentPlant.id, yearMonth);
                     }
                   }}

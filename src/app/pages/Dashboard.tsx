@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useInventory } from '../contexts/InventoryContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useModules } from '../contexts/ModulesContext';
+import { usePlantPrefill } from '../contexts/PlantPrefillContext';
 import { getSectionTranslation } from '../utils/sectionTranslations';
 import { PromixLogo } from '../components/PromixLogo';
 
@@ -17,6 +18,28 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { currentInventory, initializeInventory } = useInventory();
   const { t, language } = useLanguage();
   const { isModuleEnabled } = useModules();
+  const { setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
+  const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
+
+  const getYearMonthFromDate = (date: Date): string => (
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  );
+
+  const startMonthOptions = React.useMemo(() => {
+    const options: Array<{ value: string; label: string }> = [];
+    for (let i = 0; i <= 3; i += 1) {
+      const date = new Date();
+      date.setDate(1);
+      date.setMonth(date.getMonth() - i);
+      const value = getYearMonthFromDate(date);
+      const label = date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
+        month: 'long',
+        year: 'numeric',
+      });
+      options.push({ value, label });
+    }
+    return options;
+  }, [language]);
 
   // Mapeo de IDs de sección a claves de módulo
   const sectionToModuleKey = (sectionId: string): string | null => {
@@ -45,7 +68,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         : user.role === 'admin' 
           ? t('role.admin')
           : t('role.plantManager');
-      initializeInventory(currentPlant.id, user.name, roleLabel);
+      const targetMonth = user.role === 'plant_manager' ? selectedStartMonth : getYearMonthFromDate(new Date());
+      setSelectedYearMonth(targetMonth);
+      initializeInventory(currentPlant.id, user.name, roleLabel, targetMonth);
+      loadPlantData(currentPlant.id, targetMonth);
     }
   };
 
@@ -153,9 +179,35 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <p className="text-[#5F6773] mb-6">
                 {t('dashboard.noInventory')} {currentPlant?.name}
               </p>
+              {user?.role === 'plant_manager' && (
+                <div className="max-w-md mx-auto mb-6 text-left">
+                  <label htmlFor="start-month" className="block text-sm font-semibold text-[#3B3A36] mb-2">
+                    Período de inventario
+                  </label>
+                  <select
+                    id="start-month"
+                    value={selectedStartMonth}
+                    onChange={(e) => setSelectedStartMonth(e.target.value)}
+                    className="w-full rounded-md border border-[#9D9B9A] bg-white px-3 py-2 text-[#3B3A36]"
+                  >
+                    {startMonthOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-[#5F6773] mt-2">
+                    Puedes iniciar inventario del mes actual o hasta 3 periodos atrás.
+                  </p>
+                </div>
+              )}
             </div>
             <Button size="lg" onClick={handleStartInventory}>
-              {t('dashboard.startInventoryOf')} {new Date().toLocaleString(language === 'es' ? 'es' : 'en', { month: 'long' })} {new Date().getFullYear()}
+              {t('dashboard.startInventoryOf')}{' '}
+              {new Date((selectedStartMonth || getYearMonthFromDate(new Date())) + '-01T12:00:00').toLocaleDateString(
+                language === 'es' ? 'es-ES' : 'en-US',
+                { month: 'long', year: 'numeric' }
+              )}
             </Button>
           </Card>
         </div>

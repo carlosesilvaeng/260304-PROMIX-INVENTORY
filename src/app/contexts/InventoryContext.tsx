@@ -108,7 +108,7 @@ export interface InventoryData {
 
 interface InventoryContextType {
   currentInventory: InventoryData | null;
-  initializeInventory: (plantId: string, userName: string, userRole: string) => void;
+  initializeInventory: (plantId: string, userName: string, userRole: string, yearMonth?: string) => void;
   updateSection: (sectionId: string, status: SectionStatus, progress: number) => void;
   updateAggregates: (aggregates: Aggregate[]) => void;
   updateSilos: (silos: Silo[]) => void;
@@ -156,13 +156,14 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentInventory]);
 
-  const initializeInventory = (plantId: string, userName: string, userRole: string) => {
+  const initializeInventory = (plantId: string, userName: string, userRole: string, yearMonth?: string) => {
     const now = new Date();
+    const targetDate = yearMonth ? new Date(`${yearMonth}-01T12:00:00`) : now;
     const inventory: InventoryData = {
       id: `inv-${Date.now()}`,
       plantId,
-      month: now.toLocaleString('es', { month: 'long' }),
-      year: now.getFullYear(),
+      month: targetDate.toLocaleString('es', { month: 'long' }),
+      year: targetDate.getFullYear(),
       startTimestamp: now,
       endTimestamp: null,
       status: 'in-progress',

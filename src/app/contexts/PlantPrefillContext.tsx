@@ -43,6 +43,9 @@ export interface PrefillData {
 interface PlantPrefillContextType {
   prefillData: PrefillData;
   loadPlantData: (plantId: string, yearMonth: string) => Promise<void>;
+  currentYearMonth: string;
+  setSelectedYearMonth: (yearMonth: string) => void;
+  getCurrentYearMonth: () => string;
   refreshData: () => Promise<void>;
   updateEntry: (section: string, entryId: string, data: any) => void;
 }
@@ -74,6 +77,18 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
 
   const { allPlants } = useAuth();
+
+  const getYearMonthFromDate = (date: Date): string => (
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  );
+
+  const getCurrentYearMonth = useCallback((): string => {
+    return currentYearMonth || getYearMonthFromDate(new Date());
+  }, [currentYearMonth]);
+
+  const setSelectedYearMonth = useCallback((yearMonth: string) => {
+    setCurrentYearMonth(yearMonth);
+  }, []);
 
   // ============================================================================
   // HELPER: Calculate previous month
@@ -666,6 +681,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       value={{
         prefillData,
         loadPlantData,
+        currentYearMonth: getCurrentYearMonth(),
+        setSelectedYearMonth,
+        getCurrentYearMonth,
         refreshData,
         updateEntry,
       }}

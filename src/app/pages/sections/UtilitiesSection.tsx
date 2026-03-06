@@ -15,7 +15,7 @@ import { saveUtilitiesEntries } from '../../utils/api';
 
 export function UtilitiesSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -24,14 +24,13 @@ export function UtilitiesSection() {
   useEffect(() => {
     if (currentPlant) {
       console.log('[UtilitiesSection] Loading data for plant:', currentPlant.id, currentPlant.name);
-      const now = new Date();
-      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const yearMonth = getCurrentYearMonth();
       console.log('[UtilitiesSection] Year-Month:', yearMonth);
       loadPlantData(currentPlant.id, yearMonth);
     } else {
       console.warn('[UtilitiesSection] No currentPlant available');
     }
-  }, [currentPlant, loadPlantData]);
+  }, [currentPlant, loadPlantData, getCurrentYearMonth]);
 
   // Show loading state
   if (prefillData.loading) {
@@ -67,8 +66,7 @@ export function UtilitiesSection() {
                 <Button
                   onClick={() => {
                     if (currentPlant) {
-                      const now = new Date();
-                      const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                      const yearMonth = getCurrentYearMonth();
                       loadPlantData(currentPlant.id, yearMonth);
                     }
                   }}
@@ -146,8 +144,7 @@ export function UtilitiesSection() {
         setSaveMessage({ type: 'success', text: '✓ Utilidades guardadas exitosamente' });
         // Reload data to get fresh IDs from database
         if (currentPlant) {
-          const now = new Date();
-          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const yearMonth = getCurrentYearMonth();
           await loadPlantData(currentPlant.id, yearMonth);
         }
       } else {

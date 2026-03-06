@@ -21,7 +21,7 @@ interface ReviewAndApproveSectionProps {
 
 export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSectionProps) {
   const { user, currentPlant } = useAuth();
-  const { prefillData, loadPlantData } = usePlantPrefill();
+  const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   
   const [validation, setValidation] = useState<OverallValidationResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -35,15 +35,14 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
   // Load data when component mounts — supports reportContext (from Reports "Ver" button) or falls back to currentPlant + current month
   useEffect(() => {
     const targetPlantId = reportContext?.plantId ?? currentPlant?.id;
-    const now = new Date();
-    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentYearMonth = getCurrentYearMonth();
     const targetYearMonth = reportContext?.yearMonth ?? currentYearMonth;
 
     if (targetPlantId) {
       console.log('[ReviewAndApprove] Loading data for plant:', targetPlantId, targetYearMonth);
       loadPlantData(targetPlantId, targetYearMonth);
     }
-  }, [currentPlant, reportContext, loadPlantData]);
+  }, [currentPlant, reportContext, loadPlantData, getCurrentYearMonth]);
 
   // Run validation whenever prefillData changes
   useEffect(() => {
@@ -122,8 +121,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
         });
         // Reload data to reflect new status
         if (currentPlant) {
-          const now = new Date();
-          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const yearMonth = getCurrentYearMonth();
           await loadPlantData(currentPlant.id, yearMonth);
         }
       } else {
@@ -168,8 +166,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
         });
         // Reload data to reflect new status
         if (currentPlant) {
-          const now = new Date();
-          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const yearMonth = getCurrentYearMonth();
           await loadPlantData(currentPlant.id, yearMonth);
         }
       } else {
@@ -217,8 +214,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
         setRejectionNotes('');
         // Reload data to reflect new status
         if (currentPlant) {
-          const now = new Date();
-          const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const yearMonth = getCurrentYearMonth();
           await loadPlantData(currentPlant.id, yearMonth);
         }
       } else {
