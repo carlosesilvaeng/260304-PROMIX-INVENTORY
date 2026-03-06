@@ -331,7 +331,7 @@ export async function exportToPDF(
   token: string,
   generatedBy: string = 'Sistema',
   options: PdfExportOptions = {},
-): Promise<void> {
+): Promise<string | void> {
   const { mode = 'download', fileName } = options;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -477,15 +477,7 @@ export async function exportToPDF(
   if (mode === 'preview') {
     const blob = doc.output('blob');
     const blobUrl = URL.createObjectURL(blob);
-    const previewWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
-
-    if (!previewWindow) {
-      URL.revokeObjectURL(blobUrl);
-      throw new Error('El navegador bloqueó la previsualización del PDF');
-    }
-
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-    return;
+    return blobUrl;
   }
 
   doc.save(resolvedFileName);

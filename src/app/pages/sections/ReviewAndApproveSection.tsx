@@ -23,6 +23,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
   const { user, currentPlant, allPlants } = useAuth();
   const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const normalizedRole = String(user?.role || '').toLowerCase();
+  const userDisplayName = user?.name || user?.email || user?.id || 'Usuario';
   
   const [validation, setValidation] = useState<OverallValidationResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -112,7 +113,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
     try {
       const response = await submitInventoryForApproval(
         prefillData.inventoryMonth.id,
-        user.id
+        userDisplayName
       );
 
       if (response.success) {
@@ -157,7 +158,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
     try {
       const response = await approveInventory(
         prefillData.inventoryMonth.id,
-        user.id
+        userDisplayName
       );
 
       if (response.success) {
@@ -202,7 +203,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
     try {
       const response = await rejectInventory(
         prefillData.inventoryMonth.id,
-        user.id,
+        userDisplayName,
         rejectionNotes
       );
 
@@ -384,6 +385,24 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
                 <p className="text-sm text-orange-800">
                   Este inventario ha sido {isSubmitted ? 'enviado a aprobación' : 'aprobado'} y no puede ser editado.
                   {canReject && ' Como aprobador, puedes rechazarlo para permitir ediciones.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {isInProgress && (normalizedRole === 'admin' || normalizedRole === 'super_admin') && (
+        <Card className="bg-blue-50 border-blue-300">
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">ℹ️</div>
+              <div>
+                <h3 className="text-lg font-bold text-blue-900 mb-1">
+                  Aún no se puede aprobar
+                </h3>
+                <p className="text-sm text-blue-800">
+                  Este inventario sigue en estado "En Progreso". El gerente de planta debe enviarlo a aprobación para que aparezca el botón de aprobar o rechazar.
                 </p>
               </div>
             </div>

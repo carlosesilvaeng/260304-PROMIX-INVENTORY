@@ -3,6 +3,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Select } from '../components/Select';
 import { Alert } from '../components/Alert';
+import { Modal } from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
@@ -72,6 +73,7 @@ interface ReportsProps {
 export function Reports({ onNavigate }: ReportsProps) {
   const { user, accessToken } = useAuth();
   const { t, language } = useLanguage();
+  const normalizedRole = String(user?.role || '').toLowerCase();
 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +89,8 @@ export function Reports({ onNavigate }: ReportsProps) {
   const [previewingRowPDFId, setPreviewingRowPDFId] = useState<string | null>(null);
   const [confirmDeleteReport, setConfirmDeleteReport] = useState<Report | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('Vista previa del reporte');
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -108,6 +112,14 @@ export function Reports({ onNavigate }: ReportsProps) {
   }, [accessToken]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
+
+  useEffect(() => {
+    return () => {
+      if (previewPdfUrl) {
+        URL.revokeObjectURL(previewPdfUrl);
+      }
+    };
+  }, [previewPdfUrl]);
 
   // ── Filter client-side ────────────────────────────────────────────────────
 
@@ -163,19 +175,29 @@ export function Reports({ onNavigate }: ReportsProps) {
     setPreviewingPDF(true);
     setExportError(null);
     try {
-      await exportToPDF(
+      const blobUrl = await exportToPDF(
         filteredReports,
         API_BASE_URL,
         accessToken || publicAnonKey,
         user?.name || user?.email || 'Sistema',
         { mode: 'preview' }
       );
+      if (!blobUrl) throw new Error('No se pudo generar la vista previa');
+      setPreviewTitle('Vista previa del reporte consolidado');
+      setPreviewPdfUrl(blobUrl);
     } catch (err: any) {
       setExportError('Error al previsualizar PDF: ' + err.message);
       setTimeout(() => setExportError(null), 4000);
     } finally {
       setPreviewingPDF(false);
     }
+  };
+
+  const closePreview = () => {
+    if (previewPdfUrl) {
+      URL.revokeObjectURL(previewPdfUrl);
+    }
+    setPreviewPdfUrl(null);
   };
 
   // ── Delete report ─────────────────────────────────────────────────────────
@@ -332,6 +354,15 @@ export function Reports({ onNavigate }: ReportsProps) {
                   const completedDT = completedAt ? formatDateTime(completedAt, language) : null;
                   const createdDT   = formatDateTime(report.created_at, language);
                   const approvedDT  = report.approved_at ? formatDateTime(report.approved_at, language) : null;
+                  const isPlantManager = normalizedRole === 'plant_manager';
+                  const isAdminReviewer = normalizedRole === 'admin' || normalizedRole === 'super_admin';
+                  const isResumeAction = report.status === 'IN_PROGRESS' && isPlantManager;
+                  const isApproveAction = report.status === 'SUBMITTED' && isAdminReviewer;
+                  const primaryActionLabel = isResumeAction
+                    ? 'Continuar'
+                    : isApproveAction
+                      ? 'Revisar / Aprobar'
+                      : t('common.view');
 
                   return (
                     <tr key={report.id} className="border-b border-[#9D9B9A] hover:bg-[#F2F3F5] transition-colors">
@@ -389,10 +420,6 @@ export function Reports({ onNavigate }: ReportsProps) {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              const isResumeAction =
-                                report.status === 'IN_PROGRESS' &&
-                                String(user?.role || '').toLowerCase() === 'plant_manager';
-
                               onNavigate?.(
                                 isResumeAction ? 'inventory' : 'review',
                                 undefined,
@@ -400,9 +427,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                               );
                             }}
                           >
-                            {report.status === 'IN_PROGRESS' && String(user?.role || '').toLowerCase() === 'plant_manager'
-                              ? 'Continuar'
-                              : t('common.view')}
+                            {primaryActionLabel}
                           </Button>
                           <Button
                             variant="ghost"
@@ -412,13 +437,16 @@ export function Reports({ onNavigate }: ReportsProps) {
                             onClick={async () => {
                               setPreviewingRowPDFId(report.id);
                               try {
-                                await exportToPDF(
+                                const blobUrl = await exportToPDF(
                                   [report],
                                   API_BASE_URL,
                                   accessToken || publicAnonKey,
                                   user?.name || user?.email || 'Sistema',
                                   { mode: 'preview' }
                                 );
+                                if (!blobUrl) throw new Error('No se pudo generar la vista previa');
+                                setPreviewTitle(`Vista previa: ${report.plant_id} · ${formatPeriod(report.year_month)}`);
+                                setPreviewPdfUrl(blobUrl);
                               } catch (err: any) {
                                 setExportError('Error al previsualizar PDF: ' + err.message);
                                 setTimeout(() => setExportError(null), 4000);
@@ -517,6 +545,42 @@ export function Reports({ onNavigate }: ReportsProps) {
           </Card>
         </div>
       )}
+
+      <Modal
+        isOpen={!!previewPdfUrl}
+        onClose={closePreview}
+        title={previewTitle}
+        size="xl"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closePreview}>
+              Cerrar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (!previewPdfUrl) return;
+                const link = document.createElement('a');
+                link.href = previewPdfUrl;
+                link.download = `PROMIX-Reporte-${new Date().toISOString().slice(0, 10)}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+            >
+              📄 Descargar PDF
+            </Button>
+          </>
+        }
+      >
+        {previewPdfUrl && (
+          <iframe
+            src={previewPdfUrl}
+            title={previewTitle}
+            className="w-full h-[75vh] rounded border border-[#9D9B9A]"
+          />
+        )}
+      </Modal>
     </div>
   );
 }
