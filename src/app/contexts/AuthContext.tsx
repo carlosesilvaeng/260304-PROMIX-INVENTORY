@@ -273,6 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('promix_access_token');
     localStorage.removeItem('promix_user');
     localStorage.removeItem('promix_plant');
+    localStorage.removeItem('promix_current_inventory');
   };
 
   // ============================================================================
@@ -384,6 +385,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (plant) {
       setCurrentPlant(plant);
       localStorage.setItem('promix_plant', JSON.stringify(plant));
+      localStorage.removeItem('promix_current_inventory');
     }
   };
 

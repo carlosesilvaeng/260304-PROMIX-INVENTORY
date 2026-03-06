@@ -6,6 +6,7 @@ import { useInventory } from '../contexts/InventoryContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useModules } from '../contexts/ModulesContext';
 import { usePlantPrefill } from '../contexts/PlantPrefillContext';
+import { getInventoryMonth } from '../utils/api';
 import { getSectionTranslation } from '../utils/sectionTranslations';
 import { PromixLogo } from '../components/PromixLogo';
 
@@ -15,12 +16,27 @@ interface DashboardProps {
 
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { currentPlant, user } = useAuth();
-  const { currentInventory, initializeInventory } = useInventory();
+  const { currentInventory, initializeInventory, clearCurrentInventory } = useInventory();
   const { t, language } = useLanguage();
   const { isModuleEnabled } = useModules();
   const { setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const isPlantManager = String(user?.role || '').toLowerCase() === 'plant_manager';
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
+
+  const MONTH_TO_NUM: Record<string, string> = {
+    enero: '01',
+    febrero: '02',
+    marzo: '03',
+    abril: '04',
+    mayo: '05',
+    junio: '06',
+    julio: '07',
+    agosto: '08',
+    septiembre: '09',
+    octubre: '10',
+    noviembre: '11',
+    diciembre: '12',
+  };
 
   const getYearMonthFromDate = (date: Date): string => (
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -41,6 +57,53 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     }
     return options;
   }, [language]);
+
+  const getInventoryYearMonth = (inventory: typeof currentInventory): string | null => {
+    if (!inventory) return null;
+    if (inventory.yearMonth) return inventory.yearMonth;
+
+    const normalizedMonth = String(inventory.month || '').toLowerCase().trim();
+    const monthNumber = MONTH_TO_NUM[normalizedMonth];
+    if (!monthNumber || !inventory.year) return null;
+
+    return `${inventory.year}-${monthNumber}`;
+  };
+
+  useEffect(() => {
+    if (!currentPlant || !currentInventory) return;
+
+    if (currentInventory.plantId !== currentPlant.id) {
+      clearCurrentInventory();
+      return;
+    }
+
+    const targetYearMonth = getInventoryYearMonth(currentInventory);
+    if (!targetYearMonth) {
+      clearCurrentInventory();
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncInventory = async () => {
+      const response = await getInventoryMonth(currentPlant.id, targetYearMonth);
+      if (cancelled) return;
+
+      if (response.success && response.data?.month) {
+        setSelectedYearMonth(targetYearMonth);
+        return;
+      }
+
+      clearCurrentInventory();
+      setSelectedYearMonth(getYearMonthFromDate(new Date()));
+    };
+
+    syncInventory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPlant, currentInventory, clearCurrentInventory, setSelectedYearMonth]);
 
   // Mapeo de IDs de sección a claves de módulo
   const sectionToModuleKey = (sectionId: string): string | null => {

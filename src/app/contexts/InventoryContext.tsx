@@ -86,6 +86,7 @@ export interface InventoryData {
   plantId: string;
   month: string;
   year: number;
+  yearMonth?: string;
   startTimestamp: Date | null; // Fecha y hora de inicio completa
   endTimestamp: Date | null; // Fecha y hora de fin completa
   status: 'draft' | 'in-progress' | 'completed' | 'approved';
@@ -109,6 +110,7 @@ export interface InventoryData {
 interface InventoryContextType {
   currentInventory: InventoryData | null;
   initializeInventory: (plantId: string, userName: string, userRole: string, yearMonth?: string) => void;
+  clearCurrentInventory: () => void;
   updateSection: (sectionId: string, status: SectionStatus, progress: number) => void;
   updateAggregates: (aggregates: Aggregate[]) => void;
   updateSilos: (silos: Silo[]) => void;
@@ -153,7 +155,10 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (currentInventory) {
       localStorage.setItem('promix_current_inventory', JSON.stringify(currentInventory));
+      return;
     }
+
+    localStorage.removeItem('promix_current_inventory');
   }, [currentInventory]);
 
   const initializeInventory = (plantId: string, userName: string, userRole: string, yearMonth?: string) => {
@@ -164,6 +169,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       plantId,
       month: targetDate.toLocaleString('es', { month: 'long' }),
       year: targetDate.getFullYear(),
+      yearMonth: yearMonth || `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`,
       startTimestamp: now,
       endTimestamp: null,
       status: 'in-progress',
@@ -181,6 +187,10 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       createdAt: now,
     };
     setCurrentInventory(inventory);
+  };
+
+  const clearCurrentInventory = () => {
+    setCurrentInventory(null);
   };
 
   const updateSection = (sectionId: string, status: SectionStatus, progress: number) => {
@@ -262,6 +272,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentInventory,
         initializeInventory,
+        clearCurrentInventory,
         updateSection,
         updateAggregates,
         updateSilos,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { InventoryProvider } from "./contexts/InventoryContext";
+import { InventoryProvider, useInventory } from "./contexts/InventoryContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { PlantPrefillProvider } from "./contexts/PlantPrefillContext";
 import { ModulesProvider } from "./contexts/ModulesContext";
@@ -70,6 +70,7 @@ const BUILD_VERSION = '2603050601';
 
 function AppContent() {
   const { user, currentPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
+  const { clearCurrentInventory } = useInventory();
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
   const [currentSection, setCurrentSection] = useState<
@@ -99,6 +100,12 @@ function AppContent() {
     // Re-verificar el estado después de crear el primer usuario
     await refreshFirstTimeCheck();
   };
+
+  useEffect(() => {
+    if ((user?.role === 'admin' || user?.role === 'super_admin') && !currentPlant) {
+      clearCurrentInventory();
+    }
+  }, [user, currentPlant, clearCurrentInventory]);
 
   // Show loading screen while verifying session
   if (isLoading) {

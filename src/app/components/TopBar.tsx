@@ -15,6 +15,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
   
   // Safely access currentInventory with fallback
   const currentInventory = inventoryContext?.currentInventory;
+  const shouldShowInventoryInfo = !!currentPlant && !!currentInventory && currentInventory.plantId === currentPlant.id;
 
   const getStatusBadge = () => {
     if (!currentInventory) return null;
@@ -59,7 +60,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
             </div>
           )}
           
-          {currentInventory && (
+          {shouldShowInventoryInfo && (
             <>
               <div className="h-10 w-px bg-[#9D9B9A]" />
               <div>
