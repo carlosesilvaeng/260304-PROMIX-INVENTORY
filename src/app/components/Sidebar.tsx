@@ -10,14 +10,18 @@ interface SidebarProps {
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const isPlantManager = user?.role === 'plant_manager';
   
   const menuItems = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: '📊' },
-    { id: 'inventory', label: t('sidebar.inventory'), icon: '📝' },
     { id: 'reports', label: t('sidebar.reports'), icon: '📈' },
     { id: 'history', label: t('sidebar.history'), icon: '📋' },
     { id: 'settings', label: t('sidebar.settings'), icon: '⚙️' },
   ];
+
+  if (isPlantManager) {
+    menuItems.splice(1, 0, { id: 'inventory', label: t('sidebar.inventory'), icon: '📝' });
+  }
 
   // Reporte de Fotos — admin + super_admin
   if (user?.role === 'admin' || user?.role === 'super_admin') {

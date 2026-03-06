@@ -71,6 +71,7 @@ const BUILD_VERSION = '2603050601';
 function AppContent() {
   const { user, currentPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
+  const isPlantManager = user?.role === 'plant_manager';
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
   const [currentSection, setCurrentSection] = useState<
@@ -97,14 +98,15 @@ function AppContent() {
   };
 
   const handleViewChange = (view: string) => {
-    setCurrentView(view);
+    const nextView = view === 'inventory' && !isPlantManager ? 'dashboard' : view;
+    setCurrentView(nextView);
     if (view !== 'section') {
       setCurrentSection(null);
     }
-    if (view !== 'review') {
+    if (nextView !== 'review') {
       setReportContext(null);
     }
-    if (view !== 'inventory') {
+    if (nextView !== 'inventory') {
       setInventoryContext(null);
     }
   };
@@ -124,6 +126,13 @@ function AppContent() {
       clearCurrentInventory();
     }
   }, [user, currentPlant, clearCurrentInventory]);
+
+  useEffect(() => {
+    if (!isPlantManager && currentView === 'inventory') {
+      setCurrentView('dashboard');
+      setInventoryContext(null);
+    }
+  }, [isPlantManager, currentView]);
 
   // Show loading screen while verifying session
   if (isLoading) {
@@ -245,7 +254,7 @@ function AppContent() {
             </div>
           )}
 
-          {currentView === "inventory" && (
+          {currentView === "inventory" && isPlantManager && (
             <Dashboard onNavigate={handleNavigate} initialContext={inventoryContext} />
           )}
         </div>
@@ -264,17 +273,19 @@ function AppContent() {
               <span className="text-xl">📊</span>
               <span className="text-xs">Dashboard</span>
             </button>
-            <button
-              onClick={() => handleViewChange("inventory")}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
-                currentView === "inventory"
-                  ? "text-[#2475C7]"
-                  : "text-white/70"
-              }`}
-            >
-              <span className="text-xl">📝</span>
-              <span className="text-xs">Inventario</span>
-            </button>
+            {isPlantManager && (
+              <button
+                onClick={() => handleViewChange("inventory")}
+                className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
+                  currentView === "inventory"
+                    ? "text-[#2475C7]"
+                    : "text-white/70"
+                }`}
+              >
+                <span className="text-xl">📝</span>
+                <span className="text-xs">Inventario</span>
+              </button>
+            )}
             <button
               onClick={() => handleViewChange("reports")}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
