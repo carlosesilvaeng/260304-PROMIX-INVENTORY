@@ -105,12 +105,12 @@ export async function getPlantConfigPackage(plantId: string) {
       utilitiesRes,
       pettyCashRes
     ] = await Promise.all([
-      supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_silos_config').select('*, silo_allowed_products(product_name)').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
+      supabase.from('plant_silos_config').select('*, silo_allowed_products(product_name)').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
+      supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
-      supabase.from('plant_products_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
-      supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).eq('is_active', true).order('sort_order'),
+      supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
+      supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single()
     ]);
     
