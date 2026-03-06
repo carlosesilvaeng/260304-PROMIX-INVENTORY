@@ -320,12 +320,19 @@ export async function exportToExcel(
 
 const BANNER_H = 15; // mm — dark header banner on detail pages
 
+interface PdfExportOptions {
+  mode?: 'download' | 'preview';
+  fileName?: string;
+}
+
 export async function exportToPDF(
   reports: ReportSummary[],
   apiBaseUrl: string,
   token: string,
   generatedBy: string = 'Sistema',
+  options: PdfExportOptions = {},
 ): Promise<void> {
+  const { mode = 'download', fileName } = options;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -465,6 +472,21 @@ export async function exportToPDF(
     );
   }
 
-  const fileName = `PROMIX-Inventarios-${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(fileName);
+  const resolvedFileName = fileName || `PROMIX-Inventarios-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  if (mode === 'preview') {
+    const blob = doc.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    const previewWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+
+    if (!previewWindow) {
+      URL.revokeObjectURL(blobUrl);
+      throw new Error('El navegador bloqueó la previsualización del PDF');
+    }
+
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    return;
+  }
+
+  doc.save(resolvedFileName);
 }

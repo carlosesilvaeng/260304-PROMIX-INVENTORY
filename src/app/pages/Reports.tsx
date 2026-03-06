@@ -80,9 +80,11 @@ export function Reports({ onNavigate }: ReportsProps) {
   const [selectedYear, setSelectedYear] = useState('all');
   const [showExportSuccess, setShowExportSuccess] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [previewingPDF, setPreviewingPDF] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [generatingRowPDFId, setGeneratingRowPDFId] = useState<string | null>(null);
+  const [previewingRowPDFId, setPreviewingRowPDFId] = useState<string | null>(null);
   const [confirmDeleteReport, setConfirmDeleteReport] = useState<Report | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
@@ -156,6 +158,26 @@ export function Reports({ onNavigate }: ReportsProps) {
     }
   };
 
+  const handlePreviewPDF = async () => {
+    if (!filteredReports.length) return;
+    setPreviewingPDF(true);
+    setExportError(null);
+    try {
+      await exportToPDF(
+        filteredReports,
+        API_BASE_URL,
+        accessToken || publicAnonKey,
+        user?.name || user?.email || 'Sistema',
+        { mode: 'preview' }
+      );
+    } catch (err: any) {
+      setExportError('Error al previsualizar PDF: ' + err.message);
+      setTimeout(() => setExportError(null), 4000);
+    } finally {
+      setPreviewingPDF(false);
+    }
+  };
+
   // ── Delete report ─────────────────────────────────────────────────────────
 
   const handleDeleteReport = async (report: Report) => {
@@ -208,7 +230,7 @@ export function Reports({ onNavigate }: ReportsProps) {
         <Alert type="success" message="Archivo generado y descargado exitosamente" autoClose />
       )}
 
-      {generatingRowPDFId && (
+      {(generatingRowPDFId || previewingRowPDFId) && (
         <Alert type="info" message="⏳ Generando PDF..." />
       )}
 
@@ -247,14 +269,22 @@ export function Reports({ onNavigate }: ReportsProps) {
             ]}
           />
 
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 flex-wrap">
+            <Button
+              variant="secondary"
+              onClick={handlePreviewPDF}
+              disabled={previewingPDF || exportingPDF || !filteredReports.length}
+              className="flex-1 min-w-[140px]"
+            >
+              {previewingPDF ? '⏳ Abriendo...' : '👁️ Vista PDF'}
+            </Button>
             <Button
               variant="secondary"
               onClick={handleExportPDF}
-              disabled={exportingPDF || !filteredReports.length}
-              className="flex-1"
+              disabled={exportingPDF || previewingPDF || !filteredReports.length}
+              className="flex-1 min-w-[120px]"
             >
-              {exportingPDF ? '⏳ Generando...' : '📄 PDF'}
+              {exportingPDF ? '⏳ Generando...' : '📄 Descargar PDF'}
             </Button>
             <Button
               variant="secondary"
@@ -377,8 +407,33 @@ export function Reports({ onNavigate }: ReportsProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            title="Exportar PDF de este reporte"
-                            disabled={generatingRowPDFId === report.id}
+                            title="Previsualizar PDF de este reporte"
+                            disabled={previewingRowPDFId === report.id || generatingRowPDFId === report.id}
+                            onClick={async () => {
+                              setPreviewingRowPDFId(report.id);
+                              try {
+                                await exportToPDF(
+                                  [report],
+                                  API_BASE_URL,
+                                  accessToken || publicAnonKey,
+                                  user?.name || user?.email || 'Sistema',
+                                  { mode: 'preview' }
+                                );
+                              } catch (err: any) {
+                                setExportError('Error al previsualizar PDF: ' + err.message);
+                                setTimeout(() => setExportError(null), 4000);
+                              } finally {
+                                setPreviewingRowPDFId(null);
+                              }
+                            }}
+                          >
+                            {previewingRowPDFId === report.id ? '⏳' : '👁️'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Descargar PDF de este reporte"
+                            disabled={generatingRowPDFId === report.id || previewingRowPDFId === report.id}
                             onClick={async () => {
                               setGeneratingRowPDFId(report.id);
                               try {
