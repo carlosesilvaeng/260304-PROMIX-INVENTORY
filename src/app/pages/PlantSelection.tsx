@@ -136,6 +136,18 @@ export function PlantSelection() {
                       </svg>
                       <span>{plant.silos.length} {t('settings.silos')}</span>
                     </div>
+                    <div className="flex items-center gap-2 text-[#5F6773]">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M6 7v10h12V7M9 11h6M9 14h6" />
+                      </svg>
+                      <span>{plant.cajones?.length || 0} cajones preconfigurados</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[#5F6773]">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l8 18H4L12 3z" />
+                      </svg>
+                      <span>{plant.conesCount || 0} conos preconfigurados</span>
+                    </div>
                   </div>
 
                   <div className="pt-2 border-t border-[#9D9B9A]">

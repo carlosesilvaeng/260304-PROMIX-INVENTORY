@@ -604,7 +604,7 @@ app.get("/make-server/plants", async (c) => {
     if (error) throw error;
 
     // Fetch silos and cajones from configuration tables (source of truth)
-    const [{ data: allSilos }, { data: allCajones }] = await Promise.all([
+    const [{ data: allSilos }, { data: allCajones }, { data: allAggregates }] = await Promise.all([
       supabase
         .from('plant_silos_config')
         .select('plant_id, id, silo_name, is_active, sort_order')
@@ -613,13 +613,15 @@ app.get("/make-server/plants", async (c) => {
         .from('plant_cajones_config')
         .select('plant_id, id, cajon_name, material, procedencia, box_width_ft, box_height_ft, is_active, sort_order')
         .order('sort_order', { ascending: true }),
+      supabase
+        .from('plant_aggregates_config')
+        .select('plant_id, measurement_method, is_active'),
     ]);
 
     // Merge: replace legacy JSONB fields with normalized configuration tables
-    const plantsWithSilos = (data ?? []).map((plant: any) => ({
-      ...plant,
-      silos: (allSilos ?? []).filter((s: any) => s.plant_id === plant.id),
-      cajones: (allCajones ?? [])
+    const plantsWithSilos = (data ?? []).map((plant: any) => {
+      const plantSilos = (allSilos ?? []).filter((s: any) => s.plant_id === plant.id && s.is_active !== false);
+      const plantCajones = (allCajones ?? [])
         .filter((c: any) => c.plant_id === plant.id && c.is_active !== false)
         .map((c: any) => ({
           id: c.id,
@@ -628,8 +630,18 @@ app.get("/make-server/plants", async (c) => {
           procedencia: c.procedencia ?? '',
           ancho: Number(c.box_width_ft ?? 0),
           alto: Number(c.box_height_ft ?? 0),
-        })),
-    }));
+        }));
+      const plantConesCount = (allAggregates ?? []).filter(
+        (a: any) => a.plant_id === plant.id && a.is_active !== false && a.measurement_method === 'CONE'
+      ).length;
+
+      return {
+        ...plant,
+        silos: plantSilos,
+        cajones: plantCajones,
+        cones_count: plantConesCount,
+      };
+    });
 
     console.log(`✅ [GET /plants] Returned ${plantsWithSilos.length} plants for ${user.email} (${user.role})`);
     return c.json({ success: true, data: plantsWithSilos });

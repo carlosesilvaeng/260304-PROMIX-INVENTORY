@@ -65,6 +65,7 @@ export interface Plant {
   };
   cajones?: CajonConfig[]; // Configuración de cajones por planta
   silos: SiloConfig[];
+  conesCount?: number;
   pettyCashEstablished: number;
   isActive: boolean;
 }
@@ -293,6 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           cajones: p.cajones || [],
           silos: p.silos || [],
+          conesCount: Number(p.cones_count) || 0,
           pettyCashEstablished: Number(p.petty_cash_established) || 0,
           isActive: p.is_active,
         }));
