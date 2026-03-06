@@ -88,7 +88,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
   const setSelectedYearMonth = useCallback((yearMonth: string) => {
     setCurrentYearMonth(yearMonth);
-  }, []);
+  }, [allPlants]);
 
   // ============================================================================
   // HELPER: Calculate previous month
