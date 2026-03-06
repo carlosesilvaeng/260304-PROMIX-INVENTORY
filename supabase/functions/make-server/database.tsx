@@ -70,7 +70,7 @@ export async function initializeDatabaseSchema() {
         `📝 ACCIÓN REQUERIDA:\\n` +
         `1. Ve a Supabase Dashboard → SQL Editor\\n` +
         `2. Ejecuta el contenido del archivo /supabase/schema.sql\\n` +
-        `3. Vuelve aquí y haz clic en \"Cargar Configuraciones\"\\n\\n` +
+        `3. Vuelve aquí y haz clic en \"Verificar Tablas\"\\n\\n` +
         `ℹ️ Figma Make no puede crear tablas automáticamente. Debes ejecutar el SQL manualmente en Supabase Dashboard.`;
       
       throw new Error(friendlyMessage);

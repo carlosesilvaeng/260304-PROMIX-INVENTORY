@@ -66,7 +66,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   <p className="font-semibold mb-2">Posibles soluciones:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Verifica que la base de datos esté configurada (Settings → Database Setup)</li>
-                    <li>Asegúrate de haber ejecutado "Cargar Configuraciones"</li>
+                    <li>Asegúrate de haber configurado los datos reales de la planta</li>
                     <li>Revisa los logs de la consola para más detalles</li>
                   </ul>
                 </div>

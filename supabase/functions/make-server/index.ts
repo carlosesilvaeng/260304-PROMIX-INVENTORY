@@ -498,38 +498,6 @@ app.post("/make-server/db/reload-cache", async (c) => {
   }
 });
 
-// Seed plant configurations
-app.post("/make-server/db/seed", async (c) => {
-  try {
-    await seed.seedPlantConfigurations();
-    return c.json({ success: true, message: "Plant configurations seeded successfully" });
-  } catch (error) {
-    console.error("Seed error:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Seed test users
-app.post("/make-server/db/seed-users", async (c) => {
-  try {
-    await seed.seedTestUsers();
-    return c.json({ 
-      success: true, 
-      message: "Test users created successfully",
-      users: [
-        { email: "gerente.carolina@promix.com", password: "promix2024", role: "plant_manager", plants: ["CAROLINA"] },
-        { email: "gerente.ceiba@promix.com", password: "promix2024", role: "plant_manager", plants: ["CEIBA"] },
-        { email: "gerente.guaynabo@promix.com", password: "promix2024", role: "plant_manager", plants: ["GUAYNABO"] },
-        { email: "admin@promix.com", password: "promix2024", role: "admin", plants: ["ALL"] },
-        { email: "superadmin@promix.com", password: "promix2024", role: "super_admin", plants: ["ALL"] }
-      ]
-    });
-  } catch (error) {
-    console.error("Seed users error:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
 // Clear all configurations (use with caution!)
 app.post("/make-server/db/clear", async (c) => {
   try {
@@ -862,10 +830,12 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
 app.post("/make-server/inventory/month", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { plant_id, year_month, created_by } = body;
+    const effectiveCreatedBy = user?.name || user?.email || created_by;
 
-    if (!plant_id || !year_month || !created_by) {
+    if (!plant_id || !year_month || !effectiveCreatedBy) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
@@ -877,11 +847,10 @@ app.post("/make-server/inventory/month", async (c) => {
       .eq('year_month', year_month)
       .single();
 
-    const inventoryMonth = await db.getOrCreateInventoryMonth(plant_id, year_month, created_by);
+    const inventoryMonth = await db.getOrCreateInventoryMonth(plant_id, year_month, effectiveCreatedBy);
 
     // Audit: only log when a NEW inventory month is created
     if (!existing) {
-      const user = c.get('user');
       logAudit(supabase, {
         user_email: user.email,
         user_name: user.name,
@@ -889,7 +858,7 @@ app.post("/make-server/inventory/month", async (c) => {
         action: 'INVENTORY_STARTED',
         plant_id: plant_id,
         inventory_month_id: inventoryMonth.id,
-        details: { year_month },
+        details: { year_month, created_by: effectiveCreatedBy },
       });
     }
 

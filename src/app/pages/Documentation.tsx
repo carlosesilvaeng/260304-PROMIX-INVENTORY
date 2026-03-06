@@ -68,24 +68,11 @@ export function Documentation() {
           <h2 className="text-2xl font-bold text-[#3B3A36] mb-4 border-l-4 border-[#2475C7] pl-4">
             Plantas PROMIX
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { name: 'CAROLINA', code: 'CAR-001', location: 'Carolina, PR', silos: 3, petty: '$1,000' },
-              { name: 'CEIBA', code: 'CEI-002', location: 'Ceiba, PR', silos: 2, petty: '$1,000' },
-              { name: 'GUAYNABO', code: 'GUA-003', location: 'Guaynabo, PR', silos: 3, petty: '$2,000' },
-              { name: 'GURABO', code: 'GUR-004', location: 'Gurabo, PR', silos: 2, petty: '$1,000' },
-              { name: 'VEGA BAJA', code: 'VEB-005', location: 'Vega Baja, PR', silos: 3, petty: '$1,000' },
-              { name: 'HUMACAO', code: 'HUM-006', location: 'Humacao, PR', silos: 2, petty: '$1,000' },
-            ].map((plant) => (
-              <div key={plant.code} className="border border-[#9D9B9A] p-4 rounded">
-                <h3 className="font-bold text-[#2475C7] mb-2">{plant.name}</h3>
-                <p className="text-sm text-[#5F6773]"><strong>Código:</strong> {plant.code}</p>
-                <p className="text-sm text-[#5F6773]"><strong>Ubicación:</strong> {plant.location}</p>
-                <p className="text-sm text-[#5F6773]"><strong>Silos:</strong> {plant.silos}</p>
-                <p className="text-sm text-[#5F6773]"><strong>Petty Cash:</strong> {plant.petty}</p>
-              </div>
-            ))}
-          </div>
+          <p className="text-[#3B3A36] leading-relaxed">
+            La información de plantas, códigos, ubicaciones, silos, cajones y caja menor se toma de la
+            configuración activa del sistema. Esta documentación no incluye ejemplos fijos para evitar
+            confusión con datos reales de operación.
+          </p>
         </section>
 
         {/* Roles y Permisos */}

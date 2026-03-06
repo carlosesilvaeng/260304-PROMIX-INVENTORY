@@ -63,10 +63,6 @@ export async function reloadSchemaCache(): Promise<ApiResponse> {
   return apiRequest('/db/reload-cache', 'POST');
 }
 
-export async function seedPlantConfigurations(): Promise<ApiResponse> {
-  return apiRequest('/db/seed', 'POST');
-}
-
 export async function clearAllConfigurations(): Promise<ApiResponse> {
   return apiRequest('/db/clear', 'POST');
 }
@@ -138,7 +134,7 @@ export async function createInventoryMonth(
     plant_id: string;
     year_month: string;
     status: string;
-    created_by: string;
+    created_by?: string;
   }
 ): Promise<ApiResponse<InventoryMonth>> {
   return apiRequest('/inventory/month', 'POST', data);

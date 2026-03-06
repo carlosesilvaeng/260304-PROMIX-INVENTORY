@@ -5,7 +5,7 @@ import { Button } from '../components/Button';
 import { Alert } from '../components/Alert';
 import { PromixLogo } from '../components/PromixLogo';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { initializeDatabase, seedPlantConfigurations, clearAllConfigurations, reloadSchemaCache } from '../utils/api';
+import { initializeDatabase, clearAllConfigurations, reloadSchemaCache } from '../utils/api';
 
 // Build Version - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
 // 26/02/18 20:00 = February 18, 2026 at 8:00 PM
@@ -108,33 +108,13 @@ export function DatabaseSetup() {
     if (result.success) {
       setSetupState({
         loading: false,
-        message: '✅ Esquema de base de datos inicializado correctamente. Ahora puedes ejecutar el seed de datos.',
+        message: '✅ Esquema de base de datos verificado correctamente.',
         messageType: 'success'
       });
     } else {
       setSetupState({
         loading: false,
         message: `❌ Error al inicializar: ${result.error}`,
-        messageType: 'error'
-      });
-    }
-  };
-
-  const handleSeed = async () => {
-    setSetupState({ loading: true, message: 'Cargando configuraciones de las 6 plantas PROMIX...', messageType: 'info' });
-    
-    const result = await seedPlantConfigurations();
-    
-    if (result.success) {
-      setSetupState({
-        loading: false,
-        message: '✅ Configuraciones de plantas cargadas exitosamente. El sistema está listo para usar.',
-        messageType: 'success'
-      });
-    } else {
-      setSetupState({
-        loading: false,
-        message: `❌ Error al cargar datos: ${result.error}`,
         messageType: 'error'
       });
     }
@@ -172,7 +152,7 @@ export function DatabaseSetup() {
     if (result.success) {
       setSetupState({
         loading: false,
-        message: '✅ Cache recargado exitosamente. Espera 5-10 segundos y vuelve a intentar "Cargar Configuraciones".',
+        message: '✅ Cache recargado exitosamente. Espera 5-10 segundos y vuelve a intentar "Verificar Tablas".',
         messageType: 'success'
       });
     } else {
@@ -218,27 +198,11 @@ export function DatabaseSetup() {
         return;
       }
       
-      // Step 2: Seed
-      setSetupState({ loading: true, message: 'Cargando configuraciones de las 6 plantas PROMIX...', messageType: 'info' });
-      const seedResult = await Promise.race([seedPlantConfigurations(), timeoutPromise]) as any;
-      
-      if (seedResult.success) {
-        setSetupState({
-          loading: false,
-          message: '✅ Setup completo exitoso! Las 6 plantas PROMIX están configuradas. El sistema está listo para usar.',
-          messageType: 'success'
-        });
-      } else {
-        // Format seed error message
-        const errorMsg = seedResult.error || 'Error desconocido al cargar configuraciones';
-        const formattedError = errorMsg.replace(/\\\\n/g, '\n');
-        
-        setSetupState({
-          loading: false,
-          message: formattedError,
-          messageType: 'error'
-        });
-      }
+      setSetupState({
+        loading: false,
+        message: '✅ Verificación completada. Configura plantas, usuarios y catálogos desde el sistema antes de operar.',
+        messageType: 'success'
+      });
     } catch (error) {
       setSetupState({
         loading: false,
@@ -316,7 +280,7 @@ export function DatabaseSetup() {
                   Espera a que aparezca <span className="text-green-600 font-bold">"Success"</span>
                 </li>
                 <li className="font-medium">
-                  Vuelve aquí y haz clic en <strong className="bg-blue-600 text-white px-2 py-0.5 rounded">Verificar & Cargar Datos</strong> abajo
+                  Vuelve aquí y haz clic en <strong className="bg-blue-600 text-white px-2 py-0.5 rounded">Verificar Tablas</strong> abajo
                 </li>
               </ol>
               
@@ -338,19 +302,19 @@ export function DatabaseSetup() {
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-[#1A1D1F] mb-2 flex items-center gap-2">
                   <span className="text-2xl">🚀</span>
-                  PASO 2: Verificar Tablas y Cargar Datos
+                  PASO 2: Verificar Tablas
                 </h2>
                 <p className="text-[#6F767E] mb-4">
-                  Después de ejecutar el script SQL en Supabase Dashboard (Paso 1), 
-                  haz clic aquí para verificar que las tablas existan y cargar las 
-                  configuraciones de las 6 plantas PROMIX.
+                  Después de ejecutar el script SQL en Supabase Dashboard (Paso 1),
+                  haz clic aquí para verificar que las tablas existan. La configuración
+                  de plantas y usuarios debe hacerse explícitamente, no por semillas automáticas.
                 </p>
                 <Button
                   onClick={handleFullSetup}
                   disabled={setupState.loading}
                   className="bg-[#2B7DE9] hover:bg-[#1E5DB8] text-white font-semibold"
                 >
-                  {setupState.loading ? 'Procesando...' : '✓ Verificar & Cargar Datos'}
+                  {setupState.loading ? 'Procesando...' : '✓ Verificar Tablas'}
                 </Button>
               </div>
             </div>
@@ -383,7 +347,7 @@ export function DatabaseSetup() {
                       <li>Abre el archivo <code className="bg-gray-800 text-green-400 px-2 py-0.5 rounded font-mono">/supabase/migration_add_missing_columns.sql</code></li>
                       <li>Copia y pega el contenido en SQL Editor</li>
                       <li>Haz clic en <strong>Run</strong></li>
-                      <li>Vuelve aquí y ejecuta "Verificar & Cargar Datos"</li>
+                      <li>Vuelve aquí y ejecuta "Verificar Tablas"</li>
                     </ol>
                   </div>
 
@@ -394,7 +358,7 @@ export function DatabaseSetup() {
                       <li>Abre el archivo <code className="bg-gray-800 text-green-400 px-2 py-0.5 rounded font-mono">/supabase/schema.sql</code></li>
                       <li>Copia TODO el contenido (ahora es idempotente)</li>
                       <li>Pega en SQL Editor y haz clic en <strong>Run</strong></li>
-                      <li>Vuelve aquí y ejecuta "Verificar & Cargar Datos"</li>
+                      <li>Vuelve aquí y ejecuta "Verificar Tablas"</li>
                     </ol>
                   </div>
                 </div>
@@ -427,25 +391,14 @@ export function DatabaseSetup() {
                 </Button>
               </div>
 
-              {/* Step 2: Seed */}
               <div className="border-l-4 border-[#22C55E] pl-4">
                 <h3 className="font-semibold text-[#1A1D1F] mb-2">
-                  Paso 2: Cargar Configuraciones
+                  Paso 2: Configurar Datos Reales
                 </h3>
                 <p className="text-sm text-[#6F767E] mb-3">
-                  Carga las configuraciones preestablecidas de las 6 plantas PROMIX:
-                  <br />
-                  • Carolina, Ceiba, Guaynabo, Gurabo, Vega Baja, Humacao
-                  <br />
-                  • Silos, agregados, aditivos, diesel, productos, medidores, petty cash
+                  Registra usuarios, plantas, cajones, silos, catálogos y demás configuraciones
+                  desde las pantallas administrativas. Ya no se cargan datos semilla automáticos.
                 </p>
-                <Button
-                  onClick={handleSeed}
-                  disabled={setupState.loading}
-                  variant="outline"
-                >
-                  Cargar Configuraciones
-                </Button>
               </div>
             </div>
           </Card>
@@ -496,8 +449,8 @@ export function DatabaseSetup() {
                 (ej: pulgadas → galones)
               </p>
               <p>
-                <strong>Plantas Configuradas:</strong> CAROLINA, CEIBA, GUAYNABO, GURABO, 
-                VEGA BAJA, HUMACAO
+                <strong>Configuración Operativa:</strong> Las plantas, usuarios y módulos deben
+                registrarse con datos reales de operación.
               </p>
             </div>
           </Card>
@@ -534,7 +487,7 @@ export function DatabaseSetup() {
                 <li>Haz clic en <strong>"Run"</strong> para ejecutar el SQL</li>
                 <li>
                   Una vez completado, vuelve aquí y haz clic en{' '}
-                  <strong>"Cargar Configuraciones"</strong>
+                  <strong>"Verificar Tablas"</strong>
                 </li>
               </ol>
               

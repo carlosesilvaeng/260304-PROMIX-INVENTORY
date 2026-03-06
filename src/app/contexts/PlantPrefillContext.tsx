@@ -76,7 +76,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   const [currentPlantId, setCurrentPlantId] = useState<string | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
 
-  const { allPlants } = useAuth();
+  const { allPlants, user } = useAuth();
 
   const getYearMonthFromDate = (date: Date): string => (
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -504,7 +504,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
             plant_id: plantId,
             year_month: yearMonth,
             status: 'IN_PROGRESS',
-            created_by: 'system', // Default user
+            created_by: user?.name || user?.email || 'unknown',
           });
           
           console.log('[PlantPrefill] createInventoryMonth response:', createResponse);
@@ -662,7 +662,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         error: error instanceof Error ? error.message : 'Unknown error',
       }));
     }
-  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig]);
+  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig, user]);
 
   // ============================================================================
   // REFRESH FUNCTION
