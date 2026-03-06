@@ -26,6 +26,19 @@ interface User {
   last_login_at?: string;
 }
 
+const normalizeUser = (rawUser: any): User => {
+  const normalizedRole = String(rawUser?.role || '').toLowerCase();
+  let role: User['role'] = 'plant_manager';
+
+  if (normalizedRole === 'super_admin') role = 'super_admin';
+  else if (normalizedRole === 'admin') role = 'admin';
+
+  return {
+    ...rawUser,
+    role,
+  } as User;
+};
+
 interface SiloConfig {
   id: string;
   name: string;
@@ -192,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const response = await callAPI('/auth/verify', 'POST', {}, storedToken);
             
             if (response.success && response.user) {
-              setUser(response.user);
+              setUser(normalizeUser(response.user));
               setAccessToken(storedToken);
 
               // Load plants from API
@@ -306,10 +319,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Guardar usuario y token
-      setUser(response.user);
+      setUser(normalizeUser(response.user));
       setAccessToken(response.access_token);
       localStorage.setItem('promix_access_token', response.access_token);
-      localStorage.setItem('promix_user', JSON.stringify(response.user));
+      localStorage.setItem('promix_user', JSON.stringify(normalizeUser(response.user)));
 
       // Cargar plantas desde la API
       await loadPlants(response.access_token);
@@ -341,8 +354,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await callAPI('/auth/verify', 'POST', {}, accessToken);
       
       if (response.success && response.user) {
-        setUser(response.user);
-        localStorage.setItem('promix_user', JSON.stringify(response.user));
+        setUser(normalizeUser(response.user));
+        localStorage.setItem('promix_user', JSON.stringify(normalizeUser(response.user)));
       }
     } catch (error: any) {
       console.error('Error refreshing user:', error);

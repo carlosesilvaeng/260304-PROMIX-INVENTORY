@@ -19,6 +19,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { t, language } = useLanguage();
   const { isModuleEnabled } = useModules();
   const { setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
+  const isPlantManager = String(user?.role || '').toLowerCase() === 'plant_manager';
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
 
   const getYearMonthFromDate = (date: Date): string => (
@@ -68,7 +69,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         : user.role === 'admin' 
           ? t('role.admin')
           : t('role.plantManager');
-      const targetMonth = user.role === 'plant_manager' ? selectedStartMonth : getYearMonthFromDate(new Date());
+      const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());
       setSelectedYearMonth(targetMonth);
       initializeInventory(currentPlant.id, user.name, roleLabel, targetMonth);
       loadPlantData(currentPlant.id, targetMonth);
@@ -179,7 +180,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <p className="text-[#5F6773] mb-6">
                 {t('dashboard.noInventory')} {currentPlant?.name}
               </p>
-              {user?.role === 'plant_manager' && (
+              {isPlantManager && (
                 <div className="max-w-md mx-auto mb-6 text-left">
                   <label htmlFor="start-month" className="block text-sm font-semibold text-[#3B3A36] mb-2">
                     Período de inventario
