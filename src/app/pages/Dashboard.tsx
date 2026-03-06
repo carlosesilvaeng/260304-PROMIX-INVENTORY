@@ -198,7 +198,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     ))}
                   </select>
                   <p className="text-xs text-[#5F6773] mt-2">
-                    Puedes iniciar inventario del mes actual o hasta 3 periodos atrás.
+                    Puedes iniciar inventario en el mes actual o en cualquiera de los 3 meses anteriores (4 periodos en total).
                   </p>
                 </div>
               )}
