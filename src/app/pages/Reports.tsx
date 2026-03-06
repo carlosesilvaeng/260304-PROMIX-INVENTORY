@@ -360,7 +360,9 @@ export function Reports({ onNavigate }: ReportsProps) {
                             size="sm"
                             onClick={() => onNavigate?.('review', undefined, { plantId: report.plant_id, yearMonth: report.year_month })}
                           >
-                            {t('common.view')}
+                            {report.status === 'IN_PROGRESS' && user?.role === 'plant_manager'
+                              ? 'Continuar'
+                              : t('common.view')}
                           </Button>
                           <Button
                             variant="ghost"
