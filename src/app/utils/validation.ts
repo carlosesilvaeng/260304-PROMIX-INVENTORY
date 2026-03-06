@@ -29,24 +29,46 @@ export function validateAggregatesSection(entries: any[]): SectionValidationResu
   const issues: ValidationIssue[] = [];
   let completeItems = 0;
 
-  entries.forEach((entry, index) => {
+  entries.forEach((entry) => {
     let entryComplete = true;
+    const aggregateLabel = entry.aggregate_name || 'Agregado';
+    const measurementMethod = String(entry.measurement_method || '').toUpperCase();
 
-    // Check box count (0 is valid, null/undefined is not)
-    if (entry.box_count === null || entry.box_count === undefined) {
-      issues.push({
-        field: `${entry.aggregate_name} - Box Count`,
-        message: 'Conteo de cajas requerido (puede ser 0)',
-        severity: 'error',
+    if (measurementMethod === 'BOX') {
+      if (entry.box_length_ft === null || entry.box_length_ft === undefined) {
+        issues.push({
+          field: `${aggregateLabel} - Largo`,
+          message: 'Largo requerido (puede ser 0 si no se usó)',
+          severity: 'error',
+        });
+        entryComplete = false;
+      }
+    } else if (measurementMethod === 'CONE') {
+      const coneFields = [
+        { key: 'cone_m1', label: 'M1' },
+        { key: 'cone_m2', label: 'M2' },
+        { key: 'cone_m3', label: 'M3' },
+        { key: 'cone_m4', label: 'M4' },
+        { key: 'cone_m5', label: 'M5' },
+        { key: 'cone_m6', label: 'M6' },
+        { key: 'cone_d1', label: 'D1' },
+        { key: 'cone_d2', label: 'D2' },
+      ];
+
+      coneFields.forEach(({ key, label }) => {
+        if (entry[key] === null || entry[key] === undefined) {
+          issues.push({
+            field: `${aggregateLabel} - ${label}`,
+            message: `Medida ${label} requerida (puede ser 0 si no se usó)`,
+            severity: 'error',
+          });
+          entryComplete = false;
+        }
       });
-      entryComplete = false;
-    }
-
-    // Check cone count (0 is valid, null/undefined is not)
-    if (entry.cone_count === null || entry.cone_count === undefined) {
+    } else {
       issues.push({
-        field: `${entry.aggregate_name} - Cone Count`,
-        message: 'Conteo de conos requerido (puede ser 0)',
+        field: `${aggregateLabel} - Método`,
+        message: 'Método de medición inválido o no configurado',
         severity: 'error',
       });
       entryComplete = false;
@@ -55,7 +77,7 @@ export function validateAggregatesSection(entries: any[]): SectionValidationResu
     // Check photo
     if (!entry.photo_url) {
       issues.push({
-        field: `${entry.aggregate_name} - Photo`,
+        field: `${aggregateLabel} - Foto`,
         message: 'Foto de evidencia requerida',
         severity: 'error',
       });

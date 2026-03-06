@@ -20,7 +20,7 @@ interface ReviewAndApproveSectionProps {
 }
 
 export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSectionProps) {
-  const { user, currentPlant } = useAuth();
+  const { user, currentPlant, allPlants } = useAuth();
   const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const normalizedRole = String(user?.role || '').toLowerCase();
   
@@ -285,6 +285,12 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
   const isInProgress = inventoryMonth.status === 'IN_PROGRESS';
   const isSubmitted = inventoryMonth.status === 'SUBMITTED';
   const isApproved = inventoryMonth.status === 'APPROVED';
+  const reviewedPlantId = reportContext?.plantId ?? currentPlant?.id ?? inventoryMonth.plant_id;
+  const reviewedPlantName =
+    allPlants.find((plant) => plant.id === reviewedPlantId)?.name ||
+    currentPlant?.name ||
+    reviewedPlantId ||
+    'Sin planta';
 
   // Check user permissions
   const canSubmit = isInProgress && normalizedRole === 'plant_manager';
@@ -304,7 +310,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
           <p className="text-[#5F6773]">Verificación de completitud y aprobación final</p>
         </div>
         <div className="text-sm text-[#5F6773]">
-          <span className="font-semibold">{currentPlant?.name}</span>
+          <span className="font-semibold">{reviewedPlantName}</span>
           {' • '}
           <span>
             {inventoryMonth.year_month
