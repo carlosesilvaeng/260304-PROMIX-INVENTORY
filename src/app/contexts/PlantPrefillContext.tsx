@@ -88,7 +88,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
   const setSelectedYearMonth = useCallback((yearMonth: string) => {
     setCurrentYearMonth(yearMonth);
-  }, [allPlants]);
+  }, []);
 
   // ============================================================================
   // HELPER: Calculate previous month
@@ -103,7 +103,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     return `${prevYear}-${prevMonth}`;
   };
 
-  const getResolvedAggregatesConfig = (config: PlantConfigPackage) => {
+  const getResolvedAggregatesConfig = useCallback((config: PlantConfigPackage) => {
     if (config.aggregates?.length > 0) {
       return config.aggregates;
     }
@@ -123,13 +123,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       box_width_ft: cajon.ancho || 0,
       box_height_ft: cajon.alto || 0,
     }));
-  };
+  }, [allPlants]);
 
   // ============================================================================
   // HELPER: Create empty entries from config
   // ============================================================================
   
-  const createEmptyEntriesFromConfig = async (
+  const createEmptyEntriesFromConfig = useCallback(async (
     inventoryMonthId: string,
     config: PlantConfigPackage,
     previousMonth: InventoryMonth | null
@@ -373,13 +373,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     };
 
     return entries;
-  };
+  }, [allPlants, getResolvedAggregatesConfig]);
 
   // ============================================================================
   // HELPER: Apply carry-over from previous month
   // ============================================================================
   
-  const applyCarryOver = (entries: any, previousMonthData: any) => {
+  const applyCarryOver = useCallback((entries: any, previousMonthData: any) => {
     // SILOS: previous_reading = previous month's current_reading
     if (previousMonthData.silos && previousMonthData.silos.length > 0) {
       entries.silos.forEach((entry: any) => {
@@ -464,7 +464,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     }
 
     return entries;
-  };
+  }, []);
 
   // ============================================================================
   // MAIN LOAD FUNCTION
@@ -662,7 +662,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         error: error instanceof Error ? error.message : 'Unknown error',
       }));
     }
-  }, []);
+  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig]);
 
   // ============================================================================
   // REFRESH FUNCTION
