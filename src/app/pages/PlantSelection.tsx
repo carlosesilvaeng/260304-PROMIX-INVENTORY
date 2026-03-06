@@ -150,22 +150,6 @@ export function PlantSelection() {
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-[#9D9B9A]">
-                    <p className="text-xs text-[#5F6773] mb-2">{t('aggregates.method')}:</p>
-                    <div className="flex gap-2">
-                      {plant.methods.hasCajonMeasurement && (
-                        <span className="px-2 py-1 bg-[#F2F3F5] text-[#3B3A36] text-xs rounded">
-                          {t('aggregates.methodBox')}
-                        </span>
-                      )}
-                      {plant.methods.hasConeMeasurement && (
-                        <span className="px-2 py-1 bg-[#F2F3F5] text-[#3B3A36] text-xs rounded">
-                          {t('aggregates.methodCone')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
                   <Button 
                     className="w-full"
                     onClick={() => selectPlant(plant.id)}
