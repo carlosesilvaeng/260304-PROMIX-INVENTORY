@@ -358,9 +358,19 @@ export function Reports({ onNavigate }: ReportsProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onNavigate?.('review', undefined, { plantId: report.plant_id, yearMonth: report.year_month })}
+                            onClick={() => {
+                              const isResumeAction =
+                                report.status === 'IN_PROGRESS' &&
+                                String(user?.role || '').toLowerCase() === 'plant_manager';
+
+                              onNavigate?.(
+                                isResumeAction ? 'inventory' : 'review',
+                                undefined,
+                                { plantId: report.plant_id, yearMonth: report.year_month }
+                              );
+                            }}
                           >
-                            {report.status === 'IN_PROGRESS' && user?.role === 'plant_manager'
+                            {report.status === 'IN_PROGRESS' && String(user?.role || '').toLowerCase() === 'plant_manager'
                               ? 'Continuar'
                               : t('common.view')}
                           </Button>

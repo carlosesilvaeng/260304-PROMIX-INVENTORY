@@ -437,6 +437,24 @@ export interface OverallValidationResult {
   canApprove: boolean; // True if submitted and no critical issues
 }
 
+function createMissingSectionsResult(): SectionValidationResult {
+  return {
+    sectionId: 'configuration',
+    sectionName: 'Configuración del Inventario',
+    isComplete: false,
+    totalItems: 0,
+    completeItems: 0,
+    incompleteItems: 0,
+    issues: [{
+      field: 'Secciones del inventario',
+      message: 'No hay secciones configuradas o cargadas para este inventario. No puede enviarse a aprobación.',
+      severity: 'error',
+    }],
+    criticalIssues: 1,
+    warningIssues: 0,
+  };
+}
+
 export function validateAllSections(prefillData: any): OverallValidationResult {
   const sections: SectionValidationResult[] = [];
 
@@ -473,6 +491,10 @@ export function validateAllSections(prefillData: any): OverallValidationResult {
   // Validate Petty Cash
   if (prefillData.pettyCashEntry) {
     sections.push(validatePettyCashSection(prefillData.pettyCashEntry));
+  }
+
+  if (sections.length === 0) {
+    sections.push(createMissingSectionsResult());
   }
 
   const completeSections = sections.filter(s => s.isComplete).length;

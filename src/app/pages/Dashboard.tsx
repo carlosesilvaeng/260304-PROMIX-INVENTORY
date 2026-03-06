@@ -11,10 +11,11 @@ import { getSectionTranslation } from '../utils/sectionTranslations';
 import { PromixLogo } from '../components/PromixLogo';
 
 interface DashboardProps {
-  onNavigate: (view: string, sectionId?: string) => void;
+  onNavigate: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
+  initialContext?: { plantId?: string; yearMonth?: string } | null;
 }
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, initialContext = null }: DashboardProps) {
   const { currentPlant, user } = useAuth();
   const { currentInventory, initializeInventory, clearCurrentInventory } = useInventory();
   const { t, language } = useLanguage();
@@ -24,6 +25,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
   const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
   const [startingInventory, setStartingInventory] = React.useState(false);
+  const autoResumeKeyRef = React.useRef<string | null>(null);
 
   const MONTH_TO_NUM: Record<string, string> = {
     enero: '01',
@@ -70,6 +72,27 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     return `${inventory.year}-${monthNumber}`;
   };
+
+  const getRoleLabel = React.useCallback(() => {
+    if (!user) return '';
+    if (user.role === 'super_admin') return t('role.superAdmin');
+    if (user.role === 'admin') return t('role.admin');
+    return t('role.plantManager');
+  }, [user, t]);
+
+  const openInventoryPeriod = React.useCallback(async (yearMonth: string) => {
+    if (!currentPlant || !user) return;
+
+    setStartingInventory(true);
+
+    try {
+      setSelectedYearMonth(yearMonth);
+      await loadPlantData(currentPlant.id, yearMonth);
+      initializeInventory(currentPlant.id, user.name, getRoleLabel(), yearMonth);
+    } finally {
+      setStartingInventory(false);
+    }
+  }, [currentPlant, user, setSelectedYearMonth, loadPlantData, initializeInventory, getRoleLabel]);
 
   useEffect(() => {
     if (!currentPlant || !currentInventory) return;
@@ -134,6 +157,30 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     };
   }, [currentPlant, selectedStartMonth]);
 
+  useEffect(() => {
+    if (!currentPlant || !initialContext?.plantId || !initialContext?.yearMonth) return;
+    if (initialContext.plantId !== currentPlant.id) return;
+
+    setSelectedStartMonth(initialContext.yearMonth);
+
+    const targetKey = `${initialContext.plantId}:${initialContext.yearMonth}`;
+    if (autoResumeKeyRef.current === targetKey) return;
+
+    const currentInventoryYearMonth = getInventoryYearMonth(currentInventory);
+    if (
+      currentInventory &&
+      currentInventory.plantId === currentPlant.id &&
+      currentInventoryYearMonth === initialContext.yearMonth
+    ) {
+      autoResumeKeyRef.current = targetKey;
+      setSelectedYearMonth(initialContext.yearMonth);
+      return;
+    }
+
+    autoResumeKeyRef.current = targetKey;
+    openInventoryPeriod(initialContext.yearMonth);
+  }, [currentPlant, currentInventory, initialContext, openInventoryPeriod, setSelectedYearMonth]);
+
   // Mapeo de IDs de sección a claves de módulo
   const sectionToModuleKey = (sectionId: string): string | null => {
     const mapping: Record<string, string> = {
@@ -155,23 +202,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }) || [];
 
   const handleStartInventory = async () => {
-    if (currentPlant && user) {
-      const roleLabel = user.role === 'super_admin' 
-        ? t('role.superAdmin')
-        : user.role === 'admin' 
-          ? t('role.admin')
-          : t('role.plantManager');
-      const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());
-      setStartingInventory(true);
-
-      try {
-        setSelectedYearMonth(targetMonth);
-        await loadPlantData(currentPlant.id, targetMonth);
-        initializeInventory(currentPlant.id, user.name, roleLabel, targetMonth);
-      } finally {
-        setStartingInventory(false);
-      }
-    }
+    const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());
+    await openInventoryPeriod(targetMonth);
   };
 
   const getOverallProgress = () => {

@@ -77,22 +77,40 @@ function AppContent() {
     string | null
   >(null);
   const [reportContext, setReportContext] = useState<{ plantId: string; yearMonth: string } | null>(null);
+  const [inventoryContext, setInventoryContext] = useState<{ plantId: string; yearMonth: string } | null>(null);
 
   const handleNavigate = (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => {
     setCurrentView(view);
-    if (sectionId) {
-      setCurrentSection(sectionId);
-    }
-    if (context?.plantId && context?.yearMonth) {
+    setCurrentSection(view === 'section' && sectionId ? sectionId : null);
+
+    if (view === 'review' && context?.plantId && context?.yearMonth) {
       setReportContext({ plantId: context.plantId, yearMonth: context.yearMonth });
-    } else if (!context) {
+    } else {
       setReportContext(null);
+    }
+
+    if (view === 'inventory' && context?.plantId && context?.yearMonth) {
+      setInventoryContext({ plantId: context.plantId, yearMonth: context.yearMonth });
+    } else {
+      setInventoryContext(null);
+    }
+  };
+
+  const handleViewChange = (view: string) => {
+    setCurrentView(view);
+    if (view !== 'section') {
+      setCurrentSection(null);
+    }
+    if (view !== 'review') {
+      setReportContext(null);
+    }
+    if (view !== 'inventory') {
+      setInventoryContext(null);
     }
   };
 
   const handleBackToDashboard = () => {
-    setCurrentView("dashboard");
-    setCurrentSection(null);
+    handleViewChange("dashboard");
   };
 
   const handleSetupComplete = async () => {
@@ -148,7 +166,7 @@ function AppContent() {
       <div className="hidden lg:block">
         <Sidebar
           currentView={currentView}
-          onViewChange={setCurrentView}
+          onViewChange={handleViewChange}
         />
       </div>
 
@@ -228,7 +246,7 @@ function AppContent() {
           )}
 
           {currentView === "inventory" && (
-            <Dashboard onNavigate={handleNavigate} />
+            <Dashboard onNavigate={handleNavigate} initialContext={inventoryContext} />
           )}
         </div>
 
@@ -236,7 +254,7 @@ function AppContent() {
         <div className="lg:hidden bg-[#3B3A36] border-t border-[#5F6773] p-2">
           <div className="flex justify-around">
             <button
-              onClick={() => setCurrentView("dashboard")}
+              onClick={() => handleViewChange("dashboard")}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
                 currentView === "dashboard"
                   ? "text-[#2475C7]"
@@ -247,7 +265,7 @@ function AppContent() {
               <span className="text-xs">Dashboard</span>
             </button>
             <button
-              onClick={() => setCurrentView("inventory")}
+              onClick={() => handleViewChange("inventory")}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
                 currentView === "inventory"
                   ? "text-[#2475C7]"
@@ -258,7 +276,7 @@ function AppContent() {
               <span className="text-xs">Inventario</span>
             </button>
             <button
-              onClick={() => setCurrentView("reports")}
+              onClick={() => handleViewChange("reports")}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
                 currentView === "reports"
                   ? "text-[#2475C7]"

@@ -22,6 +22,7 @@ interface ReviewAndApproveSectionProps {
 export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSectionProps) {
   const { user, currentPlant } = useAuth();
   const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
+  const normalizedRole = String(user?.role || '').toLowerCase();
   
   const [validation, setValidation] = useState<OverallValidationResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -286,9 +287,9 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
   const isApproved = inventoryMonth.status === 'APPROVED';
 
   // Check user permissions
-  const canSubmit = isInProgress && user?.role === 'PLANT_MANAGER';
-  const canApprove = isSubmitted && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN');
-  const canReject = isSubmitted && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN');
+  const canSubmit = isInProgress && normalizedRole === 'plant_manager';
+  const canApprove = isSubmitted && (normalizedRole === 'admin' || normalizedRole === 'super_admin');
+  const canReject = isSubmitted && (normalizedRole === 'admin' || normalizedRole === 'super_admin');
 
   // ============================================================================
   // RENDER: MAIN UI
