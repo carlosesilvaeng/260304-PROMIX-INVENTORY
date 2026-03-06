@@ -30,6 +30,7 @@ interface SectionDetail {
   name: string;
   headers: string[];
   rows: (string | number)[][];
+  photos?: SectionPhoto[];
 }
 
 interface ReportDetail {
@@ -41,6 +42,18 @@ interface LogoImage {
   dataUrl: string;
   displayW: number; // mm at target height
   displayH: number; // mm
+}
+
+interface SectionPhoto {
+  label: string;
+  url: string;
+}
+
+interface EmbeddedImage {
+  dataUrl: string;
+  format: 'PNG' | 'JPEG';
+  width: number;
+  height: number;
 }
 
 // ============================================================================
@@ -77,6 +90,23 @@ function safeNum(v: any): string {
   return isNaN(n) ? '-' : n.toFixed(2);
 }
 
+function formatAggregateBoxDetail(entry: any): string {
+  return `A:${safeNum(entry.box_width_ft)} ft · H:${safeNum(entry.box_height_ft)} ft · L:${safeNum(entry.box_length_ft)} ft`;
+}
+
+function formatAggregateConeDetail(entry: any): string {
+  return [
+    `M1:${safeNum(entry.cone_m1)}`,
+    `M2:${safeNum(entry.cone_m2)}`,
+    `M3:${safeNum(entry.cone_m3)}`,
+    `M4:${safeNum(entry.cone_m4)}`,
+    `M5:${safeNum(entry.cone_m5)}`,
+    `M6:${safeNum(entry.cone_m6)}`,
+    `D1:${safeNum(entry.cone_d1)}`,
+    `D2:${safeNum(entry.cone_d2)}`,
+  ].join(' · ');
+}
+
 // ============================================================================
 // LOGO LOADER
 // ============================================================================
@@ -110,6 +140,45 @@ async function loadLogoImage(): Promise<LogoImage | null> {
   }
 }
 
+async function loadRemoteImage(url: string, token: string): Promise<EmbeddedImage | null> {
+  try {
+    const headers: HeadersInit = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) return null;
+
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+    });
+
+    const mimeType = blob.type.toLowerCase();
+    const format = mimeType.includes('png') ? 'PNG' : 'JPEG';
+
+    return {
+      dataUrl,
+      format,
+      width: img.naturalWidth || 1,
+      height: img.naturalHeight || 1,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================================
 // FETCH DETAIL FOR ONE REPORT
 // ============================================================================
@@ -136,14 +205,25 @@ async function fetchDetail(
     if (data.agregados?.length) {
       sections.push({
         name: 'Agregados',
-        headers: ['Nombre', 'Material', 'Método', 'Volumen (cy)', 'Foto'],
+        headers: ['Nombre', 'Material', 'Área', 'Método', 'Detalle cajón/cono', 'Volumen (cy)', 'Notas', 'Foto'],
         rows: data.agregados.map((e: any) => [
           e.aggregate_name ?? '-',
           e.material_type ?? '-',
+          e.location_area ?? '-',
           e.measurement_method ?? '-',
+          String(e.measurement_method || '').toUpperCase() === 'BOX'
+            ? formatAggregateBoxDetail(e)
+            : formatAggregateConeDetail(e),
           safeNum(e.calculated_volume_cy),
+          e.notes ?? '-',
           e.photo_url ? 'Sí' : 'No',
         ]),
+        photos: data.agregados
+          .filter((e: any) => !!e.photo_url)
+          .map((e: any) => ({
+            label: e.aggregate_name ?? 'Agregado',
+            url: e.photo_url,
+          })),
       });
     }
 
@@ -319,6 +399,80 @@ export async function exportToExcel(
 // ============================================================================
 
 const BANNER_H = 15; // mm — dark header banner on detail pages
+const PHOTO_BLOCK_H = 38; // mm
+
+async function renderSectionPhotos(
+  doc: jsPDF,
+  section: SectionDetail,
+  token: string,
+  startY: number,
+  pageW: number,
+  pageH: number,
+): Promise<number> {
+  if (!section.photos?.length) return startY;
+
+  const photos = await Promise.all(
+    section.photos.map(async (photo) => ({
+      ...photo,
+      image: await loadRemoteImage(photo.url, token),
+    })),
+  );
+  const availablePhotos = photos.filter((photo) => photo.image);
+  if (!availablePhotos.length) return startY;
+
+  let y = startY;
+  const marginX = 10;
+  const gap = 6;
+  const columns = 3;
+  const cardW = (pageW - marginX * 2 - gap * (columns - 1)) / columns;
+  const imageH = 24;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(59, 58, 54);
+  doc.text(`Miniaturas de fotos - ${section.name}`, marginX, y);
+  y += 4;
+
+  for (let i = 0; i < availablePhotos.length; i++) {
+    const column = i % columns;
+    if (column === 0 && i > 0) {
+      y += PHOTO_BLOCK_H;
+    }
+
+    if (y + PHOTO_BLOCK_H > pageH - 12) {
+      doc.addPage();
+      y = 12;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(59, 58, 54);
+      doc.text(`Miniaturas de fotos - ${section.name}`, marginX, y);
+      y += 4;
+    }
+
+    const photo = availablePhotos[i];
+    const x = marginX + column * (cardW + gap);
+    const img = photo.image!;
+    const aspect = img.width / img.height;
+    const drawW = aspect >= 1 ? cardW : imageH * aspect;
+    const drawH = aspect >= 1 ? cardW / aspect : imageH;
+    const finalW = Math.min(drawW, cardW);
+    const finalH = Math.min(drawH, imageH);
+    const imgX = x + (cardW - finalW) / 2;
+    const imgY = y;
+
+    doc.setDrawColor(157, 155, 154);
+    doc.roundedRect(x, y, cardW, imageH, 1.5, 1.5);
+    doc.addImage(img.dataUrl, img.format, imgX, imgY, finalW, finalH);
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(95, 103, 115);
+    const truncated = photo.label.length > 28 ? `${photo.label.slice(0, 25)}...` : photo.label;
+    doc.text(truncated, x, y + imageH + 4);
+  }
+
+  return y + PHOTO_BLOCK_H;
+}
 
 interface PdfExportOptions {
   mode?: 'download' | 'preview';
@@ -442,6 +596,9 @@ export async function exportToPDF(
       });
 
       y = (doc as any).lastAutoTable.finalY + 8;
+      if (sec.photos?.length) {
+        y = await renderSectionPhotos(doc, sec, token, y, pageW, pageH) + 8;
+      }
       if (y > pageH - 20) {
         doc.addPage();
         y = 12;
