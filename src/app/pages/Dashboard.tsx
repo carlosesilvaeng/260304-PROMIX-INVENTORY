@@ -6,7 +6,7 @@ import { useInventory } from '../contexts/InventoryContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useModules } from '../contexts/ModulesContext';
 import { usePlantPrefill } from '../contexts/PlantPrefillContext';
-import { getInventoryMonth } from '../utils/api';
+import { getInventoryMonth, getReports, ReportSummary } from '../utils/api';
 import { getSectionTranslation } from '../utils/sectionTranslations';
 import { PromixLogo } from '../components/PromixLogo';
 
@@ -22,6 +22,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const isPlantManager = String(user?.role || '').toLowerCase() === 'plant_manager';
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
+  const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
+  const [startingInventory, setStartingInventory] = React.useState(false);
 
   const MONTH_TO_NUM: Record<string, string> = {
     enero: '01',
@@ -105,6 +107,33 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     };
   }, [currentPlant, currentInventory, clearCurrentInventory, setSelectedYearMonth]);
 
+  useEffect(() => {
+    if (!currentPlant) {
+      setExistingReport(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadExistingReport = async () => {
+      const response = await getReports({
+        plantId: currentPlant.id,
+        yearMonth: selectedStartMonth,
+      });
+
+      if (cancelled) return;
+
+      const inProgressReport = (response.data || []).find((report) => report.status === 'IN_PROGRESS') || null;
+      setExistingReport(inProgressReport);
+    };
+
+    loadExistingReport();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPlant, selectedStartMonth]);
+
   // Mapeo de IDs de sección a claves de módulo
   const sectionToModuleKey = (sectionId: string): string | null => {
     const mapping: Record<string, string> = {
@@ -125,7 +154,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     return moduleKey ? isModuleEnabled(moduleKey as any) : false;
   }) || [];
 
-  const handleStartInventory = () => {
+  const handleStartInventory = async () => {
     if (currentPlant && user) {
       const roleLabel = user.role === 'super_admin' 
         ? t('role.superAdmin')
@@ -133,9 +162,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           ? t('role.admin')
           : t('role.plantManager');
       const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());
-      setSelectedYearMonth(targetMonth);
-      initializeInventory(currentPlant.id, user.name, roleLabel, targetMonth);
-      loadPlantData(currentPlant.id, targetMonth);
+      setStartingInventory(true);
+
+      try {
+        setSelectedYearMonth(targetMonth);
+        await loadPlantData(currentPlant.id, targetMonth);
+        initializeInventory(currentPlant.id, user.name, roleLabel, targetMonth);
+      } finally {
+        setStartingInventory(false);
+      }
     }
   };
 
@@ -266,13 +301,24 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               )}
             </div>
-            <Button size="lg" onClick={handleStartInventory}>
-              {t('dashboard.startInventoryOf')}{' '}
-              {new Date((selectedStartMonth || getYearMonthFromDate(new Date())) + '-01T12:00:00').toLocaleDateString(
-                language === 'es' ? 'es-ES' : 'en-US',
-                { month: 'long', year: 'numeric' }
-              )}
+            <Button size="lg" onClick={handleStartInventory} disabled={startingInventory}>
+              {startingInventory
+                ? 'Preparando inventario...'
+                : existingReport
+                  ? `Continuar inventario de ${new Date((selectedStartMonth || getYearMonthFromDate(new Date())) + '-01T12:00:00').toLocaleDateString(
+                      language === 'es' ? 'es-ES' : 'en-US',
+                      { month: 'long', year: 'numeric' }
+                    )}`
+                  : `${t('dashboard.startInventoryOf')} ${new Date((selectedStartMonth || getYearMonthFromDate(new Date())) + '-01T12:00:00').toLocaleDateString(
+                      language === 'es' ? 'es-ES' : 'en-US',
+                      { month: 'long', year: 'numeric' }
+                    )}`}
             </Button>
+            {existingReport && (
+              <p className="text-sm text-[#5F6773] mt-3">
+                Ya existe un inventario en progreso para este periodo. Usa continuar para retomarlo.
+              </p>
+            )}
           </Card>
         </div>
       </div>

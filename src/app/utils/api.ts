@@ -120,6 +120,19 @@ export interface InventoryMonthData {
   pettyCash: any | null;
 }
 
+export interface ReportSummary {
+  id: string;
+  plant_id: string;
+  year_month: string;
+  status: 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED';
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  approved_by?: string;
+  approved_at?: string;
+  notes?: string;
+}
+
 export async function createInventoryMonth(
   data: {
     plant_id: string;
@@ -136,6 +149,17 @@ export async function getInventoryMonth(
   yearMonth: string
 ): Promise<ApiResponse<InventoryMonthData>> {
   return apiRequest(`/inventory/month/${plantId}/${yearMonth}`);
+}
+
+export async function getReports(params?: {
+  plantId?: string;
+  yearMonth?: string;
+}): Promise<ApiResponse<ReportSummary[]>> {
+  const searchParams = new URLSearchParams();
+  if (params?.plantId) searchParams.set('plant_id', params.plantId);
+  if (params?.yearMonth) searchParams.set('year_month', params.yearMonth);
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+  return apiRequest(`/reports${suffix}`);
 }
 
 // ============================================================================
