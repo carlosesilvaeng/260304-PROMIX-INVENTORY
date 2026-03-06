@@ -103,6 +103,28 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     return `${prevYear}-${prevMonth}`;
   };
 
+  const getResolvedAggregatesConfig = (config: PlantConfigPackage) => {
+    if (config.aggregates?.length > 0) {
+      return config.aggregates;
+    }
+
+    const currentPlant = allPlants.find((p: any) => p.id === config.plant_id);
+    const cajones = currentPlant?.cajones || [];
+
+    // Backward compatibility: some plants only have cajones configured and no
+    // plant_aggregates_config rows yet. Build BOX aggregates from those cajones.
+    return cajones.map((cajon: any, index: number) => ({
+      id: `fallback_cajon_${cajon.id || index}`,
+      aggregate_name: cajon.name,
+      material_type: cajon.material || 'AGREGADO',
+      location_area: cajon.procedencia || cajon.name,
+      measurement_method: 'BOX',
+      unit: 'CUBIC_YARDS',
+      box_width_ft: cajon.ancho || 0,
+      box_height_ft: cajon.alto || 0,
+    }));
+  };
+
   // ============================================================================
   // HELPER: Create empty entries from config
   // ============================================================================
@@ -145,7 +167,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     const currentPlantForAgg = allPlants.find((p: any) => p.id === config.plant_id);
     const cajonesForAgg = currentPlantForAgg?.cajones || [];
 
-    entries.agregados = config.aggregates.map((agg: any) => {
+    const resolvedAggregates = getResolvedAggregatesConfig(config);
+
+    entries.agregados = resolvedAggregates.map((agg: any) => {
       // Find matching cajón by name for dimension fallback (e.g. "Cajón 1" ↔ aggregate_name "Cajón 1")
       const matchingCajon = cajonesForAgg.find((c: any) => c.name === agg.aggregate_name);
       return {
@@ -551,7 +575,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         }
         
         // If month exists but has no aggregate entries yet, create from config
-        if (entries.agregados.length === 0 && config.aggregates?.length > 0) {
+        const resolvedAggregates = getResolvedAggregatesConfig(config);
+
+        if (entries.agregados.length === 0 && resolvedAggregates.length > 0) {
           const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
           entries.agregados = freshEntries.agregados;
           console.log('[PlantPrefill] Month exists but no aggregate entries — created from config');
@@ -559,13 +585,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
         // Enrich aggregate entries with current config values
         // Handles cases where config was updated after entries were saved (e.g. DRAWER→BOX/CONE)
-        if (entries.agregados.length > 0 && config.aggregates?.length > 0) {
+        if (entries.agregados.length > 0 && resolvedAggregates.length > 0) {
           // Look up cajones from the current plant for dimension fallback
           const currentPlantForEnrich = allPlants.find((p: any) => p.id === config.plant_id);
           const cajonesForEnrich = currentPlantForEnrich?.cajones || [];
 
           entries.agregados = entries.agregados.map((entry: any) => {
-            const aggConfig = config.aggregates.find((a: any) => a.id === entry.aggregate_config_id);
+            const aggConfig = resolvedAggregates.find((a: any) => a.id === entry.aggregate_config_id);
             if (!aggConfig) return entry;
             // Find matching cajón by name for dimension fallback
             const matchingCajon = cajonesForEnrich.find(
