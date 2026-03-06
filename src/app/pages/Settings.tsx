@@ -37,6 +37,7 @@ export function Settings() {
   // Catalog options for CajonesConfigModal dropdowns
   const [catalogMateriales, setCatalogMateriales] = useState<string[]>([]);
   const [catalogProcedencias, setCatalogProcedencias] = useState<string[]>([]);
+  const canManageSettings = user?.role === 'admin' || user?.role === 'super_admin';
 
   useEffect(() => {
     getMateriales().then(r => {
@@ -46,6 +47,12 @@ export function Settings() {
       if (r.success) setCatalogProcedencias((r.data || []).map((p: any) => p.nombre));
     });
   }, []);
+
+  useEffect(() => {
+    if (user && !canManageSettings) {
+      setActiveTab('account');
+    }
+  }, [user, canManageSettings]);
 
   const handleSave = () => {
     setShowSaveSuccess(true);
@@ -110,17 +117,6 @@ export function Settings() {
     handleSave();
   };
 
-  if (user?.role !== 'admin' && user?.role !== 'super_admin') {
-    return (
-      <div className="p-6">
-        <Alert 
-          type="warning" 
-          message="Solo los administradores tienen acceso a la configuración" 
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
       {/* Logo Header */}
@@ -144,58 +140,61 @@ export function Settings() {
       {/* Tabs */}
       <div className="border-b border-[#9D9B9A]">
         <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('plants')}
-            className={`px-4 py-2 border-b-2 transition-colors ${
-              activeTab === 'plants'
-                ? 'border-[#2475C7] text-[#2475C7]'
-                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-            }`}
-          >
-            Plantas
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 border-b-2 transition-colors ${
-              activeTab === 'users'
-                ? 'border-[#2475C7] text-[#2475C7]'
-                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-            }`}
-          >
-            Usuarios
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`px-4 py-2 border-b-2 transition-colors ${
-              activeTab === 'audit'
-                ? 'border-[#2475C7] text-[#2475C7]'
-                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-            }`}
-          >
-            Auditoría
-          </button>
-          <button
-            onClick={() => setActiveTab('catalogs')}
-            className={`px-4 py-2 border-b-2 transition-colors ${
-              activeTab === 'catalogs'
-                ? 'border-[#2475C7] text-[#2475C7]'
-                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-            }`}
-          >
-            Catálogos
-          </button>
-          <button
-            onClick={() => setActiveTab('units')}
-            className={`px-4 py-2 border-b-2 transition-colors ${
-              activeTab === 'units'
-                ? 'border-[#2475C7] text-[#2475C7]'
-                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-            }`}
-          >
-            Unidades
-          </button>
-          {/* Solo Super Admin puede ver Módulos */}
-          {user?.role === 'super_admin' && (
+          {canManageSettings && (
+            <>
+              <button
+                onClick={() => setActiveTab('plants')}
+                className={`px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'plants'
+                    ? 'border-[#2475C7] text-[#2475C7]'
+                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                }`}
+              >
+                Plantas
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'users'
+                    ? 'border-[#2475C7] text-[#2475C7]'
+                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                }`}
+              >
+                Usuarios
+              </button>
+              <button
+                onClick={() => setActiveTab('audit')}
+                className={`px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'audit'
+                    ? 'border-[#2475C7] text-[#2475C7]'
+                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                }`}
+              >
+                Auditoría
+              </button>
+              <button
+                onClick={() => setActiveTab('catalogs')}
+                className={`px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'catalogs'
+                    ? 'border-[#2475C7] text-[#2475C7]'
+                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                }`}
+              >
+                Catálogos
+              </button>
+              <button
+                onClick={() => setActiveTab('units')}
+                className={`px-4 py-2 border-b-2 transition-colors ${
+                  activeTab === 'units'
+                    ? 'border-[#2475C7] text-[#2475C7]'
+                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                }`}
+              >
+                Unidades
+              </button>
+            </>
+          )}
+          {canManageSettings && user?.role === 'super_admin' && (
             <button
               onClick={() => setActiveTab('modules')}
               className={`px-4 py-2 border-b-2 transition-colors ${
@@ -207,7 +206,7 @@ export function Settings() {
               Módulos
             </button>
           )}
-          {/* Todos los usuarios pueden ver Mi Cuenta */}
+          {/* Todos los usuarios pueden ver Mi Cuenta y cambiar contraseña */}
           <button
             onClick={() => setActiveTab('account')}
             className={`px-4 py-2 border-b-2 transition-colors ${
@@ -221,8 +220,15 @@ export function Settings() {
         </div>
       </div>
 
+      {!canManageSettings && (
+        <Alert
+          type="warning"
+          message="Acceso limitado: como Gerente solo puedes administrar Mi Cuenta y cambiar tu contraseña."
+        />
+      )}
+
       {/* Plants Tab */}
-      {activeTab === 'plants' && (
+      {canManageSettings && activeTab === 'plants' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
@@ -311,17 +317,17 @@ export function Settings() {
       )}
 
       {/* Users Tab */}
-      {activeTab === 'users' && (
+      {canManageSettings && activeTab === 'users' && (
         <UserManagement />
       )}
 
       {/* Audit Tab */}
-      {activeTab === 'audit' && (
+      {canManageSettings && activeTab === 'audit' && (
         <AuditPanel />
       )}
       
       {/* Modules Tab */}
-      {activeTab === 'modules' && (
+      {canManageSettings && activeTab === 'modules' && (
         <div className="space-y-4">
           <ModuleManagementPanel />
         </div>
@@ -349,12 +355,12 @@ export function Settings() {
       )}
       
       {/* Catalogs Tab */}
-      {activeTab === 'catalogs' && (
+      {canManageSettings && activeTab === 'catalogs' && (
         <CatalogsPanel />
       )}
 
       {/* Units Tab */}
-      {activeTab === 'units' && (
+      {canManageSettings && activeTab === 'units' && (
         <UnitsPanel />
       )}
 
