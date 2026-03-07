@@ -1,4 +1,5 @@
 import React from 'react';
+import { Power } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useInventory } from '../contexts/InventoryContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -43,33 +44,45 @@ export function TopBar({ onChangePlant }: TopBarProps) {
   };
 
   return (
-    <div className="bg-white border-b border-[#9D9B9A] px-6 py-4">
-      <div className="flex items-center justify-between">
+    <div className="relative bg-white border-b border-[#9D9B9A] px-3 py-3 sm:px-6 sm:py-4">
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={logout}
+        aria-label={t('topbar.logout')}
+        title={t('topbar.logout')}
+        className="absolute right-3 top-3 z-10 h-11 w-11 rounded-full p-0 shadow-lg sm:right-4 sm:top-4 lg:static lg:h-auto lg:w-auto lg:rounded lg:px-3 lg:py-1.5 lg:shadow-none"
+      >
+        <Power className="h-4 w-4" />
+        <span className="hidden lg:inline">{t('topbar.logout')}</span>
+      </Button>
+
+      <div className="flex flex-col gap-3 pr-16 lg:flex-row lg:items-center lg:justify-between lg:pr-0">
         {/* Left side - Plant and Inventory Info */}
-        <div className="flex items-center gap-6">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:gap-6">
           {/* Plant info or Global access indicator */}
           {currentPlant ? (
-            <div>
-              <h2 className="text-lg font-bold text-[#3B3A36]">{currentPlant.name}</h2>
-              <p className="text-sm text-[#5F6773]">{currentPlant.code} • {currentPlant.location}</p>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-bold text-[#3B3A36]">{currentPlant.name}</h2>
+              <p className="truncate text-sm text-[#5F6773]">{currentPlant.code} • {currentPlant.location}</p>
             </div>
           ) : (
-            <div>
-              <h2 className="text-lg font-bold text-[#3B3A36]">PROMIX PLANT INVENTORY</h2>
-              <p className="text-sm text-[#2475C7] font-medium">🌐 Acceso Global - {getRoleLabel(user?.role || '')}</p>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-bold text-[#3B3A36]">PROMIX PLANT INVENTORY</h2>
+              <p className="truncate text-sm font-medium text-[#2475C7]">🌐 Acceso Global - {getRoleLabel(user?.role || '')}</p>
             </div>
           )}
           
           {shouldShowInventoryInfo && (
             <>
-              <div className="h-10 w-px bg-[#9D9B9A]" />
+              <div className="hidden h-10 w-px bg-[#9D9B9A] lg:block" />
               <div>
                 <p className="text-sm text-[#5F6773]">{t('sidebar.inventory')}</p>
                 <p className="text-[#3B3A36] font-medium">
                   {currentInventory.month} {currentInventory.year}
                 </p>
               </div>
-              <div className="h-10 w-px bg-[#9D9B9A]" />
+              <div className="hidden h-10 w-px bg-[#9D9B9A] lg:block" />
               <div className="flex items-center gap-2">
                 <span className="text-sm text-[#5F6773]">{t('settings.status')}:</span>
                 {getStatusBadge()}
@@ -86,7 +99,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
         </div>
 
         {/* Right side - Language Selector & User Info */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 lg:justify-end">
           {/* Language Selector */}
           <div className="flex items-center gap-2 bg-[#F2F3F5] rounded-lg p-1">
             <button
@@ -111,18 +124,15 @@ export function TopBar({ onChangePlant }: TopBarProps) {
             </button>
           </div>
 
-          <div className="text-right">
+          <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-[#3B3A36]">{user?.name}</p>
             <p className="text-xs text-[#5F6773]">
               {user && getRoleLabel(user.role)}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-[#2475C7] flex items-center justify-center text-white font-medium">
+          <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#2475C7] text-white font-medium sm:flex">
             {user?.name.charAt(0)}
           </div>
-          <Button variant="ghost" size="sm" onClick={logout}>
-            {t('topbar.logout')}
-          </Button>
         </div>
       </div>
     </div>

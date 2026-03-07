@@ -121,6 +121,20 @@ function AppContent() {
     await refreshFirstTimeCheck();
   };
 
+  const mobileNavItems = isPlantManager
+    ? [
+        { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+        { id: 'inventory', icon: '📝', label: 'Inventario' },
+        { id: 'reports', icon: '📈', label: 'Reportes' },
+        { id: 'settings', icon: '⚙️', label: 'Settings' },
+      ]
+    : [
+        { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+        { id: 'reports', icon: '📈', label: 'Reportes' },
+        { id: 'history', icon: '📋', label: 'Historial' },
+        { id: 'settings', icon: '⚙️', label: 'Settings' },
+      ];
+
   useEffect(() => {
     if ((user?.role === 'admin' || user?.role === 'super_admin') && !currentPlant) {
       clearCurrentInventory();
@@ -261,42 +275,21 @@ function AppContent() {
 
         {/* Mobile bottom navigation */}
         <div className="lg:hidden bg-[#3B3A36] border-t border-[#5F6773] p-2">
-          <div className="flex justify-around">
-            <button
-              onClick={() => handleViewChange("dashboard")}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
-                currentView === "dashboard"
-                  ? "text-[#2475C7]"
-                  : "text-white/70"
-              }`}
-            >
-              <span className="text-xl">📊</span>
-              <span className="text-xs">Dashboard</span>
-            </button>
-            {isPlantManager && (
+          <div className="grid grid-cols-4 gap-1">
+            {mobileNavItems.map((item) => (
               <button
-                onClick={() => handleViewChange("inventory")}
-                className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
-                  currentView === "inventory"
+                key={item.id}
+                onClick={() => handleViewChange(item.id)}
+                className={`flex min-w-0 flex-col items-center gap-1 rounded px-2 py-2 ${
+                  currentView === item.id
                     ? "text-[#2475C7]"
                     : "text-white/70"
                 }`}
               >
-                <span className="text-xl">📝</span>
-                <span className="text-xs">Inventario</span>
+                <span className="text-xl">{item.icon}</span>
+                <span className="truncate text-[11px] leading-none">{item.label}</span>
               </button>
-            )}
-            <button
-              onClick={() => handleViewChange("reports")}
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded ${
-                currentView === "reports"
-                  ? "text-[#2475C7]"
-                  : "text-white/70"
-              }`}
-            >
-              <span className="text-xl">📈</span>
-              <span className="text-xs">Reportes</span>
-            </button>
+            ))}
           </div>
         </div>
       </div>
