@@ -238,7 +238,7 @@ function AppContent() {
             )}
 
           {currentView === "review" && (
-            <ReviewAndApproveSection reportContext={reportContext} />
+            <ReviewAndApproveSection reportContext={reportContext} onNavigate={handleNavigate} />
           )}
 
           {currentView === "reports" && <Reports onNavigate={handleNavigate} />}

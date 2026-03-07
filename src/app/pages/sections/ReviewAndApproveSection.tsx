@@ -17,9 +17,10 @@ import {
 
 interface ReviewAndApproveSectionProps {
   reportContext?: { plantId: string; yearMonth: string } | null;
+  onNavigate?: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
 }
 
-export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSectionProps) {
+export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAndApproveSectionProps) {
   const { user, currentPlant, allPlants } = useAuth();
   const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const normalizedRole = String(user?.role || '').toLowerCase();
@@ -65,6 +66,30 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
       newExpanded.add(sectionId);
     }
     setExpandedSections(newExpanded);
+  };
+
+  const mapValidationSectionToRoute = (sectionId: string): string | null => {
+    const mapping: Record<string, string> = {
+      aggregates: 'agregados',
+      silos: 'silos',
+      additives: 'aditivos',
+      diesel: 'diesel',
+      products: 'aceites',
+      utilities: 'utilidades',
+      petty_cash: 'petty-cash',
+    };
+
+    return mapping[sectionId] || null;
+  };
+
+  const handleContinueSection = (section: SectionValidationResult) => {
+    const routeSectionId = mapValidationSectionToRoute(section.sectionId);
+    if (!routeSectionId || !onNavigate) return;
+
+    onNavigate('section', routeSectionId, {
+      plantId: reportContext?.plantId ?? currentPlant?.id,
+      yearMonth: reportContext?.yearMonth ?? prefillData.inventoryMonth?.year_month,
+    });
   };
 
   // ============================================================================
@@ -297,6 +322,7 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
   const canSubmit = isInProgress && normalizedRole === 'plant_manager';
   const canApprove = isSubmitted && (normalizedRole === 'admin' || normalizedRole === 'super_admin');
   const canReject = isSubmitted && (normalizedRole === 'admin' || normalizedRole === 'super_admin');
+  const firstIncompleteSection = validation.allSections.find((section) => !section.isComplete) || null;
 
   // ============================================================================
   // RENDER: MAIN UI
@@ -510,6 +536,17 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
                 </div>
               </div>
 
+              {isInProgress && normalizedRole === 'plant_manager' && !section.isComplete && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={() => handleContinueSection(section)}
+                  >
+                    Continuar sección
+                  </Button>
+                </div>
+              )}
+
               {/* SECTION DETAILS (EXPANDABLE) */}
               {expandedSections.has(section.sectionId) && section.issues.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-[#D4D2CF]">
@@ -576,6 +613,16 @@ export function ReviewAndApproveSection({ reportContext }: ReviewAndApproveSecti
 
           {/* RIGHT SIDE: BUTTONS */}
           <div className="flex gap-3">
+            {isInProgress && normalizedRole === 'plant_manager' && firstIncompleteSection && (
+              <Button
+                onClick={() => handleContinueSection(firstIncompleteSection)}
+                variant="secondary"
+                size="lg"
+              >
+                ↩️ Continuar llenado
+              </Button>
+            )}
+
             {/* DRAFT BUTTON (Plant Manager, IN_PROGRESS) */}
             {isInProgress && canSubmit && (
               <Button
