@@ -214,6 +214,10 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
 
   const completedSections = activeSections.filter(s => s.status === 'complete').length;
   const totalSections = activeSections.length;
+  const overallProgress = getOverallProgress();
+  const reviewButtonLabel = isPlantManager && overallProgress < 100
+    ? t('dashboard.viewFeedback')
+    : t('dashboard.reviewAndApprove');
 
   // If Admin/Super Admin without plant selected, show welcome screen
   if (!currentPlant && (user?.role === 'admin' || user?.role === 'super_admin')) {
@@ -523,15 +527,15 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
 
       {/* Progress Bar */}
       <Card>
-        <h3 className="text-lg text-[#3B3A36] mb-4">{t('dashboard.inventoryProgress')}</h3>
-        <div className="w-full bg-[#F2F3F5] rounded-full h-4">
-          <div 
-            className="bg-[#2475C7] h-4 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
-            style={{ width: `${getOverallProgress()}%` }}
-          >
-            <span className="text-xs text-white font-medium">{getOverallProgress()}%</span>
+          <h3 className="text-lg text-[#3B3A36] mb-4">{t('dashboard.inventoryProgress')}</h3>
+          <div className="w-full bg-[#F2F3F5] rounded-full h-4">
+            <div 
+              className="bg-[#2475C7] h-4 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
+              style={{ width: `${overallProgress}%` }}
+            >
+              <span className="text-xs text-white font-medium">{overallProgress}%</span>
+            </div>
           </div>
-        </div>
       </Card>
 
       {/* Sections Checklist */}
@@ -539,13 +543,19 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl text-[#3B3A36]">{t('dashboard.checklist')}</h3>
           {currentInventory.status !== 'completed' && (
-            <Button 
-              size="sm"
-              onClick={() => onNavigate('review')}
-              disabled={getOverallProgress() < 100}
-            >
-              {t('dashboard.reviewAndApprove')}
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button 
+                size="sm"
+                onClick={() => onNavigate('review')}
+              >
+                {reviewButtonLabel}
+              </Button>
+              {isPlantManager && overallProgress < 100 && (
+                <p className="text-xs text-[#5F6773]">
+                  Revisa errores críticos y pendientes antes de enviar.
+                </p>
+              )}
+            </div>
           )}
         </div>
 
