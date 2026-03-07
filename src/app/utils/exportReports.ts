@@ -426,6 +426,7 @@ async function renderSectionPhotos(
   const columns = 3;
   const cardW = (pageW - marginX * 2 - gap * (columns - 1)) / columns;
   const imageH = 24;
+  const imagePadding = 1.5;
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
@@ -452,16 +453,18 @@ async function renderSectionPhotos(
     const photo = availablePhotos[i];
     const x = marginX + column * (cardW + gap);
     const img = photo.image!;
-    const aspect = img.width / img.height;
-    const drawW = aspect >= 1 ? cardW : imageH * aspect;
-    const drawH = aspect >= 1 ? cardW / aspect : imageH;
-    const finalW = Math.min(drawW, cardW);
-    const finalH = Math.min(drawH, imageH);
+    const maxImageW = cardW - imagePadding * 2;
+    const maxImageH = imageH - imagePadding * 2;
+    const scale = Math.min(maxImageW / img.width, maxImageH / img.height);
+    const finalW = img.width * scale;
+    const finalH = img.height * scale;
     const imgX = x + (cardW - finalW) / 2;
-    const imgY = y;
+    const imgY = y + (imageH - finalH) / 2;
 
     doc.setDrawColor(157, 155, 154);
     doc.roundedRect(x, y, cardW, imageH, 1.5, 1.5);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(x + imagePadding, y + imagePadding, maxImageW, maxImageH, 'F');
     doc.addImage(img.dataUrl, img.format, imgX, imgY, finalW, finalH);
 
     doc.setFontSize(7);
