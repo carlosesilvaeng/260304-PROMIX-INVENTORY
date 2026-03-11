@@ -1,0 +1,15 @@
+ALTER TABLE public.plant_diesel_config
+  ADD COLUMN IF NOT EXISTS reading_uom TEXT,
+  ADD COLUMN IF NOT EXISTS tank_capacity_gallons NUMERIC(12,2),
+  ADD COLUMN IF NOT EXISTS initial_inventory_gallons NUMERIC(12,2),
+  ADD COLUMN IF NOT EXISTS calibration_table JSONB;
+
+ALTER TABLE public.plant_products_config
+  ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'OTHER',
+  ADD COLUMN IF NOT EXISTS measure_mode TEXT NOT NULL DEFAULT 'COUNT',
+  ADD COLUMN IF NOT EXISTS requires_photo BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS reading_uom TEXT,
+  ADD COLUMN IF NOT EXISTS calibration_table JSONB,
+  ADD COLUMN IF NOT EXISTS tank_capacity NUMERIC(12,2),
+  ADD COLUMN IF NOT EXISTS unit_volume NUMERIC(12,2),
+  ADD COLUMN IF NOT EXISTS notes TEXT;

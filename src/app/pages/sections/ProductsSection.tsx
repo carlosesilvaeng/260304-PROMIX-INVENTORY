@@ -10,7 +10,7 @@ import {
   convertProductReadingToQuantity,
   getProductInputLabel,
   getProductCalculatedLabel,
-} from '../../config/productsConfig';
+} from '../../utils/products';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveProductsEntries } from '../../utils/api';
 
@@ -163,10 +163,36 @@ export function ProductsSection() {
 
     try {
       console.log('[ProductsSection] Saving entries:', productos);
+
+      const entriesToSave = productos.map((producto: any) => {
+        const configId = producto.product_config_id || producto.producto_config_id || null;
+
+        return {
+          inventory_month_id: prefillData.inventoryMonth.id,
+          product_config_id: configId,
+          producto_config_id: configId,
+          product_name: producto.product_name,
+          category: producto.category || 'OTHER',
+          measure_mode: producto.measure_mode || 'COUNT',
+          uom: producto.uom || '',
+          requires_photo: producto.requires_photo ?? false,
+          reading_uom: producto.reading_uom || null,
+          reading_value: producto.reading_value ?? 0,
+          calculated_quantity: producto.calculated_quantity ?? 0,
+          calibration_table: producto.calibration_table || null,
+          tank_capacity: producto.tank_capacity ?? null,
+          unit_count: producto.unit_count ?? 0,
+          unit_volume: producto.unit_volume ?? null,
+          total_volume: producto.total_volume ?? 0,
+          quantity: producto.quantity ?? 0,
+          photo_url: producto.photo_url || null,
+          notes: producto.notes || '',
+        };
+      });
       
       const response = await saveProductsEntries(
         prefillData.inventoryMonth.id,
-        productos
+        entriesToSave
       );
 
       if (response.success) {
@@ -272,7 +298,7 @@ export function ProductsSection() {
               <>
                 <NumericInput
                   label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
-                  value={producto.reading_value || ''}
+                  value={producto.reading_value ?? ''}
                   onValueChange={(val) => handleFieldChange(producto, 'reading_value', val || 0)}
                   placeholder="0.00"
                   required
@@ -299,7 +325,7 @@ export function ProductsSection() {
               <>
                 <NumericInput
                   label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
-                  value={producto.unit_count || ''}
+                  value={producto.unit_count ?? ''}
                   onValueChange={(val) => handleFieldChange(producto, 'unit_count', val || 0)}
                   placeholder="0"
                   required
@@ -325,7 +351,7 @@ export function ProductsSection() {
             {producto.measure_mode === 'COUNT' && (
               <NumericInput
                 label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
-                value={producto.quantity || ''}
+                value={producto.quantity ?? ''}
                 onValueChange={(val) => handleFieldChange(producto, 'quantity', val || 0)}
                 placeholder="0"
                 required

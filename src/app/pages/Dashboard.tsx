@@ -8,6 +8,7 @@ import { useModules } from '../contexts/ModulesContext';
 import { usePlantPrefill } from '../contexts/PlantPrefillContext';
 import { getInventoryMonth, getReports, ReportSummary } from '../utils/api';
 import { getSectionTranslation } from '../utils/sectionTranslations';
+import { validateAllSections } from '../utils/validation';
 import { PromixLogo } from '../components/PromixLogo';
 
 interface DashboardProps {
@@ -20,7 +21,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const { currentInventory, initializeInventory, clearCurrentInventory } = useInventory();
   const { t, language } = useLanguage();
   const { isModuleEnabled } = useModules();
-  const { setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
+  const { prefillData, setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const isPlantManager = String(user?.role || '').toLowerCase() === 'plant_manager';
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
   const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
@@ -181,6 +182,17 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
     openInventoryPeriod(initialContext.yearMonth);
   }, [currentPlant, currentInventory, initialContext, openInventoryPeriod, setSelectedYearMonth]);
 
+  const inventoryYearMonth = getInventoryYearMonth(currentInventory);
+
+  useEffect(() => {
+    if (!currentPlant || !currentInventory || currentInventory.plantId !== currentPlant.id || !inventoryYearMonth) {
+      return;
+    }
+
+    setSelectedYearMonth(inventoryYearMonth);
+    loadPlantData(currentPlant.id, inventoryYearMonth);
+  }, [currentPlant, currentInventory, inventoryYearMonth, loadPlantData, setSelectedYearMonth]);
+
   // Mapeo de IDs de sección a claves de módulo
   const sectionToModuleKey = (sectionId: string): string | null => {
     const mapping: Record<string, string> = {
@@ -195,11 +207,63 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
     return mapping[sectionId] || null;
   };
 
+  const validationSectionToDashboardSection = (sectionId: string): string | null => {
+    const mapping: Record<string, string> = {
+      aggregates: 'agregados',
+      silos: 'silos',
+      additives: 'aditivos',
+      diesel: 'diesel',
+      products: 'aceites',
+      utilities: 'utilidades',
+      petty_cash: 'petty-cash',
+    };
+    return mapping[sectionId] || null;
+  };
+
+  const sectionValidationMap = React.useMemo(() => {
+    if (!prefillData.inventoryMonth || prefillData.loading || prefillData.error) {
+      return new Map<string, ReturnType<typeof validateAllSections>['allSections'][number]>();
+    }
+
+    const validation = validateAllSections(prefillData);
+    return new Map(
+      validation.allSections
+        .map((section) => {
+          const dashboardSectionId = validationSectionToDashboardSection(section.sectionId);
+          return dashboardSectionId ? [dashboardSectionId, section] as const : null;
+        })
+        .filter((entry): entry is readonly [string, ReturnType<typeof validateAllSections>['allSections'][number]] => entry !== null)
+    );
+  }, [prefillData]);
+
+  const derivedSections = React.useMemo(() => {
+    return (currentInventory?.sections || []).map((section) => {
+      const validation = sectionValidationMap.get(section.id);
+      if (!validation) return section;
+
+      const progress = validation.totalItems > 0
+        ? Math.round((validation.completeItems / validation.totalItems) * 100)
+        : validation.isComplete ? 100 : 0;
+
+      const status = validation.isComplete
+        ? 'complete'
+        : progress > 0 || validation.totalItems > 0
+          ? 'in-progress'
+          : 'pending';
+
+      return {
+        ...section,
+        status,
+        progress,
+      };
+    });
+  }, [currentInventory, sectionValidationMap]);
+
   // Filtrar secciones basadas en módulos activos
-  const activeSections = currentInventory?.sections.filter(section => {
+  const activeSections = derivedSections.filter(section => {
     const moduleKey = sectionToModuleKey(section.id);
     return moduleKey ? isModuleEnabled(moduleKey as any) : false;
-  }) || [];
+  });
 
   const handleStartInventory = async () => {
     const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());

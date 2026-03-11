@@ -238,8 +238,10 @@ export function validateDieselSection(entry: any): SectionValidationResult {
     };
   }
 
+  const readingValue = entry.reading_inches ?? entry.reading ?? entry.current_reading;
+
   // Check current reading
-  if (entry.current_reading === null || entry.current_reading === undefined) {
+  if (readingValue === null || readingValue === undefined || readingValue === '') {
     issues.push({
       field: 'Diesel - Lectura Actual',
       message: 'Lectura actual requerida (en pulgadas)',

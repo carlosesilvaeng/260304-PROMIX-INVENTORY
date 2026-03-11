@@ -6,8 +6,6 @@ import {
   PlantConfigPackage,
   InventoryMonth 
 } from '../utils/api';
-import { getDieselConfig } from '../config/dieselConfig';
-import { getPlantProductsConfig } from '../config/productsConfig';
 import { getPlantUtilitiesConfig } from '../config/utilitiesConfig';
 import { getPettyCashConfig } from '../config/pettyCashConfig';
 import { useAuth } from './AuthContext';
@@ -108,6 +106,16 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       entry?.utility_config_id ||
       entry?.id ||
       entry?.meter_name ||
+      null
+    );
+  }, []);
+
+  const resolveProductConfigKey = useCallback((entry: any): string | null => {
+    return (
+      entry?.product_config_id ||
+      entry?.producto_config_id ||
+      entry?.id ||
+      entry?.product_name ||
       null
     );
   }, []);
@@ -260,25 +268,25 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       });
     });
 
-    // DIESEL: Single entry with LOCAL config (not from API)
-    const dieselConfig = getDieselConfig(config.plant_id || '');
-    
+    // DIESEL: Single entry from backend config
+    const dieselConfig = config.diesel;
+
     if (dieselConfig) {
       entries.diesel = {
         id: `temp_diesel_${Date.now()}`,
         inventory_month_id: inventoryMonthId,
-        diesel_config_id: config.diesel?.id,
+        diesel_config_id: dieselConfig.id,
         plant_id: config.plant_id,
-        unit: 'gallons',
-        // Calibration data from local config
-        reading_uom: dieselConfig.reading_uom,
-        calibration_table: dieselConfig.calibration_table,
-        tank_capacity_gallons: dieselConfig.tank_capacity_gallons,
+        unit: dieselConfig.unit || 'gallons',
+        reading_uom: dieselConfig.reading_uom || 'inches',
+        calibration_table: dieselConfig.calibration_table || null,
+        tank_capacity_gallons: Number(dieselConfig.tank_capacity_gallons) || 0,
         // Reading and calculated fields
         reading_inches: 0, // To be filled by manager
+        reading: 0,
         calculated_gallons: 0, // Calculated from reading_inches using calibration_table
         // Inventory flow: beginning + purchases - ending = consumption
-        beginning_inventory: dieselConfig.initial_inventory_gallons || 0, // Will be updated from previous month
+        beginning_inventory: Number(dieselConfig.initial_inventory_gallons) || 0, // Will be updated from previous month
         purchases_gallons: 0, // To be filled by manager
         ending_inventory: 0, // Equals calculated_gallons from reading
         consumption_gallons: 0, // Calculated: beginning + purchases - ending
@@ -288,23 +296,22 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         _isNew: true,
       };
     } else {
-      console.warn(`[PlantPrefill] No diesel config found for plant ${config.plant_id}`);
+      console.warn(`[PlantPrefill] No diesel config found in backend for plant ${config.plant_id}`);
       entries.diesel = null;
     }
 
-    // PRODUCTOS: Create entry for each producto in LOCAL config (not from API)
-    const localProductsConfig = getPlantProductsConfig(config.plant_id || '');
-    
-    if (localProductsConfig) {
-      entries.productos = localProductsConfig.products.map((producto: any) => ({
+    // PRODUCTOS: Create entry for each product configured in the backend
+    if ((config.products || []).length > 0) {
+      entries.productos = (config.products || []).map((producto: any) => ({
         id: `temp_${producto.id}_${Date.now()}_${Math.random()}`,
         inventory_month_id: inventoryMonthId,
+        product_config_id: producto.id,
         producto_config_id: producto.id,
         product_name: producto.product_name,
-        category: producto.category,
-        measure_mode: producto.measure_mode,
-        uom: producto.uom,
-        requires_photo: producto.requires_photo,
+        category: producto.category || 'OTHER',
+        measure_mode: producto.measure_mode || 'COUNT',
+        uom: producto.uom || producto.unit || '',
+        requires_photo: producto.requires_photo ?? false,
         // For TANK_READING mode
         reading_uom: producto.reading_uom || null,
         reading_value: 0, // To be filled by manager (for TANK_READING)
@@ -323,7 +330,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         _isNew: true,
       }));
     } else {
-      console.warn(`[PlantPrefill] No local products config found for plant ${config.plant_id}`);
+      console.warn(`[PlantPrefill] No products config found in backend for plant ${config.plant_id}`);
       entries.productos = [];
     }
 
@@ -476,7 +483,10 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     if (previousMonthData.productos && previousMonthData.productos.length > 0) {
       entries.productos.forEach((entry: any) => {
         const prevProducto = previousMonthData.productos.find(
-          (p: any) => p.producto_config_id === entry.producto_config_id
+          (p: any) =>
+            (p.product_config_id || p.producto_config_id) ===
+              (entry.product_config_id || entry.producto_config_id) ||
+            p.product_name === entry.product_name
         );
         if (prevProducto) {
           entry.beginning = prevProducto.ending || 0;
@@ -724,6 +734,63 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           console.log('[PlantPrefill] Enriched utilities entries with current config values');
         }
 
+        if (!entries.diesel && freshEntries.diesel) {
+          entries.diesel = freshEntries.diesel;
+          console.log('[PlantPrefill] Month exists but no diesel entry — created from config');
+        }
+
+        if (entries.diesel && freshEntries.diesel) {
+          entries.diesel = {
+            ...freshEntries.diesel,
+            ...entries.diesel,
+            diesel_config_id: entries.diesel.diesel_config_id || freshEntries.diesel.diesel_config_id,
+            plant_id: entries.diesel.plant_id || freshEntries.diesel.plant_id,
+            unit: freshEntries.diesel.unit || entries.diesel.unit,
+            reading_uom: freshEntries.diesel.reading_uom || entries.diesel.reading_uom,
+            calibration_table: freshEntries.diesel.calibration_table || entries.diesel.calibration_table,
+            tank_capacity_gallons: Number(freshEntries.diesel.tank_capacity_gallons ?? entries.diesel.tank_capacity_gallons) || 0,
+            beginning_inventory: Number(entries.diesel.beginning_inventory ?? freshEntries.diesel.beginning_inventory) || 0,
+          };
+          console.log('[PlantPrefill] Enriched diesel entry with current config values');
+        }
+
+        if (entries.productos.length === 0 && freshEntries.productos.length > 0) {
+          entries.productos = freshEntries.productos;
+          console.log('[PlantPrefill] Month exists but no products entries — created from config');
+        }
+
+        if (entries.productos.length > 0 && freshEntries.productos.length > 0) {
+          const freshProductsByKey = new Map(
+            freshEntries.productos.map((entry: any) => [resolveProductConfigKey(entry), entry])
+          );
+
+          entries.productos = entries.productos.map((entry: any) => {
+            const configKey = resolveProductConfigKey(entry);
+            const freshProduct =
+              freshProductsByKey.get(configKey) ||
+              freshEntries.productos.find((freshEntry: any) => freshEntry.product_name === entry.product_name);
+            if (!freshProduct) return entry;
+
+            return {
+              ...freshProduct,
+              ...entry,
+              product_config_id: configKey || freshProduct.product_config_id,
+              producto_config_id: configKey || freshProduct.producto_config_id,
+              product_name: freshProduct.product_name || entry.product_name,
+              category: freshProduct.category || entry.category,
+              measure_mode: freshProduct.measure_mode || entry.measure_mode,
+              uom: freshProduct.uom || entry.uom,
+              requires_photo: entry.requires_photo ?? freshProduct.requires_photo,
+              reading_uom: freshProduct.reading_uom || entry.reading_uom,
+              calibration_table: freshProduct.calibration_table || entry.calibration_table,
+              tank_capacity: freshProduct.tank_capacity ?? entry.tank_capacity,
+              unit_volume: freshProduct.unit_volume ?? entry.unit_volume,
+              notes: entry.notes || freshProduct.notes,
+            };
+          });
+          console.log('[PlantPrefill] Enriched products entries with current config values');
+        }
+
         if (entries.aditivos.length === 0 && freshEntries.aditivos.length > 0) {
           entries.aditivos = freshEntries.aditivos;
           console.log('[PlantPrefill] Month exists but no additives entries — created from config');
@@ -815,7 +882,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         error: error instanceof Error ? error.message : 'Unknown error',
       }));
     }
-  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig, resolveUtilityConfigKey, user]);
+  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig, resolveProductConfigKey, resolveUtilityConfigKey, user]);
 
   // ============================================================================
   // REFRESH FUNCTION

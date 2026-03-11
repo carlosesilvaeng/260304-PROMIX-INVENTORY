@@ -413,3 +413,56 @@ export async function updatePlantAdditivesConfigEntries(
 ): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/additives`, 'PUT', { additives });
 }
+
+// ============================================================================
+// DIESEL CONFIGURATION API
+// ============================================================================
+
+export async function getPlantDieselConfigEntry(plantId: string): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/diesel`, 'GET');
+}
+
+export async function updatePlantDieselConfigEntry(
+  plantId: string,
+  diesel: {
+    id?: string;
+    measurement_method?: string;
+    calibration_curve_name?: string | null;
+    reading_uom?: string;
+    tank_capacity_gallons?: number;
+    initial_inventory_gallons?: number;
+    calibration_table?: Record<string, number> | null;
+    is_active?: boolean;
+  } | null
+): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/diesel`, 'PUT', { diesel });
+}
+
+// ============================================================================
+// PRODUCTS CONFIGURATION API
+// ============================================================================
+
+export async function getPlantProductsConfigEntries(plantId: string): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/products`, 'GET');
+}
+
+export async function updatePlantProductsConfigEntries(
+  plantId: string,
+  products: {
+    id?: string;
+    product_name: string;
+    category?: string;
+    measure_mode?: string;
+    uom?: string;
+    requires_photo?: boolean;
+    reading_uom?: string | null;
+    calibration_table?: Record<string, number> | null;
+    tank_capacity?: number | null;
+    unit_volume?: number | null;
+    notes?: string;
+    sort_order?: number;
+    is_active?: boolean;
+  }[]
+): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/products`, 'PUT', { products });
+}

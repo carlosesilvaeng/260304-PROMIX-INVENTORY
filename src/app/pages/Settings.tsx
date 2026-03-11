@@ -14,6 +14,8 @@ import { UnitsPanel } from './settings/UnitsPanel';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
 import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
+import { DieselConfigModal } from '../components/DieselConfigModal';
+import { ProductsConfigModal } from '../components/ProductsConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { getMateriales, getProcedencias } from '../utils/api';
 import type { Plant, CajonConfig } from '../types';
@@ -29,6 +31,8 @@ export function Settings() {
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
+  const [editingDiesel, setEditingDiesel] = useState<Plant | null>(null);
+  const [editingProducts, setEditingProducts] = useState<Plant | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showCreatePlantModal, setShowCreatePlantModal] = useState(false);
@@ -306,6 +310,20 @@ export function Settings() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setEditingDiesel(plant)}
+                        >
+                          ⛽ Diesel
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingProducts(plant)}
+                        >
+                          🛢️ Productos
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setViewingPlantDetails(plant)}
                         >
                           Ver Detalles
@@ -404,6 +422,28 @@ export function Settings() {
             handleSave();
           }}
           onClose={() => setEditingAdditives(null)}
+        />
+      )}
+
+      {editingDiesel && (
+        <DieselConfigModal
+          plant={editingDiesel}
+          onSaved={() => {
+            setEditingDiesel(null);
+            handleSave();
+          }}
+          onClose={() => setEditingDiesel(null)}
+        />
+      )}
+
+      {editingProducts && (
+        <ProductsConfigModal
+          plant={editingProducts}
+          onSaved={() => {
+            setEditingProducts(null);
+            handleSave();
+          }}
+          onClose={() => setEditingProducts(null)}
         />
       )}
       

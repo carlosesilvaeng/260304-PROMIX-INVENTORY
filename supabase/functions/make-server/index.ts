@@ -891,6 +891,178 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
   }
 });
 
+// GET /plants/:plantId/diesel — fetch diesel config for a plant (admin/super_admin only)
+app.get("/make-server/plants/:plantId/diesel", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('plant_diesel_config')
+      .select(`
+        id,
+        measurement_method,
+        calibration_curve_name,
+        reading_uom,
+        tank_capacity_gallons,
+        initial_inventory_gallons,
+        calibration_table,
+        is_active
+      `)
+      .eq('plant_id', plantId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return c.json({ success: true, data: data ?? null });
+  } catch (error: any) {
+    console.error("❌ Error fetching diesel config:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/diesel — replace diesel config for a plant (admin/super_admin only)
+app.put("/make-server/plants/:plantId/diesel", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const diesel = body.diesel;
+    const supabase = db.getSupabaseClient();
+
+    const { error: deleteError } = await supabase
+      .from('plant_diesel_config')
+      .delete()
+      .eq('plant_id', plantId);
+    if (deleteError) throw deleteError;
+
+    if (diesel) {
+      const row = {
+        ...(diesel.id ? { id: diesel.id } : {}),
+        plant_id: plantId,
+        measurement_method: diesel.measurement_method || 'TANK_LEVEL',
+        calibration_curve_name: diesel.calibration_curve_name || null,
+        reading_uom: diesel.reading_uom || 'inches',
+        tank_capacity_gallons: diesel.tank_capacity_gallons ?? 0,
+        initial_inventory_gallons: diesel.initial_inventory_gallons ?? 0,
+        calibration_table: diesel.calibration_table || null,
+        is_active: diesel.is_active ?? true,
+      };
+
+      const { error: insertError } = await supabase
+        .from('plant_diesel_config')
+        .insert(row);
+      if (insertError) throw insertError;
+    }
+
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("❌ Error saving diesel config:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// GET /plants/:plantId/products — list product configs for a plant (admin/super_admin only)
+app.get("/make-server/plants/:plantId/products", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('plant_products_config')
+      .select(`
+        id,
+        product_name,
+        unit,
+        category,
+        measure_mode,
+        requires_photo,
+        reading_uom,
+        calibration_table,
+        tank_capacity,
+        unit_volume,
+        notes,
+        is_active,
+        sort_order
+      `)
+      .eq('plant_id', plantId)
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+
+    const normalized = (data ?? []).map((entry: any) => ({
+      ...entry,
+      uom: entry.unit,
+    }));
+
+    return c.json({ success: true, data: normalized });
+  } catch (error: any) {
+    console.error("❌ Error fetching product configs:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/products — replace product configs for a plant (admin/super_admin only)
+app.put("/make-server/plants/:plantId/products", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const products = body.products ?? [];
+    const supabase = db.getSupabaseClient();
+
+    const { error: deleteError } = await supabase
+      .from('plant_products_config')
+      .delete()
+      .eq('plant_id', plantId);
+    if (deleteError) throw deleteError;
+
+    if (products.length > 0) {
+      const rows = products.map((product: any, index: number) => ({
+        ...(product.id ? { id: product.id } : {}),
+        plant_id: plantId,
+        product_name: product.product_name,
+        unit: product.uom || product.unit || '',
+        category: product.category || 'OTHER',
+        measure_mode: product.measure_mode || 'COUNT',
+        requires_photo: product.requires_photo ?? false,
+        reading_uom: product.reading_uom || null,
+        calibration_table: product.calibration_table || null,
+        tank_capacity: product.tank_capacity ?? null,
+        unit_volume: product.unit_volume ?? null,
+        notes: product.notes || '',
+        sort_order: product.sort_order ?? index,
+        is_active: product.is_active ?? true,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('plant_products_config')
+        .insert(rows);
+      if (insertError) throw insertError;
+    }
+
+    return c.json({ success: true, count: products.length });
+  } catch (error: any) {
+    console.error("❌ Error saving product configs:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // PUT /plants/:plantId/silos — replace all silos for a plant (admin/super_admin only)
 app.put("/make-server/plants/:plantId/silos", async (c) => {
   try {
