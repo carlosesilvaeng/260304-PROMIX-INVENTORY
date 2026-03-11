@@ -13,6 +13,7 @@ import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
+import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { getMateriales, getProcedencias } from '../utils/api';
 import type { Plant, CajonConfig } from '../types';
@@ -27,6 +28,7 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
+  const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showCreatePlantModal, setShowCreatePlantModal] = useState(false);
@@ -40,13 +42,15 @@ export function Settings() {
   const canManageSettings = user?.role === 'admin' || user?.role === 'super_admin';
 
   useEffect(() => {
+    if (!canManageSettings) return;
+
     getMateriales().then(r => {
       if (r.success) setCatalogMateriales((r.data || []).map((m: any) => m.nombre));
     });
     getProcedencias().then(r => {
       if (r.success) setCatalogProcedencias((r.data || []).map((p: any) => p.nombre));
     });
-  }, []);
+  }, [canManageSettings]);
 
   useEffect(() => {
     if (user && !canManageSettings) {
@@ -295,6 +299,13 @@ export function Settings() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setEditingAdditives(plant)}
+                        >
+                          ⚗️ Aditivos
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setViewingPlantDetails(plant)}
                         >
                           Ver Detalles
@@ -382,6 +393,17 @@ export function Settings() {
           plant={editingSilos}
           onSaved={() => setEditingSilos(null)}
           onClose={() => setEditingSilos(null)}
+        />
+      )}
+
+      {editingAdditives && (
+        <AdditivesConfigModal
+          plant={editingAdditives}
+          onSaved={() => {
+            setEditingAdditives(null);
+            handleSave();
+          }}
+          onClose={() => setEditingAdditives(null)}
         />
       )}
       

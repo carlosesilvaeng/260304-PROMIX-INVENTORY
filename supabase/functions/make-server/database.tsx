@@ -99,6 +99,7 @@ export async function getPlantConfigPackage(plantId: string) {
     const [
       aggregatesRes,
       silosRes,
+      siloAllowedProductsRes,
       additivesRes,
       dieselRes,
       productsRes,
@@ -106,7 +107,8 @@ export async function getPlantConfigPackage(plantId: string) {
       pettyCashRes
     ] = await Promise.all([
       supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
-      supabase.from('plant_silos_config').select('*, silo_allowed_products(product_name)').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
+      supabase.from('plant_silos_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
+      supabase.from('silo_allowed_products').select('silo_config_id, product_name'),
       supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
       supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
@@ -126,6 +128,10 @@ export async function getPlantConfigPackage(plantId: string) {
     
     if (silosRes.error) {
       console.error(`❌ [getPlantConfigPackage] Silos query error:`, silosRes.error);
+    }
+
+    if (siloAllowedProductsRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Silo allowed products query error:`, siloAllowedProductsRes.error);
     }
     
     // Get unique calibration curve IDs
@@ -149,9 +155,16 @@ export async function getPlantConfigPackage(plantId: string) {
     }
     
     // Format silos with allowed products
+    const siloAllowedProductsBySiloId = (siloAllowedProductsRes.data || []).reduce((acc: Record<string, string[]>, row: any) => {
+      if (!row?.silo_config_id || !row?.product_name) return acc;
+      if (!acc[row.silo_config_id]) acc[row.silo_config_id] = [];
+      acc[row.silo_config_id].push(row.product_name);
+      return acc;
+    }, {});
+
     const silos = (silosRes.data || []).map(silo => ({
       ...silo,
-      allowed_products: silo.silo_allowed_products?.map(p => p.product_name) || []
+      allowed_products: siloAllowedProductsBySiloId[silo.id] || []
     }));
     
     return {

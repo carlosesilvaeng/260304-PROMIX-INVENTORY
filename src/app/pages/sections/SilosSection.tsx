@@ -6,6 +6,7 @@ import { Select } from '../../components/Select';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
+import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveSilosEntries } from '../../utils/api';
 
 interface SilosSectionProps {
@@ -102,6 +103,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
     // If product selection changes, update product_name
     if (field === 'product_name') {
       updates.product_name = value;
+      updates.product_in_silo = value || null;
     }
 
     // Auto-calculate result based on reading_value
@@ -130,11 +132,20 @@ export function SilosSection({ onBack }: SilosSectionProps) {
     try {
       // Prepare entries for saving (remove temp IDs and internal flags)
       const entriesToSave = prefillData.silosEntries.map(entry => ({
+        ...(entry._isNew ? {} : { id: entry.id }),
         inventory_month_id: entry.inventory_month_id,
         silo_config_id: entry.silo_config_id,
-        product_name: entry.product_name,
-        reading_value: entry.reading_value || 0,
-        calculated_result_cy: entry.calculated_result_cy || 0,
+        silo_name: entry.silo_name,
+        measurement_method: entry.measurement_method,
+        allowed_products: entry.allowed_products || [],
+        product_id: entry.product_id || null,
+        product_name: entry.product_name || null,
+        product_in_silo: entry.product_in_silo || entry.product_name || null,
+        reading_value: entry.reading_value ?? 0,
+        reading: entry.reading_value ?? entry.reading ?? 0,
+        previous_reading: entry.previous_reading ?? 0,
+        calculated_result_cy: entry.calculated_result_cy ?? 0,
+        calculated_volume: entry.calculated_volume ?? entry.calculated_result_cy ?? 0,
         photo_url: entry.photo_url,
         notes: entry.notes || '',
       }));
@@ -164,7 +175,12 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
   const isEntryComplete = (entry: any): boolean => {
     // Must have product selected, reading value, and photo
-    return !!(entry.product_name && entry.reading_value > 0 && entry.photo_url);
+    return !!(
+      (entry.product_name || entry.product_in_silo) &&
+      entry.reading_value !== null &&
+      entry.reading_value !== undefined &&
+      entry.photo_url
+    );
   };
 
   const completedCount = prefillData.silosEntries.filter(isEntryComplete).length;
@@ -203,7 +219,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
             Inventario de Silos
           </h1>
           <p className="text-[#6F767E]">
-            {currentPlant?.name} - {prefillData.inventoryMonth?.year_month}
+            {currentPlant?.name} - {formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}
           </p>
           <div className="flex items-center gap-4 mt-2">
             <span className="text-sm text-[#9D9B9A]">

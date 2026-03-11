@@ -110,31 +110,30 @@ export function validateSilosSection(entries: any[]): SectionValidationResult {
 
   entries.forEach((entry) => {
     let entryComplete = true;
+    const siloLabel = entry.silo_name || 'Silo';
+    const productLabel = entry.product_name || entry.product_in_silo;
 
-    // Check current reading
-    if (entry.current_reading === null || entry.current_reading === undefined) {
+    if (entry.reading_value === null || entry.reading_value === undefined) {
       issues.push({
-        field: `${entry.silo_name} - Lectura Actual`,
-        message: 'Lectura actual requerida',
+        field: `${siloLabel} - Lectura`,
+        message: 'Lectura requerida (puede ser 0 si aplica)',
         severity: 'error',
       });
       entryComplete = false;
     }
 
-    // Check product selected
-    if (!entry.product_id) {
+    if (!productLabel) {
       issues.push({
-        field: `${entry.silo_name} - Producto`,
+        field: `${siloLabel} - Producto`,
         message: 'Debe seleccionar un producto',
         severity: 'error',
       });
       entryComplete = false;
     }
 
-    // Check photo
     if (!entry.photo_url) {
       issues.push({
-        field: `${entry.silo_name} - Photo`,
+        field: `${siloLabel} - Foto`,
         message: 'Foto del medidor requerida',
         severity: 'error',
       });
@@ -167,21 +166,30 @@ export function validateAdditivesSection(entries: any[]): SectionValidationResul
 
   entries.forEach((entry) => {
     let entryComplete = true;
+    const additiveLabel = entry.product_name || entry.tank_name || 'Aditivo';
+    const additiveType = String(entry.additive_type || '').toUpperCase();
 
-    // Check current reading
-    if (entry.current_reading === null || entry.current_reading === undefined) {
+    if (additiveType === 'TANK') {
+      if (entry.reading_value === null || entry.reading_value === undefined) {
+        issues.push({
+          field: `${additiveLabel} - Lectura`,
+          message: 'Lectura requerida (puede ser 0 si aplica)',
+          severity: 'error',
+        });
+        entryComplete = false;
+      }
+    } else if (entry.quantity === null || entry.quantity === undefined) {
       issues.push({
-        field: `${entry.additive_name} - Lectura Actual`,
-        message: 'Lectura actual requerida',
+        field: `${additiveLabel} - Cantidad`,
+        message: 'Cantidad requerida (puede ser 0 si aplica)',
         severity: 'error',
       });
       entryComplete = false;
     }
 
-    // Check photo if required
     if (entry.requires_photo && !entry.photo_url) {
       issues.push({
-        field: `${entry.additive_name} - Photo`,
+        field: `${additiveLabel} - Foto`,
         message: 'Foto del medidor requerida',
         severity: 'error',
       });

@@ -6,7 +6,6 @@ import {
   PlantConfigPackage,
   InventoryMonth 
 } from '../utils/api';
-import { getPlantAdditivesConfig } from '../config/additivesConfig';
 import { getDieselConfig } from '../config/dieselConfig';
 import { getPlantProductsConfig } from '../config/productsConfig';
 import { getPlantUtilitiesConfig } from '../config/utilitiesConfig';
@@ -180,8 +179,12 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       allowed_products: silo.allowed_products || [], // Products allowed for this silo
       product_id: null, // To be selected by manager
       product_name: null, // To be selected by manager
+      product_in_silo: null,
+      previous_reading: 0,
       reading_value: 0, // The actual reading in the configured unit
+      reading: 0,
       calculated_result_cy: 0, // Result in cubic yards (or tons if conversion exists)
+      calculated_volume: 0,
       photo_url: null,
       notes: '',
       _isNew: true,
@@ -226,37 +229,36 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       };
     });
 
-    // ADITIVOS: Create entry for each aditivo in LOCAL config (not from API)
-    // Use local additivesConfig.ts instead of config.additives from API
-    const localAdditivesConfig = getPlantAdditivesConfig(config.plant_id || '');
-    
-    if (localAdditivesConfig) {
-      entries.aditivos = localAdditivesConfig.additives.map((aditivo: any) => ({
+    // ADITIVOS: Create entry for each additive configured in the backend
+    entries.aditivos = (config.additives || []).map((aditivo: any) => {
+      const additiveType = String(aditivo.additive_type || 'MANUAL').toUpperCase();
+
+      return ({
         id: `temp_${aditivo.id}_${Date.now()}_${Math.random()}`,
         inventory_month_id: inventoryMonthId,
         additive_config_id: aditivo.id,
-        additive_type: aditivo.type, // 'TANK' or 'MANUAL'
-        product_name: aditivo.product_name,
+        additive_type: additiveType,
+        product_name: aditivo.product_name || aditivo.additive_name,
         brand: aditivo.brand || '',
-        uom: aditivo.uom,
-        requires_photo: aditivo.requires_photo,
+        uom: aditivo.uom || '',
+        requires_photo: aditivo.requires_photo ?? false,
         // Tank-specific fields
         tank_name: aditivo.tank_name || null,
         reading_uom: aditivo.reading_uom || null,
-        reading_value: 0, // To be filled by manager (in inches or other reading_uom)
-        calculated_volume: 0, // Calculated from reading using conversion table
+        reading_value: 0,
+        reading: 0,
+        previous_reading: 0,
+        calculated_volume: 0,
+        calculated_gallons: 0,
         conversion_table: aditivo.conversion_table || null,
         // Manual-specific fields
-        quantity: 0, // To be filled by manager (for MANUAL type, MUST be 0 if empty, not null)
+        quantity: 0,
         // Common fields
         photo_url: null,
         notes: '',
         _isNew: true,
-      }));
-    } else {
-      console.warn(`[PlantPrefill] No local additives config found for plant ${config.plant_id}`);
-      entries.aditivos = [];
-    }
+      });
+    });
 
     // DIESEL: Single entry with LOCAL config (not from API)
     const dieselConfig = getDieselConfig(config.plant_id || '');
@@ -434,7 +436,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           (s: any) => s.silo_config_id === entry.silo_config_id
         );
         if (prevSilo) {
-          entry.previous_reading = prevSilo.current_reading || 0;
+          entry.previous_reading = prevSilo.reading_value ?? prevSilo.reading ?? prevSilo.current_reading ?? 0;
         }
       });
     }
@@ -455,10 +457,12 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     if (previousMonthData.aditivos && previousMonthData.aditivos.length > 0) {
       entries.aditivos.forEach((entry: any) => {
         const prevAditivo = previousMonthData.aditivos.find(
-          (a: any) => a.aditivo_config_id === entry.aditivo_config_id
+          (a: any) =>
+            (a.additive_config_id || a.aditivo_config_id) ===
+            (entry.additive_config_id || entry.aditivo_config_id)
         );
         if (prevAditivo) {
-          entry.beginning = prevAditivo.ending || 0;
+          entry.previous_reading = prevAditivo.reading_value ?? prevAditivo.reading ?? 0;
         }
       });
     }
@@ -669,6 +673,27 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
         const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
 
+        if (entries.silos.length > 0 && freshEntries.silos.length > 0) {
+          const freshSilosByConfigId = new Map(
+            freshEntries.silos.map((entry: any) => [entry.silo_config_id, entry])
+          );
+
+          entries.silos = entries.silos.map((entry: any) => {
+            const freshSilo = freshSilosByConfigId.get(entry.silo_config_id);
+            if (!freshSilo) return entry;
+
+            return {
+              ...freshSilo,
+              ...entry,
+              silo_name: freshSilo.silo_name || entry.silo_name,
+              measurement_method: freshSilo.measurement_method || entry.measurement_method,
+              allowed_products: freshSilo.allowed_products || entry.allowed_products || [],
+              product_in_silo: entry.product_in_silo || entry.product_name || freshSilo.product_in_silo,
+            };
+          });
+          console.log('[PlantPrefill] Enriched silo entries with current config values');
+        }
+
         if (entries.utilities.length === 0 && freshEntries.utilities.length > 0) {
           entries.utilities = freshEntries.utilities;
           console.log('[PlantPrefill] Month exists but no utilities entries — created from config');
@@ -697,6 +722,38 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
             };
           });
           console.log('[PlantPrefill] Enriched utilities entries with current config values');
+        }
+
+        if (entries.aditivos.length === 0 && freshEntries.aditivos.length > 0) {
+          entries.aditivos = freshEntries.aditivos;
+          console.log('[PlantPrefill] Month exists but no additives entries — created from config');
+        }
+
+        if (entries.aditivos.length > 0 && freshEntries.aditivos.length > 0) {
+          const freshAdditivesByKey = new Map(
+            freshEntries.aditivos.map((entry: any) => [entry.additive_config_id, entry])
+          );
+
+          entries.aditivos = entries.aditivos.map((entry: any) => {
+            const configKey = entry.additive_config_id || entry.aditivo_config_id;
+            const freshAdditive = freshAdditivesByKey.get(configKey);
+            if (!freshAdditive) return entry;
+
+            return {
+              ...freshAdditive,
+              ...entry,
+              additive_config_id: configKey || freshAdditive.additive_config_id,
+              additive_type: entry.additive_type || freshAdditive.additive_type,
+              product_name: freshAdditive.product_name || freshAdditive.additive_name || entry.product_name,
+              brand: freshAdditive.brand || entry.brand,
+              uom: freshAdditive.uom || entry.uom,
+              requires_photo: entry.requires_photo ?? freshAdditive.requires_photo,
+              tank_name: freshAdditive.tank_name || entry.tank_name,
+              reading_uom: freshAdditive.reading_uom || entry.reading_uom,
+              conversion_table: freshAdditive.conversion_table || entry.conversion_table,
+            };
+          });
+          console.log('[PlantPrefill] Enriched additives entries with current config values');
         }
 
         if (!entries.pettyCash && freshEntries.pettyCash) {

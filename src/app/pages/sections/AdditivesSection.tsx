@@ -5,14 +5,14 @@ import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
-import { convertReadingToVolume } from '../../config/additivesConfig';
+import { convertReadingToVolume } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
 
 type TabType = 'tanks' | 'manual';
 
 export function AdditivesSection() {
-  const { currentPlant, currentUser } = useAuth();
+  const { currentPlant } = useAuth();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
   
   const [activeTab, setActiveTab] = useState<TabType>('tanks');
@@ -142,10 +142,31 @@ export function AdditivesSection() {
 
     try {
       console.log('[AdditivesSection] Saving entries:', prefillData.aditivosEntries);
+
+      const entriesToSave = prefillData.aditivosEntries.map((entry: any) => ({
+        ...(entry._isNew ? {} : { id: entry.id }),
+        inventory_month_id: entry.inventory_month_id,
+        additive_config_id: entry.additive_config_id,
+        additive_type: entry.additive_type,
+        product_name: entry.product_name,
+        brand: entry.brand || '',
+        uom: entry.uom,
+        requires_photo: entry.requires_photo ?? false,
+        tank_name: entry.tank_name || null,
+        reading_uom: entry.reading_uom || null,
+        reading_value: entry.reading_value ?? 0,
+        reading: entry.reading_value ?? entry.reading ?? 0,
+        calculated_volume: entry.calculated_volume ?? 0,
+        calculated_gallons: entry.calculated_gallons ?? entry.calculated_volume ?? 0,
+        conversion_table: entry.conversion_table || null,
+        quantity: entry.quantity ?? 0,
+        photo_url: entry.photo_url || null,
+        notes: entry.notes || '',
+      }));
       
       const response = await saveAdditivesEntries(
         prefillData.inventoryMonth.id,
-        prefillData.aditivosEntries
+        entriesToSave
       );
 
       if (response.success) {
@@ -180,7 +201,7 @@ export function AdditivesSection() {
   const isValid = () => {
     // All tanks must have reading and photo
     for (const tank of tankEntries) {
-      if (!tank.reading_value || tank.reading_value === 0) {
+      if (tank.reading_value === null || tank.reading_value === undefined) {
         return false;
       }
       if (tank.requires_photo && !tank.photo_url) {

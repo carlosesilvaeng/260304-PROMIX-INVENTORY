@@ -374,7 +374,42 @@ export async function getPlantSilos(plantId: string): Promise<ApiResponse> {
 /** Reemplaza todos los silos de una planta (admin/super_admin only) */
 export async function updatePlantSilos(
   plantId: string,
-  silos: { silo_name: string; is_active: boolean }[]
+  silos: {
+    id?: string;
+    silo_name: string;
+    is_active: boolean;
+    measurement_method?: string;
+    allowed_products?: string[];
+  }[]
 ): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/silos`, 'PUT', { silos });
+}
+
+// ============================================================================
+// ADDITIVES CONFIGURATION API
+// ============================================================================
+
+export async function getPlantAdditivesConfigEntries(plantId: string): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/additives`, 'GET');
+}
+
+export async function updatePlantAdditivesConfigEntries(
+  plantId: string,
+  additives: {
+    id?: string;
+    additive_name: string;
+    additive_type: 'TANK' | 'MANUAL';
+    measurement_method?: string;
+    calibration_curve_name?: string | null;
+    brand?: string;
+    uom?: string;
+    requires_photo?: boolean;
+    tank_name?: string | null;
+    reading_uom?: string | null;
+    conversion_table?: Record<string, number> | null;
+    sort_order?: number;
+    is_active?: boolean;
+  }[]
+): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/additives`, 'PUT', { additives });
 }

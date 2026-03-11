@@ -9,6 +9,8 @@ interface SiloEntry {
   id?: string;
   silo_name: string;
   is_active: boolean;
+  measurement_method?: string;
+  allowed_products?: string[];
 }
 
 interface SilosConfigModalProps {
@@ -34,6 +36,8 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
               id: s.id,
               silo_name: s.silo_name,
               is_active: s.is_active ?? true,
+              measurement_method: s.measurement_method,
+              allowed_products: s.allowed_products ?? [],
             }))
           );
         } else {
@@ -70,7 +74,13 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
     try {
       const res = await updatePlantSilos(
         plant.id,
-        silos.map((s) => ({ silo_name: s.silo_name.trim(), is_active: s.is_active }))
+        silos.map((s) => ({
+          id: s.id,
+          silo_name: s.silo_name.trim(),
+          is_active: s.is_active,
+          measurement_method: s.measurement_method,
+          allowed_products: s.allowed_products ?? [],
+        }))
       );
       if (res.success) {
         onSaved();

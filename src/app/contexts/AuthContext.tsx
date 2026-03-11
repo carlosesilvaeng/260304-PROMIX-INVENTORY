@@ -314,6 +314,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ============================================================================
 
   const login = async (email: string, password: string) => {
+    setIsLoading(true);
     try {
       const response = await callAPI('/auth/login', 'POST', { email, password });
 
@@ -334,6 +335,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('❌ Error en login:', error);
       throw new Error(error.message || 'Credenciales inválidas');
+    } finally {
+      setIsLoading(false);
     }
   };
 

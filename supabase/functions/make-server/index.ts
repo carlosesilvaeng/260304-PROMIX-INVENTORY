@@ -756,15 +756,137 @@ app.get("/make-server/plants/:plantId/silos", async (c) => {
     }
     const { plantId } = c.req.param();
     const supabase = db.getSupabaseClient();
-    const { data, error } = await supabase
+    const [{ data, error }, { data: allowedProducts, error: allowedProductsError }] = await Promise.all([
+      supabase
       .from('plant_silos_config')
-      .select('id, silo_name, is_active, sort_order')
+      .select('id, silo_name, measurement_method, is_active, sort_order')
+      .eq('plant_id', plantId)
+      .order('sort_order', { ascending: true }),
+      supabase
+        .from('silo_allowed_products')
+        .select('silo_config_id, product_name'),
+    ]);
+    if (error) throw error;
+    if (allowedProductsError) throw allowedProductsError;
+
+    const allowedProductsBySiloId = (allowedProducts ?? []).reduce((acc: Record<string, string[]>, row: any) => {
+      if (!row?.silo_config_id || !row?.product_name) return acc;
+      if (!acc[row.silo_config_id]) acc[row.silo_config_id] = [];
+      acc[row.silo_config_id].push(row.product_name);
+      return acc;
+    }, {});
+
+    const silos = (data ?? []).map((silo: any) => ({
+      ...silo,
+      allowed_products: allowedProductsBySiloId[silo.id] || [],
+    }));
+    return c.json({ success: true, data: silos });
+  } catch (error: any) {
+    console.error("❌ Error fetching silos:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// GET /plants/:plantId/additives — list additives for a plant (admin/super_admin only)
+app.get("/make-server/plants/:plantId/additives", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('plant_additives_config')
+      .select(`
+        id,
+        additive_name,
+        additive_type,
+        measurement_method,
+        calibration_curve_name,
+        brand,
+        uom,
+        requires_photo,
+        tank_name,
+        reading_uom,
+        conversion_table,
+        is_active,
+        sort_order
+      `)
       .eq('plant_id', plantId)
       .order('sort_order', { ascending: true });
+
     if (error) throw error;
     return c.json({ success: true, data: data ?? [] });
   } catch (error: any) {
-    console.error("❌ Error fetching silos:", error);
+    console.error("❌ Error fetching additives:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/additives — replace all additives for a plant (admin/super_admin only)
+app.put("/make-server/plants/:plantId/additives", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const additives: {
+      id?: string;
+      additive_name: string;
+      additive_type: string;
+      measurement_method?: string;
+      calibration_curve_name?: string | null;
+      brand?: string;
+      uom?: string;
+      requires_photo?: boolean;
+      tank_name?: string | null;
+      reading_uom?: string | null;
+      conversion_table?: Record<string, number> | null;
+      sort_order?: number;
+      is_active?: boolean;
+    }[] = body.additives ?? [];
+
+    const supabase = db.getSupabaseClient();
+
+    const { error: delError } = await supabase
+      .from('plant_additives_config')
+      .delete()
+      .eq('plant_id', plantId);
+    if (delError) throw delError;
+
+    if (additives.length > 0) {
+      const rows = additives.map((additive, index) => ({
+        ...(additive.id ? { id: additive.id } : {}),
+        plant_id: plantId,
+        additive_name: additive.additive_name,
+        additive_type: String(additive.additive_type || 'MANUAL').toUpperCase(),
+        measurement_method: additive.measurement_method || (String(additive.additive_type || '').toUpperCase() === 'TANK' ? 'TANK_LEVEL' : 'MANUAL_QUANTITY'),
+        calibration_curve_name: additive.calibration_curve_name || null,
+        brand: additive.brand || '',
+        uom: additive.uom || '',
+        requires_photo: additive.requires_photo ?? false,
+        tank_name: additive.tank_name || null,
+        reading_uom: additive.reading_uom || null,
+        conversion_table: additive.conversion_table || null,
+        sort_order: additive.sort_order ?? index,
+        is_active: additive.is_active ?? true,
+      }));
+
+      const { error: insError } = await supabase
+        .from('plant_additives_config')
+        .insert(rows);
+      if (insError) throw insError;
+    }
+
+    console.log(`✅ [PUT /plants/${plantId}/additives] Saved ${additives.length} additives by ${user.email}`);
+    return c.json({ success: true, count: additives.length });
+  } catch (error: any) {
+    console.error("❌ Error saving additives:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });
@@ -778,7 +900,13 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
     }
     const { plantId } = c.req.param();
     const body = await c.req.json();
-    const silos: { silo_name: string; is_active: boolean }[] = body.silos ?? [];
+    const silos: {
+      id?: string;
+      silo_name: string;
+      is_active: boolean;
+      measurement_method?: string;
+      allowed_products?: string[];
+    }[] = body.silos ?? [];
 
     const supabase = db.getSupabaseClient();
 
@@ -791,7 +919,22 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
       .limit(1);
     const defaultCurve = curves?.[0]?.curve_name ?? null;
 
-    // Delete all existing silos for the plant
+    const { data: existingSilos, error: existingSilosError } = await supabase
+      .from('plant_silos_config')
+      .select('id')
+      .eq('plant_id', plantId);
+    if (existingSilosError) throw existingSilosError;
+
+    const existingSiloIds = (existingSilos ?? []).map((silo: any) => silo.id);
+
+    if (existingSiloIds.length > 0) {
+      const { error: deleteAllowedProductsError } = await supabase
+        .from('silo_allowed_products')
+        .delete()
+        .in('silo_config_id', existingSiloIds);
+      if (deleteAllowedProductsError) throw deleteAllowedProductsError;
+    }
+
     const { error: delError } = await supabase
       .from('plant_silos_config')
       .delete()
@@ -801,17 +944,40 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
     // Insert new silos if any
     if (silos.length > 0) {
       const rows = silos.map((s, i) => ({
+        ...(s.id ? { id: s.id } : {}),
         plant_id: plantId,
         silo_name: s.silo_name,
-        measurement_method: 'FEET_TO_CUBIC_YARDS',
+        measurement_method: s.measurement_method || 'FEET_TO_CUBIC_YARDS',
         calibration_curve_name: defaultCurve,
         sort_order: i,
         is_active: s.is_active ?? true,
       }));
-      const { error: insError } = await supabase
+      const { data: insertedSilos, error: insError } = await supabase
         .from('plant_silos_config')
-        .insert(rows);
+        .insert(rows)
+        .select('id, silo_name');
       if (insError) throw insError;
+
+      const insertedSilosByName = new Map(
+        (insertedSilos ?? []).map((silo: any) => [silo.silo_name, silo.id])
+      );
+      const allowedProductsRows = silos.flatMap((silo) =>
+        (silo.allowed_products || [])
+          .map((productName) => productName?.trim())
+          .filter(Boolean)
+          .map((product_name) => ({
+            silo_config_id: insertedSilosByName.get(silo.silo_name),
+            product_name,
+          }))
+          .filter((row) => row.silo_config_id)
+      );
+
+      if (allowedProductsRows.length > 0) {
+        const { error: insertAllowedProductsError } = await supabase
+          .from('silo_allowed_products')
+          .insert(allowedProductsRows);
+        if (insertAllowedProductsError) throw insertAllowedProductsError;
+      }
     }
 
     console.log(`✅ [PUT /plants/${plantId}/silos] Saved ${silos.length} silos by ${user.email}`);
@@ -889,7 +1055,7 @@ app.get("/make-server/inventory/month/:plantId/:yearMonth", async (c) => {
     const data = await db.getInventoryMonthByPlantAndDate(plantId, yearMonth);
     
     if (!data) {
-      return c.json({ success: false, error: "Month not found" }, 404);
+      return c.json({ success: false, error: "Month not found" });
     }
     
     return c.json({ success: true, data });
@@ -1042,7 +1208,25 @@ app.post("/make-server/inventory/silos", async (c) => {
     }
 
     await supabase.from('inventory_silos_entries').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_silos_entries').insert(entries).select();
+    const dbEntries = entries.map((e: any) => ({
+      ...(e.id ? { id: e.id } : {}),
+      inventory_month_id: e.inventory_month_id,
+      silo_config_id: e.silo_config_id,
+      silo_name: e.silo_name,
+      measurement_method: e.measurement_method,
+      allowed_products: e.allowed_products,
+      product_id: e.product_id,
+      product_name: e.product_name,
+      product_in_silo: e.product_in_silo,
+      reading_value: e.reading_value,
+      reading: e.reading,
+      previous_reading: e.previous_reading,
+      calculated_result_cy: e.calculated_result_cy,
+      calculated_volume: e.calculated_volume,
+      photo_url: e.photo_url,
+      notes: e.notes,
+    }));
+    const { data, error } = await supabase.from('inventory_silos_entries').insert(dbEntries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'silos' } });
@@ -1065,7 +1249,27 @@ app.post("/make-server/inventory/additives", async (c) => {
     }
 
     await supabase.from('inventory_additives_entries').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_additives_entries').insert(entries).select();
+    const dbEntries = entries.map((e: any) => ({
+      ...(e.id ? { id: e.id } : {}),
+      inventory_month_id: e.inventory_month_id,
+      additive_config_id: e.additive_config_id,
+      additive_type: e.additive_type,
+      product_name: e.product_name,
+      brand: e.brand,
+      uom: e.uom,
+      requires_photo: e.requires_photo,
+      tank_name: e.tank_name,
+      reading_uom: e.reading_uom,
+      reading_value: e.reading_value,
+      reading: e.reading,
+      calculated_volume: e.calculated_volume,
+      calculated_gallons: e.calculated_gallons,
+      conversion_table: e.conversion_table,
+      quantity: e.quantity,
+      photo_url: e.photo_url,
+      notes: e.notes,
+    }));
+    const { data, error } = await supabase.from('inventory_additives_entries').insert(dbEntries).select();
 
     if (error) throw error;
     logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'additives' } });
