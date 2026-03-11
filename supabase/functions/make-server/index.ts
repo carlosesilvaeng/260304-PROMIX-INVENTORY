@@ -1551,6 +1551,11 @@ app.post("/make-server/inventory/petty-cash", async (c) => {
 // Save inventory as draft (keeps IN_PROGRESS status)
 app.post("/make-server/inventory/save-draft", async (c) => {
   try {
+    const user = c.get('user');
+    if (user.role !== 'plant_manager') {
+      return c.json({ success: false, error: 'Forbidden: Plant manager access required' }, 403);
+    }
+
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id } = body;
@@ -1580,6 +1585,11 @@ app.post("/make-server/inventory/save-draft", async (c) => {
 // Submit inventory for approval (IN_PROGRESS -> SUBMITTED)
 app.post("/make-server/inventory/submit", async (c) => {
   try {
+    const user = c.get('user');
+    if (user.role !== 'plant_manager') {
+      return c.json({ success: false, error: 'Forbidden: Plant manager access required' }, 403);
+    }
+
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, submitted_by } = body;
@@ -1623,11 +1633,10 @@ app.post("/make-server/inventory/submit", async (c) => {
     console.log(`[SUBMIT] Inventory ${inventory_month_id} submitted for approval by ${submitted_by}`);
 
     // Audit log
-    const submitUser = c.get('user');
     logAudit(supabase, {
-      user_email: submitUser.email,
-      user_name: submitUser.name,
-      user_id: submitUser.id,
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
       action: 'INVENTORY_SUBMITTED',
       plant_id: currentMonth.plant_id,
       inventory_month_id: inventory_month_id,

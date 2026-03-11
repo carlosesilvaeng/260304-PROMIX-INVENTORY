@@ -3,6 +3,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
+import { useModules } from '../../contexts/ModulesContext';
 import {
   validateAllSections,
   OverallValidationResult,
@@ -21,8 +22,19 @@ interface ReviewAndApproveSectionProps {
   onNavigate?: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
 }
 
+const REVIEW_SECTION_CONFIG = {
+  aggregates: { route: 'agregados', moduleKey: 'aggregates', name: 'Agregados' },
+  silos: { route: 'silos', moduleKey: 'silos', name: 'Silos' },
+  additives: { route: 'aditivos', moduleKey: 'additives', name: 'Aditivos' },
+  diesel: { route: 'diesel', moduleKey: 'diesel', name: 'Diesel' },
+  products: { route: 'aceites', moduleKey: 'products', name: 'Productos' },
+  utilities: { route: 'utilidades', moduleKey: 'utilities', name: 'Utilidades' },
+  petty_cash: { route: 'petty-cash', moduleKey: 'petty_cash', name: 'Petty Cash' },
+} as const;
+
 export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAndApproveSectionProps) {
   const { user, currentPlant, allPlants } = useAuth();
+  const { moduleSettings, isModuleEnabled } = useModules();
   const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const normalizedRole = String(user?.role || '').toLowerCase();
   const userDisplayName = user?.name || user?.email || user?.id || 'Usuario';
@@ -35,28 +47,69 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
   const [rejectionNotes, setRejectionNotes] = useState('');
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const targetPlantId = reportContext?.plantId ?? currentPlant?.id ?? null;
+  const targetYearMonth = reportContext?.yearMonth ?? prefillData.inventoryMonth?.year_month ?? getCurrentYearMonth();
+  const expectedSectionIds = React.useMemo(
+    () => Object.entries(REVIEW_SECTION_CONFIG)
+      .filter(([, config]) => isModuleEnabled(config.moduleKey))
+      .map(([sectionId]) => sectionId),
+    [moduleSettings, isModuleEnabled]
+  );
 
   // Load data when component mounts — supports reportContext (from Reports "Ver" button) or falls back to currentPlant + current month
   useEffect(() => {
-    const targetPlantId = reportContext?.plantId ?? currentPlant?.id;
-    const currentYearMonth = getCurrentYearMonth();
-    const targetYearMonth = reportContext?.yearMonth ?? currentYearMonth;
-
     if (targetPlantId) {
       console.log('[ReviewAndApprove] Loading data for plant:', targetPlantId, targetYearMonth);
       loadPlantData(targetPlantId, targetYearMonth);
     }
-  }, [currentPlant, reportContext, loadPlantData, getCurrentYearMonth]);
+  }, [targetPlantId, targetYearMonth, loadPlantData]);
 
   // Run validation whenever prefillData changes
   useEffect(() => {
     if (prefillData && !prefillData.loading && !prefillData.error) {
       console.log('[ReviewAndApprove] Running validation...');
-      const result = validateAllSections(prefillData);
+      const baseResult = validateAllSections(prefillData);
+      const baseSections = new Map(baseResult.allSections.map((section) => [section.sectionId, section]));
+      const expectedSections = expectedSectionIds.map((sectionId) => {
+        const existingSection = baseSections.get(sectionId);
+        if (existingSection) return existingSection;
+
+        return {
+          sectionId,
+          sectionName: REVIEW_SECTION_CONFIG[sectionId as keyof typeof REVIEW_SECTION_CONFIG].name,
+          isComplete: false,
+          totalItems: 0,
+          completeItems: 0,
+          incompleteItems: 0,
+          issues: [{
+            field: REVIEW_SECTION_CONFIG[sectionId as keyof typeof REVIEW_SECTION_CONFIG].name,
+            message: 'La sección está activa pero no tiene configuración o datos cargados para este inventario.',
+            severity: 'error' as const,
+          }],
+          criticalIssues: 1,
+          warningIssues: 0,
+        };
+      });
+      const expectedSectionIdSet = new Set(expectedSectionIds);
+      const extraSections = baseResult.allSections.filter((section) => !expectedSectionIdSet.has(section.sectionId));
+      const allSections = [...expectedSections, ...extraSections];
+      const completeSections = allSections.filter((section) => section.isComplete).length;
+      const totalCriticalIssues = allSections.reduce((sum, section) => sum + section.criticalIssues, 0);
+      const totalWarningIssues = allSections.reduce((sum, section) => sum + section.warningIssues, 0);
+      const result: OverallValidationResult = {
+        allSections,
+        totalSections: allSections.length,
+        completeSections,
+        incompleteSections: allSections.length - completeSections,
+        totalCriticalIssues,
+        totalWarningIssues,
+        canSubmit: totalCriticalIssues === 0,
+        canApprove: totalCriticalIssues === 0,
+      };
       setValidation(result);
       console.log('[ReviewAndApprove] Validation result:', result);
     }
-  }, [prefillData]);
+  }, [prefillData, expectedSectionIds]);
 
   // Toggle section expansion
   const toggleSection = (sectionId: string) => {
@@ -70,17 +123,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
   };
 
   const mapValidationSectionToRoute = (sectionId: string): string | null => {
-    const mapping: Record<string, string> = {
-      aggregates: 'agregados',
-      silos: 'silos',
-      additives: 'aditivos',
-      diesel: 'diesel',
-      products: 'aceites',
-      utilities: 'utilidades',
-      petty_cash: 'petty-cash',
-    };
-
-    return mapping[sectionId] || null;
+    return REVIEW_SECTION_CONFIG[sectionId as keyof typeof REVIEW_SECTION_CONFIG]?.route || null;
   };
 
   const handleContinueSection = (section: SectionValidationResult) => {
@@ -88,9 +131,14 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     if (!routeSectionId || !onNavigate) return;
 
     onNavigate('section', routeSectionId, {
-      plantId: reportContext?.plantId ?? currentPlant?.id,
-      yearMonth: reportContext?.yearMonth ?? prefillData.inventoryMonth?.year_month,
+      plantId: targetPlantId ?? undefined,
+      yearMonth: targetYearMonth,
     });
+  };
+
+  const reloadCurrentReviewData = async () => {
+    if (!targetPlantId || !targetYearMonth) return;
+    await loadPlantData(targetPlantId, targetYearMonth);
   };
 
   // ============================================================================
@@ -147,11 +195,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
           type: 'success', 
           text: '✓ Inventario enviado a aprobación exitosamente. Ahora está en modo solo lectura.' 
         });
-        // Reload data to reflect new status
-        if (currentPlant) {
-          const yearMonth = getCurrentYearMonth();
-          await loadPlantData(currentPlant.id, yearMonth);
-        }
+        await reloadCurrentReviewData();
       } else {
         setActionMessage({ type: 'error', text: `Error: ${response.error}` });
       }
@@ -192,11 +236,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
           type: 'success', 
           text: '✓ Inventario aprobado exitosamente' 
         });
-        // Reload data to reflect new status
-        if (currentPlant) {
-          const yearMonth = getCurrentYearMonth();
-          await loadPlantData(currentPlant.id, yearMonth);
-        }
+        await reloadCurrentReviewData();
       } else {
         setActionMessage({ type: 'error', text: `Error: ${response.error}` });
       }
@@ -240,11 +280,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
         });
         setShowRejectModal(false);
         setRejectionNotes('');
-        // Reload data to reflect new status
-        if (currentPlant) {
-          const yearMonth = getCurrentYearMonth();
-          await loadPlantData(currentPlant.id, yearMonth);
-        }
+        await reloadCurrentReviewData();
       } else {
         setActionMessage({ type: 'error', text: `Error: ${response.error}` });
       }
