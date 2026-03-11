@@ -329,12 +329,22 @@ export function validateUtilitiesSection(entries: any[]): SectionValidationResul
 
   entries.forEach((entry) => {
     let entryComplete = true;
+    const meterLabel = entry.meter_name || entry.utility_name || 'Medidor';
 
     // Check current reading
-    if (entry.current_reading === null || entry.current_reading === undefined) {
+    if (entry.current_reading === null || entry.current_reading === undefined || entry.current_reading === '') {
       issues.push({
-        field: `${entry.utility_name} - Lectura Actual`,
+        field: `${meterLabel} - Lectura Actual`,
         message: 'Lectura actual requerida',
+        severity: 'error',
+      });
+      entryComplete = false;
+    }
+
+    if (Number(entry.current_reading) < Number(entry.previous_reading || 0)) {
+      issues.push({
+        field: `${meterLabel} - Lectura Actual`,
+        message: 'La lectura actual no puede ser menor que la lectura anterior',
         severity: 'error',
       });
       entryComplete = false;
@@ -343,7 +353,7 @@ export function validateUtilitiesSection(entries: any[]): SectionValidationResul
     // Check photo if required
     if (entry.requires_photo && !entry.photo_url) {
       issues.push({
-        field: `${entry.utility_name} - Photo`,
+        field: `${meterLabel} - Photo`,
         message: 'Foto del medidor requerida',
         severity: 'error',
       });
@@ -376,7 +386,7 @@ export function validatePettyCashSection(entry: any): SectionValidationResult {
 
   if (!entry) {
     return {
-      sectionId: 'pettycash',
+      sectionId: 'petty_cash',
       sectionName: 'Petty Cash',
       isComplete: false,
       totalItems: 0,
@@ -432,7 +442,7 @@ export function validatePettyCashSection(entry: any): SectionValidationResult {
   }
 
   return {
-    sectionId: 'pettycash',
+    sectionId: 'petty_cash',
     sectionName: 'Petty Cash',
     isComplete: issues.filter(i => i.severity === 'error').length === 0,
     totalItems: 1,

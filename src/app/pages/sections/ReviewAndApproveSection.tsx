@@ -14,6 +14,7 @@ import {
   rejectInventory,
   saveInventoryDraft,
 } from '../../utils/api';
+import { formatYearMonthLabel } from '../../utils/dateFormatting';
 
 interface ReviewAndApproveSectionProps {
   reportContext?: { plantId: string; yearMonth: string } | null;
@@ -339,14 +340,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
         <div className="text-sm text-[#5F6773]">
           <span className="font-semibold">{reviewedPlantName}</span>
           {' • '}
-          <span>
-            {inventoryMonth.year_month
-              ? new Date(inventoryMonth.year_month + '-02T12:00:00').toLocaleDateString('es-ES', {
-                  month: 'long',
-                  year: 'numeric'
-                })
-              : 'Sin mes'}
-          </span>
+          <span>{formatYearMonthLabel(inventoryMonth.year_month)}</span>
         </div>
       </div>
 

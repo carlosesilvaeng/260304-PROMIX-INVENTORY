@@ -4,9 +4,10 @@
  * Only Super Admin can modify these settings
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ModuleKey, ModuleConfig, ModuleSettings, DEFAULT_MODULE_CONFIG } from '../config/moduleConfig';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { ModuleKey, ModuleSettings, DEFAULT_MODULE_CONFIG } from '../config/moduleConfig';
 import { getModuleSettings, updateModuleSettings } from '../utils/api';
+import { useAuth } from './AuthContext';
 
 interface ModulesContextType {
   moduleSettings: ModuleSettings;
@@ -20,16 +21,12 @@ interface ModulesContextType {
 const ModulesContext = createContext<ModulesContextType | undefined>(undefined);
 
 export function ModulesProvider({ children }: { children: React.ReactNode }) {
+  const { accessToken, user } = useAuth();
   const [moduleSettings, setModuleSettings] = useState<ModuleSettings>(DEFAULT_MODULE_CONFIG);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load module settings on mount
-  useEffect(() => {
-    loadModuleSettings();
-  }, []);
-
-  const loadModuleSettings = async () => {
+  const loadModuleSettings = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -40,6 +37,9 @@ export function ModulesProvider({ children }: { children: React.ReactNode }) {
       if (response.success && response.data) {
         console.log('[ModulesContext] Module settings loaded:', response.data);
         setModuleSettings(response.data);
+      } else if (response.error === 'Unauthorized') {
+        console.log('[ModulesContext] Skipping module sync until authenticated');
+        setModuleSettings(DEFAULT_MODULE_CONFIG);
       } else {
         // If no settings exist yet, use defaults and save them
         console.log('[ModulesContext] No settings found, using defaults');
@@ -56,7 +56,18 @@ export function ModulesProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken || !user) {
+      setModuleSettings(DEFAULT_MODULE_CONFIG);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    loadModuleSettings();
+  }, [accessToken, user, loadModuleSettings]);
 
   const isModuleEnabled = (moduleKey: ModuleKey): boolean => {
     return moduleSettings.modules[moduleKey]?.enabled ?? false;

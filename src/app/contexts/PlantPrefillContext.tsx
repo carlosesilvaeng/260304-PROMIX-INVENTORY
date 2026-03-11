@@ -103,6 +103,31 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     return `${prevYear}-${prevMonth}`;
   };
 
+  const resolveUtilityConfigKey = useCallback((entry: any): string | null => {
+    return (
+      entry?.utility_meter_config_id ||
+      entry?.utility_config_id ||
+      entry?.id ||
+      entry?.meter_name ||
+      null
+    );
+  }, []);
+
+  const normalizeUtilityType = useCallback((rawType: string | null | undefined): string => {
+    const normalized = String(rawType || '').trim().toUpperCase();
+
+    if (['WATER_AAA', 'WATER_WELL', 'ELECTRICITY', 'GAS', 'OTHER'].includes(normalized)) {
+      return normalized;
+    }
+
+    if (normalized.includes('WELL') || normalized.includes('POZO')) return 'WATER_WELL';
+    if (normalized.includes('WATER') || normalized.includes('AGUA') || normalized.includes('AAA')) return 'WATER_AAA';
+    if (normalized.includes('ELEC') || normalized.includes('POWER') || normalized.includes('LUMA')) return 'ELECTRICITY';
+    if (normalized.includes('GAS')) return 'GAS';
+
+    return 'OTHER';
+  }, []);
+
   const getResolvedAggregatesConfig = useCallback((config: PlantConfigPackage) => {
     if (config.aggregates?.length > 0) {
       return config.aggregates;
@@ -302,27 +327,40 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
     // UTILITIES: Create entry for each utility meter in LOCAL config (not from API)
     const localUtilitiesConfig = getPlantUtilitiesConfig(config.plant_id || '');
+    const localMetersById = new Map((localUtilitiesConfig?.meters || []).map((meter: any) => [meter.id, meter]));
+    const localMetersByName = new Map((localUtilitiesConfig?.meters || []).map((meter: any) => [meter.meter_name, meter]));
+    const utilitySourceMeters = config.utilities_meters?.length > 0
+      ? config.utilities_meters
+      : (localUtilitiesConfig?.meters || []);
     
-    if (localUtilitiesConfig) {
-      entries.utilities = localUtilitiesConfig.meters.map((meter: any) => ({
-        id: `temp_${meter.id}_${Date.now()}_${Math.random()}`,
+    if (utilitySourceMeters.length > 0) {
+      entries.utilities = utilitySourceMeters.map((meter: any, index: number) => {
+        const fallbackMeter =
+          localMetersById.get(meter.id) ||
+          localMetersByName.get(meter.meter_name) ||
+          {};
+        const configId = meter.id || fallbackMeter.id || `utility_${index + 1}`;
+
+        return ({
+        id: `temp_${configId}_${Date.now()}_${Math.random()}`,
         inventory_month_id: inventoryMonthId,
-        utility_meter_config_id: meter.id,
-        meter_name: meter.meter_name,
-        meter_number: meter.meter_number,
-        utility_type: meter.utility_type,
-        uom: meter.uom,
-        provider: meter.provider,
-        requires_photo: meter.requires_photo,
+        utility_config_id: configId,
+        utility_meter_config_id: configId,
+        meter_name: meter.meter_name || fallbackMeter.meter_name || `Medidor ${index + 1}`,
+        meter_number: meter.meter_number || fallbackMeter.meter_number || '',
+        utility_type: normalizeUtilityType(meter.utility_type || meter.meter_type || fallbackMeter.utility_type),
+        uom: meter.uom || meter.unit || fallbackMeter.uom || fallbackMeter.unit || '',
+        provider: meter.provider || fallbackMeter.provider || '',
+        requires_photo: meter.requires_photo ?? fallbackMeter.requires_photo ?? true,
         // Reading flow: previous reading comes from previous month
-        previous_reading: meter.initial_reading || 0, // Will be updated from previous month
+        previous_reading: Number(meter.initial_reading ?? fallbackMeter.initial_reading) || 0, // Will be updated from previous month
         current_reading: 0, // To be filled by manager (MAIN FOCUS)
         consumption: 0, // Calculated: current - previous
         // Common fields
         photo_url: null,
-        notes: meter.notes || '',
+        notes: meter.notes || fallbackMeter.notes || '',
         _isNew: true,
-      }));
+      })});
     } else {
       console.warn(`[PlantPrefill] No local utilities config found for plant ${config.plant_id}`);
       entries.utilities = [];
@@ -348,14 +386,20 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     // Fallback to local pettyCashConfig.ts if plant not yet loaded
     const plantFromDB = allPlants.find(p => p.id === config.plant_id);
     const localPettyCashConfig = getPettyCashConfig(config.plant_id || '');
-    const establishedAmount =
+    const dbPettyCashConfig = config.petty_cash;
+    const establishedAmount = Number(
+      dbPettyCashConfig?.monthly_amount ??
+      dbPettyCashConfig?.initial_amount ??
+      dbPettyCashConfig?.established_amount ??
       plantFromDB?.pettyCashEstablished ??
       localPettyCashConfig?.established_amount ??
-      0;
+      0
+    ) || 0;
 
     entries.pettyCash = {
       id: `temp_pettycash_${Date.now()}`,
       inventory_month_id: inventoryMonthId,
+      petty_cash_config_id: dbPettyCashConfig?.id || null,
       plant_id: config.plant_id,
       // Configuration fields (READ-ONLY)
       established_amount: establishedAmount,
@@ -366,6 +410,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       // Calculated fields
       total: 0, // receipts + cash
       difference: establishedAmount, // established - total (positive = short, negative = over)
+      beginning_balance: Number(dbPettyCashConfig?.initial_amount) || 0,
+      ending_balance: Number(dbPettyCashConfig?.initial_amount) || 0,
+      amount: establishedAmount,
       // Evidence and notes
       photo_url: null,
       notes: '',
@@ -373,7 +420,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     };
 
     return entries;
-  }, [allPlants, getResolvedAggregatesConfig]);
+  }, [allPlants, getResolvedAggregatesConfig, normalizeUtilityType]);
 
   // ============================================================================
   // HELPER: Apply carry-over from previous month
@@ -436,8 +483,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     // UTILITIES: previous_reading = previous month's current_reading
     if (previousMonthData.utilities && previousMonthData.utilities.length > 0) {
       entries.utilities.forEach((entry: any) => {
+        const entryKey = resolveUtilityConfigKey(entry);
         const prevUtility = previousMonthData.utilities.find(
-          (u: any) => u.utility_config_id === entry.utility_config_id
+          (u: any) => resolveUtilityConfigKey(u) === entryKey
         );
         if (prevUtility) {
           entry.previous_reading = prevUtility.current_reading || 0;
@@ -458,13 +506,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     }
 
     // PETTY CASH: beginning_balance = previous month's ending_balance
-    if (previousMonthData.pettyCash) {
+    if (previousMonthData.pettyCash && entries.pettyCash) {
       entries.pettyCash.beginning_balance = previousMonthData.pettyCash.ending_balance || 0;
       entries.pettyCash.ending_balance = previousMonthData.pettyCash.ending_balance || 0;
     }
 
     return entries;
-  }, []);
+  }, [resolveUtilityConfigKey]);
 
   // ============================================================================
   // MAIN LOAD FUNCTION
@@ -619,6 +667,54 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           console.log('[PlantPrefill] Month exists but no silo entries — created from config');
         }
 
+        const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
+
+        if (entries.utilities.length === 0 && freshEntries.utilities.length > 0) {
+          entries.utilities = freshEntries.utilities;
+          console.log('[PlantPrefill] Month exists but no utilities entries — created from config');
+        }
+
+        if (entries.utilities.length > 0 && freshEntries.utilities.length > 0) {
+          const freshUtilitiesByKey = new Map(
+            freshEntries.utilities.map((entry: any) => [resolveUtilityConfigKey(entry), entry])
+          );
+
+          entries.utilities = entries.utilities.map((entry: any) => {
+            const freshUtility = freshUtilitiesByKey.get(resolveUtilityConfigKey(entry));
+            if (!freshUtility) return entry;
+
+            return {
+              ...freshUtility,
+              ...entry,
+              utility_config_id: entry.utility_config_id || freshUtility.utility_config_id,
+              utility_meter_config_id: entry.utility_meter_config_id || freshUtility.utility_meter_config_id,
+              meter_name: freshUtility.meter_name || entry.meter_name,
+              meter_number: freshUtility.meter_number || entry.meter_number,
+              utility_type: freshUtility.utility_type || entry.utility_type,
+              uom: freshUtility.uom || entry.uom,
+              provider: freshUtility.provider || entry.provider,
+              requires_photo: entry.requires_photo ?? freshUtility.requires_photo,
+            };
+          });
+          console.log('[PlantPrefill] Enriched utilities entries with current config values');
+        }
+
+        if (!entries.pettyCash && freshEntries.pettyCash) {
+          entries.pettyCash = freshEntries.pettyCash;
+          console.log('[PlantPrefill] Month exists but no petty cash entry — created from config');
+        }
+
+        if (entries.pettyCash && freshEntries.pettyCash) {
+          entries.pettyCash = {
+            ...freshEntries.pettyCash,
+            ...entries.pettyCash,
+            petty_cash_config_id: entries.pettyCash.petty_cash_config_id || freshEntries.pettyCash.petty_cash_config_id,
+            established_amount: Number(entries.pettyCash.established_amount ?? freshEntries.pettyCash.established_amount) || 0,
+            currency: entries.pettyCash.currency || freshEntries.pettyCash.currency,
+          };
+          console.log('[PlantPrefill] Enriched petty cash entry with current config values');
+        }
+
         console.log('[PlantPrefill] Using existing entries');
       } else {
         // Create empty entries from config
@@ -662,7 +758,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         error: error instanceof Error ? error.message : 'Unknown error',
       }));
     }
-  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig, user]);
+  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig, resolveUtilityConfigKey, user]);
 
   // ============================================================================
   // REFRESH FUNCTION
@@ -680,7 +776,22 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   
   const updateEntry = useCallback((section: string, entryId: string, data: any) => {
     setPrefillData(prev => {
-      const sectionKey = `${section}Entries` as keyof PrefillData;
+      const sectionKeyMap: Record<string, keyof PrefillData> = {
+        silos: 'silosEntries',
+        agregados: 'agregadosEntries',
+        aditivos: 'aditivosEntries',
+        productos: 'productosEntries',
+        utilities: 'utilitiesEntries',
+        meters: 'metersEntries',
+        diesel: 'dieselEntry',
+        pettyCash: 'pettyCashEntry',
+      };
+      const sectionKey = sectionKeyMap[section];
+
+      if (!sectionKey) {
+        return prev;
+      }
+
       const currentEntries = prev[sectionKey];
       
       if (Array.isArray(currentEntries)) {

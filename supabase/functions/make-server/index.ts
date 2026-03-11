@@ -1978,7 +1978,7 @@ app.get('/make-server/photos/report', async (c) => {
 
       supabase
         .from('inventory_utilities_entries')
-        .select('id, inventory_month_id, utility_config_id, photo_url, notes, created_at')
+        .select('id, inventory_month_id, utility_config_id, utility_meter_config_id, photo_url, notes, created_at')
         .in('inventory_month_id', monthIds)
         .not('photo_url', 'is', null)
         .neq('photo_url', ''),
@@ -1997,7 +1997,7 @@ app.get('/make-server/photos/report', async (c) => {
     const siloConfigIds = [...new Set((silosRes.data     || []).map((e: any) => e.silo_config_id).filter(Boolean))];
     const addConfigIds  = [...new Set((additivesRes.data || []).map((e: any) => e.additive_config_id).filter(Boolean))];
     const prodConfigIds = [...new Set((productsRes.data  || []).map((e: any) => e.product_config_id).filter(Boolean))];
-    const utilConfigIds = [...new Set((utilitiesRes.data || []).map((e: any) => e.utility_config_id).filter(Boolean))];
+    const utilConfigIds = [...new Set((utilitiesRes.data || []).map((e: any) => e.utility_meter_config_id || e.utility_config_id).filter(Boolean))];
 
     const [plantsRes, siloNamesRes, addNamesRes, prodNamesRes, utilNamesRes] = await Promise.all([
       supabase.from('plants').select('id, name').in('id', uniquePlantIds),
@@ -2064,7 +2064,7 @@ app.get('/make-server/photos/report', async (c) => {
     (additivesRes.data  || []).forEach((e: any) => push(e, 'Aditivos',   addNameMap[e.additive_config_id]          || 'Aditivo'));
     (dieselRes.data     || []).forEach((e: any) => push(e, 'Diesel',     'Diesel'));
     (productsRes.data   || []).forEach((e: any) => push(e, 'Productos',  prodNameMap[e.product_config_id]          || 'Producto'));
-    (utilitiesRes.data  || []).forEach((e: any) => push(e, 'Utilidades', utilNameMap[e.utility_config_id]          || 'Medidor'));
+    (utilitiesRes.data  || []).forEach((e: any) => push(e, 'Utilidades', utilNameMap[e.utility_meter_config_id || e.utility_config_id] || 'Medidor'));
     (pettyCashRes.data  || []).forEach((e: any) => push(e, 'Caja Chica', 'Caja Chica'));
 
     // Sort newest first

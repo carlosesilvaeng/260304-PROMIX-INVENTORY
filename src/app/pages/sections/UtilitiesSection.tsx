@@ -11,6 +11,7 @@ import {
   getUtilityTypeIcon,
   getUtilityTypeColor,
 } from '../../config/utilitiesConfig';
+import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveUtilitiesEntries } from '../../utils/api';
 
 export function UtilitiesSection() {
@@ -133,11 +134,17 @@ export function UtilitiesSection() {
     setSaveMessage(null);
 
     try {
-      console.log('[UtilitiesSection] Saving entries:', utilities);
+      const entriesToSave = utilities.map((entry: any) => ({
+        ...entry,
+        id: entry._isNew ? undefined : entry.id,
+        _isNew: undefined,
+      }));
+
+      console.log('[UtilitiesSection] Saving entries:', entriesToSave);
       
       const response = await saveUtilitiesEntries(
         prefillData.inventoryMonth.id,
-        utilities
+        entriesToSave
       );
 
       if (response.success) {
@@ -170,8 +177,11 @@ export function UtilitiesSection() {
   // ============================================================================
 
   const isUtilityComplete = (utility: any) => {
-    // Must have current_reading > previous_reading
-    if (!utility.current_reading || utility.current_reading <= 0) {
+    // Must have a current reading and it cannot go backwards
+    if (utility.current_reading === null || utility.current_reading === undefined || utility.current_reading === '') {
+      return false;
+    }
+    if (Number(utility.current_reading) < Number(utility.previous_reading || 0)) {
       return false;
     }
     // Must have photo if required
@@ -182,7 +192,13 @@ export function UtilitiesSection() {
   };
 
   const allComplete = utilities.every(isUtilityComplete);
-  const someStarted = utilities.some(u => u.current_reading > 0 || u.photo_url);
+  const someStarted = utilities.some(u =>
+    (
+      u.current_reading !== null &&
+      u.current_reading !== undefined &&
+      u.current_reading !== ''
+    ) || u.photo_url
+  );
 
   // ============================================================================
   // GROUP UTILITIES BY TYPE
@@ -367,14 +383,7 @@ export function UtilitiesSection() {
         <div className="text-sm text-[#5F6773]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
-          <span>
-            {prefillData.inventoryMonth?.year_month 
-              ? new Date(prefillData.inventoryMonth.year_month + '-01').toLocaleDateString('es-ES', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })
-              : 'Sin mes'}
-          </span>
+          <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
         </div>
       </div>
 

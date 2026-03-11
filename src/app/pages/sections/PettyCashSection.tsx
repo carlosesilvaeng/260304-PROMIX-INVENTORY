@@ -11,7 +11,7 @@ import {
   getPettyCashStatus,
   formatCurrency,
 } from '../../config/pettyCashConfig';
-import { compressPettyCashPhoto } from '../../utils/imageCompression';
+import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { savePettyCashEntry } from '../../utils/api';
 
 export function PettyCashSection() {
@@ -134,11 +134,17 @@ export function PettyCashSection() {
     setSaveMessage(null);
 
     try {
-      console.log('[PettyCashSection] Saving entry:', pettyCash);
+      const entryToSave = {
+        ...pettyCash,
+        id: pettyCash._isNew ? undefined : pettyCash.id,
+        _isNew: undefined,
+      };
+
+      console.log('[PettyCashSection] Saving entry:', entryToSave);
       
       const response = await savePettyCashEntry(
         prefillData.inventoryMonth.id,
-        pettyCash
+        entryToSave
       );
 
       if (response.success) {
@@ -186,7 +192,7 @@ export function PettyCashSection() {
     return true;
   };
 
-  const status = getPettyCashStatus(pettyCash.difference || pettyCash.established_amount);
+  const status = getPettyCashStatus(pettyCash.difference ?? pettyCash.established_amount);
   const complete = isComplete();
 
   // ============================================================================
@@ -204,14 +210,7 @@ export function PettyCashSection() {
         <div className="text-sm text-[#5F6773]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
-          <span>
-            {prefillData.inventoryMonth?.year_month 
-              ? new Date(prefillData.inventoryMonth.year_month + '-01').toLocaleDateString('es-ES', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })
-              : 'Sin mes'}
-          </span>
+          <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
         </div>
       </div>
 
@@ -324,7 +323,7 @@ export function PettyCashSection() {
                 {status.label}
               </p>
               <p className={`text-4xl font-bold ${status.color}`}>
-                {formatCurrency(Math.abs(pettyCash.difference || pettyCash.established_amount))}
+                {formatCurrency(Math.abs(pettyCash.difference ?? pettyCash.established_amount))}
               </p>
               <p className="text-xs text-[#5F6773] mt-2">
                 {status.status === 'CORRECT' && '✓ El Petty Cash cuadra perfecto'}

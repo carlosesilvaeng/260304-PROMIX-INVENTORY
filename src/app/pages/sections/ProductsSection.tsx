@@ -11,6 +11,7 @@ import {
   getProductInputLabel,
   getProductCalculatedLabel,
 } from '../../config/productsConfig';
+import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveProductsEntries } from '../../utils/api';
 
 // Category badge colors
@@ -376,14 +377,7 @@ export function ProductsSection() {
         <div className="text-sm text-[#5F6773]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
-          <span>
-            {prefillData.inventoryMonth?.year_month 
-              ? new Date(prefillData.inventoryMonth.year_month + '-01').toLocaleDateString('es-ES', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })
-              : 'Sin mes'}
-          </span>
+          <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
         </div>
       </div>
 

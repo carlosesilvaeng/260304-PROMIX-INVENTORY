@@ -6,6 +6,7 @@ import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume } from '../../config/additivesConfig';
+import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
 
 type TabType = 'tanks' | 'manual';
@@ -212,14 +213,7 @@ export function AdditivesSection() {
         <div className="text-sm text-[#5F6773]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
-          <span>
-            {prefillData.inventoryMonth?.year_month 
-              ? new Date(prefillData.inventoryMonth.year_month + '-01').toLocaleDateString('es-ES', { 
-                  month: 'long', 
-                  year: 'numeric' 
-                })
-              : 'Sin mes'}
-          </span>
+          <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
         </div>
       </div>
 
