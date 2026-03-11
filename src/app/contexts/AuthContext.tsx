@@ -81,6 +81,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   selectPlant: (plantId: string) => void;
+  clearSelectedPlant: () => void;
   updatePlant: (plant: Plant) => void;
   createPlant: (plant: Omit<Plant, 'id'>) => void;
   togglePlantStatus: (plantId: string) => void;
@@ -392,6 +393,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const clearSelectedPlant = () => {
+    setCurrentPlant(null);
+    localStorage.removeItem('promix_plant');
+    localStorage.removeItem('promix_current_inventory');
+  };
+
   const updatePlant = (plant: Plant) => {
     // Optimistic update — apply immediately in UI
     setAllPlants(prev => prev.map(p => p.id === plant.id ? plant : p));
@@ -484,12 +491,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isFirstTime,
     showMigrationMessage,
-    login,
-    logout,
-    selectPlant,
-    updatePlant,
-    createPlant,
-    togglePlantStatus,
+        login,
+        logout,
+        selectPlant,
+        clearSelectedPlant,
+        updatePlant,
+        createPlant,
+        togglePlantStatus,
     savePlantCajones,
     dismissMigrationMessage,
     refreshUser,

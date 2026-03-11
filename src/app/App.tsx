@@ -69,7 +69,7 @@ const APP_KEY = Date.now();
 const BUILD_VERSION = '2603050601';
 
 function AppContent() {
-  const { user, currentPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
+  const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
   const isPlantManager = user?.role === 'plant_manager';
   const [currentView, setCurrentView] =
@@ -113,6 +113,23 @@ function AppContent() {
 
   const handleBackToDashboard = () => {
     handleViewChange("dashboard");
+  };
+
+  const handleChangePlant = () => {
+    if (!currentPlant) return;
+
+    const confirmed = window.confirm(
+      '¿Deseas cambiar de planta? Volverás a la pantalla de selección de planta.'
+    );
+
+    if (!confirmed) return;
+
+    clearCurrentInventory();
+    clearSelectedPlant();
+    setCurrentSection(null);
+    setReportContext(null);
+    setInventoryContext(null);
+    setCurrentView('dashboard');
   };
 
   const handleSetupComplete = async () => {
@@ -196,7 +213,7 @@ function AppContent() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar
-          onChangePlant={() => window.location.reload()}
+          onChangePlant={handleChangePlant}
         />
 
         <div className="flex-1 overflow-y-auto">
