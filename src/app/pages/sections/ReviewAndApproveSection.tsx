@@ -69,7 +69,11 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     if (prefillData && !prefillData.loading && !prefillData.error) {
       console.log('[ReviewAndApprove] Running validation...');
       const baseResult = validateAllSections(prefillData);
-      const baseSections = new Map(baseResult.allSections.map((section) => [section.sectionId, section]));
+      const expectedSectionIdSet = new Set(expectedSectionIds);
+      const filteredBaseSections = baseResult.allSections.filter(
+        (section) => expectedSectionIdSet.has(section.sectionId)
+      );
+      const baseSections = new Map(filteredBaseSections.map((section) => [section.sectionId, section]));
       const expectedSections = expectedSectionIds.map((sectionId) => {
         const existingSection = baseSections.get(sectionId);
         if (existingSection) return existingSection;
@@ -90,9 +94,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
           warningIssues: 0,
         };
       });
-      const expectedSectionIdSet = new Set(expectedSectionIds);
-      const extraSections = baseResult.allSections.filter((section) => !expectedSectionIdSet.has(section.sectionId));
-      const allSections = [...expectedSections, ...extraSections];
+      const allSections = expectedSections;
       const completeSections = allSections.filter((section) => section.isComplete).length;
       const totalCriticalIssues = allSections.reduce((sum, section) => sum + section.criticalIssues, 0);
       const totalWarningIssues = allSections.reduce((sum, section) => sum + section.warningIssues, 0);
