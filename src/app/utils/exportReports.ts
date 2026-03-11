@@ -90,20 +90,33 @@ function safeNum(v: any): string {
   return isNaN(n) ? '-' : n.toFixed(2);
 }
 
+function getAggregateVolumeUnit(entry: any): string {
+  if (entry?.unit === 'm3') return 'm³';
+  if (entry?.unit === 'ft3') return 'ft³';
+  if (entry?.unit === 'CUBIC_YARDS') return 'yd³';
+  return 'ft³';
+}
+
+function getAggregateLengthUnit(entry: any): string {
+  return entry?.unit === 'm3' ? 'm' : 'ft';
+}
+
 function formatAggregateBoxDetail(entry: any): string {
-  return `A:${safeNum(entry.box_width_ft)} ft · H:${safeNum(entry.box_height_ft)} ft · L:${safeNum(entry.box_length_ft)} ft`;
+  const lengthUnit = getAggregateLengthUnit(entry);
+  return `A:${safeNum(entry.box_width_ft)} ${lengthUnit} · H:${safeNum(entry.box_height_ft)} ${lengthUnit} · L:${safeNum(entry.box_length_ft)} ${lengthUnit}`;
 }
 
 function formatAggregateConeDetail(entry: any): string {
+  const lengthUnit = getAggregateLengthUnit(entry);
   return [
-    `M1:${safeNum(entry.cone_m1)}`,
-    `M2:${safeNum(entry.cone_m2)}`,
-    `M3:${safeNum(entry.cone_m3)}`,
-    `M4:${safeNum(entry.cone_m4)}`,
-    `M5:${safeNum(entry.cone_m5)}`,
-    `M6:${safeNum(entry.cone_m6)}`,
-    `D1:${safeNum(entry.cone_d1)}`,
-    `D2:${safeNum(entry.cone_d2)}`,
+    `M1:${safeNum(entry.cone_m1)} ${lengthUnit}`,
+    `M2:${safeNum(entry.cone_m2)} ${lengthUnit}`,
+    `M3:${safeNum(entry.cone_m3)} ${lengthUnit}`,
+    `M4:${safeNum(entry.cone_m4)} ${lengthUnit}`,
+    `M5:${safeNum(entry.cone_m5)} ${lengthUnit}`,
+    `M6:${safeNum(entry.cone_m6)} ${lengthUnit}`,
+    `D1:${safeNum(entry.cone_d1)} ${lengthUnit}`,
+    `D2:${safeNum(entry.cone_d2)} ${lengthUnit}`,
   ].join(' · ');
 }
 
@@ -203,9 +216,10 @@ async function fetchDetail(
 
     // ── Agregados ──────────────────────────────────────────────────────────
     if (data.agregados?.length) {
+      const aggregateVolumeUnit = getAggregateVolumeUnit(data.agregados[0]);
       sections.push({
         name: 'Agregados',
-        headers: ['Nombre', 'Material', 'Área', 'Método', 'Detalle cajón/cono', 'Volumen (cy)', 'Notas', 'Foto'],
+        headers: ['Nombre', 'Material', 'Área', 'Método', 'Detalle cajón/cono', `Volumen (${aggregateVolumeUnit})`, 'Notas', 'Foto'],
         rows: data.agregados.map((e: any) => [
           e.aggregate_name ?? '-',
           e.material_type ?? '-',

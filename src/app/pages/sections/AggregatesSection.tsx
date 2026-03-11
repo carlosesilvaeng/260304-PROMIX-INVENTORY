@@ -6,6 +6,7 @@ import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
+import { useUnits } from '../../contexts/UnitsContext';
 import { saveAggregatesEntries } from '../../utils/api';
 
 interface AggregatesSectionProps {
@@ -15,10 +16,14 @@ interface AggregatesSectionProps {
 export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const { currentPlant } = useAuth();
   const { t } = useLanguage();
+  const { units } = useUnits();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const lengthUnitLabel = units.length === 'm' ? 'm' : 'ft';
+  const volumeUnit = units.length === 'm' ? 'm3' : 'ft3';
+  const volumeUnitLabel = units.length === 'm' ? 'm³' : 'ft³';
 
   // Load data when component mounts
   useEffect(() => {
@@ -95,9 +100,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   // ============================================================================
 
   const calculateBoxVolume = (width: number, height: number, length: number): number => {
-    // Volume in cubic feet, convert to cubic yards
-    // 1 cubic yard = 27 cubic feet
-    return (width * height * length) / 27;
+    return width * height * length;
   };
 
   const calculateConeVolume = (m1: number, m2: number, m3: number, m4: number, m5: number, m6: number, d1: number, d2: number): number => {
@@ -126,6 +129,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         const w = entry.box_width_ft ?? 0;
         const h = entry.box_height_ft ?? 0;
         updates.calculated_volume_cy = calculateBoxVolume(w, h, value ?? 0);
+        updates.unit = volumeUnit;
       }
     } else if (entry.measurement_method === 'CONE') {
       // CONE method: calculate when any measurement changes
@@ -141,6 +145,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         
         if ([m1, m2, m3, m4, m5, m6, d1, d2].every(v => v !== null && v !== undefined)) {
           updates.calculated_volume_cy = calculateConeVolume(m1, m2, m3, m4, m5, m6, d1, d2);
+          updates.unit = volumeUnit;
         }
       }
     }
@@ -165,6 +170,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
       // Prepare entries for saving (remove temp IDs and _isNew flag)
       const entriesToSave = prefillData.agregadosEntries.map(entry => ({
         ...entry,
+        unit: volumeUnit,
         id: entry._isNew ? undefined : entry.id, // Remove temp ID for new entries
         _isNew: undefined, // Remove internal flag
       }));
@@ -278,9 +284,9 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
           </h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
             <li><strong>Campos bloqueados 🔒:</strong> Material, ubicación, método, ancho y alto (vienen de configuración)</li>
-            <li><strong>Método CAJÓN (BOX):</strong> Solo captura el largo en pies</li>
-            <li><strong>Método CONO (CONE):</strong> Captura 6 medidas M y 2 diámetros D</li>
-            <li><strong>Volumen calculado:</strong> Se actualiza automáticamente al cambiar medidas</li>
+            <li><strong>Método CAJÓN (BOX):</strong> Solo captura el largo en {lengthUnitLabel}</li>
+            <li><strong>Método CONO (CONE):</strong> Captura 6 medidas M y 2 diámetros D en {lengthUnitLabel}</li>
+            <li><strong>Volumen calculado:</strong> Se actualiza automáticamente en {volumeUnitLabel}</li>
             <li><strong>Área no usada:</strong> Si un cajón/cono no se usó, ingresa 0 en largo o medidas</li>
             <li><strong>Evidencia fotográfica:</strong> Requerida para cada agregado</li>
           </ul>
@@ -323,27 +329,27 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                     {/* Width - READ ONLY */}
                     <div>
                       <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                        Ancho (ft) 🔒
+                        Ancho ({lengthUnitLabel}) 🔒
                       </label>
                       <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[#3B3A36]">
-                        {entry.box_width_ft || 0} ft
+                        {entry.box_width_ft || 0} {lengthUnitLabel}
                       </div>
                     </div>
 
                     {/* Height - READ ONLY */}
                     <div>
                       <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                        Alto (ft) 🔒
+                        Alto ({lengthUnitLabel}) 🔒
                       </label>
                       <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[#3B3A36]">
-                        {entry.box_height_ft || 0} ft
+                        {entry.box_height_ft || 0} {lengthUnitLabel}
                       </div>
                     </div>
 
                     {/* Length - EDITABLE */}
                     <div>
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                        Largo (ft) *
+                        Largo ({lengthUnitLabel}) *
                       </label>
                       <NumericInput
                         value={entry.box_length_ft ?? ''}
@@ -357,10 +363,10 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                     {/* Volume - AUTO CALCULATED */}
                     <div>
                       <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                        Volumen (yd³) 📊
+                        Volumen ({volumeUnitLabel}) 📊
                       </label>
                       <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold">
-                        {(entry.calculated_volume_cy || 0).toFixed(2)} yd³
+                        {(entry.calculated_volume_cy || 0).toFixed(2)} {volumeUnitLabel}
                       </div>
                     </div>
                   </div>
@@ -373,7 +379,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {/* M Measurements */}
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M1 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M1 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m1 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m1', value ?? 0)}
@@ -381,7 +387,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M2 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M2 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m2 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m2', value ?? 0)}
@@ -389,7 +395,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M3 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M3 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m3 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m3', value ?? 0)}
@@ -397,7 +403,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M4 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M4 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m4 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m4', value ?? 0)}
@@ -405,7 +411,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M5 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M5 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m5 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m5', value ?? 0)}
@@ -413,7 +419,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M6 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M6 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m6 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_m6', value ?? 0)}
@@ -423,7 +429,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
                     {/* D Measurements */}
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D1 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D1 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_d1 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_d1', value ?? 0)}
@@ -431,7 +437,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D2 *</label>
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D2 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_d2 ?? ''}
                         onValueChange={(value) => handleFieldChange(entry.id, 'cone_d2', value ?? 0)}
@@ -443,10 +449,10 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   {/* Volume */}
                   <div>
                     <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                      Volumen Calculado (yd³) 📊
+                      Volumen Calculado ({volumeUnitLabel}) 📊
                     </label>
                     <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold text-lg">
-                      {(entry.calculated_volume_cy || 0).toFixed(2)} yd³
+                      {(entry.calculated_volume_cy || 0).toFixed(2)} {volumeUnitLabel}
                     </div>
                   </div>
                 </div>
