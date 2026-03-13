@@ -283,7 +283,7 @@ export function UtilitiesSection() {
                   onValueChange={(val) => handleFieldChange(utility, 'current_reading', val || 0)}
                   placeholder="Ingresa lectura..."
                   required
-                  className="border-4 border-[#2475C7] bg-yellow-50 text-xl font-bold h-[50px] focus:ring-4 focus:ring-[#2475C7]/30 focus:border-[#2475C7]"
+                  className="border-4 border-[#2475C7] bg-white text-xl font-bold h-[50px] focus:ring-4 focus:ring-[#2475C7]/30 focus:border-[#2475C7]"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                   <span className="text-sm text-[#5F6773] font-semibold">{utility.uom}</span>
@@ -359,7 +359,7 @@ export function UtilitiesSection() {
               value={utility.notes || ''}
               onChange={(e) => handleFieldChange(utility, 'notes', e.target.value)}
               placeholder="Observaciones adicionales..."
-              className="w-full px-4 py-2.5 border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+              className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
               rows={2}
             />
           </div>

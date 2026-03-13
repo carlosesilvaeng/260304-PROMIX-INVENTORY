@@ -21,7 +21,7 @@ export function Input({ label, error, helperText, helpText, className = '', ...p
       <input
         className={`
           w-full px-4 py-2.5 
-          bg-[#F2F3F5] 
+          bg-white
           border border-[#9D9B9A] 
           rounded 
           text-[#3B3A36] 
@@ -30,6 +30,7 @@ export function Input({ label, error, helperText, helpText, className = '', ...p
           focus:ring-2 
           focus:ring-[#2475C7] 
           focus:border-transparent
+          disabled:bg-[#F2F3F5]
           disabled:opacity-50 
           disabled:cursor-not-allowed
           transition-all

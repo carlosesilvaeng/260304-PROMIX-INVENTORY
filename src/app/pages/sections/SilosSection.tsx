@@ -357,7 +357,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                   placeholder="Observaciones opcionales..."
                   rows={2}
-                  className="w-full px-3 py-2 border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2B7DE9]"
+                  className="w-full px-3 py-2 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2B7DE9]"
                 />
               </div>
 

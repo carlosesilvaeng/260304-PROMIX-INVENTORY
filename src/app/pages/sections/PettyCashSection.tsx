@@ -374,7 +374,7 @@ export function PettyCashSection() {
               value={pettyCash.notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
               placeholder="Explica cualquier discrepancia, gastos importantes, o situaciones especiales..."
-              className="w-full px-4 py-2.5 border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+              className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
               rows={3}
             />
             <p className="text-xs text-[#5F6773] mt-1">

@@ -345,7 +345,7 @@ export function AdditivesSection() {
                       value={entry.notes || ''}
                       onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                       placeholder="Observaciones adicionales..."
-                      className="w-full px-4 py-2.5 border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+                      className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
                       rows={2}
                     />
                   </div>
@@ -423,7 +423,7 @@ export function AdditivesSection() {
                       value={entry.notes || ''}
                       onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                       placeholder="Observaciones adicionales..."
-                      className="w-full px-4 py-2.5 border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+                      className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
                       rows={2}
                     />
                   </div>
