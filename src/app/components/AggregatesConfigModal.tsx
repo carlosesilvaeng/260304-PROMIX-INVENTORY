@@ -4,7 +4,7 @@ import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
 import {
-  getPlantAggregatesConfigEntries,
+  getPlantConfig,
   updatePlantAggregatesConfigEntries,
 } from '../utils/api';
 import type { Plant } from '../contexts/AuthContext';
@@ -65,19 +65,21 @@ export function AggregatesConfigModal({
 
   useEffect(() => {
     setLoading(true);
-    getPlantAggregatesConfigEntries(plant.id)
+    getPlantConfig(plant.id)
       .then((response) => {
         if (!response.success) {
           setError(response.error ?? 'Error cargando agregados');
           return;
         }
 
-        if ((response.data ?? []).length === 0) {
+        const aggregateEntries = response.data?.aggregates ?? [];
+
+        if (aggregateEntries.length === 0) {
           setRows((plant.cajones || []).map(mapCajonToAggregateRow));
           return;
         }
 
-        const loadedRows = (response.data ?? []).map((entry: any) => ({
+        const loadedRows = aggregateEntries.map((entry: any) => ({
           id: entry.id,
           aggregate_name: entry.aggregate_name || '',
           material_type: entry.material_type || '',
@@ -175,7 +177,11 @@ export function AggregatesConfigModal({
 
       const response = await updatePlantAggregatesConfigEntries(plant.id, payload);
       if (!response.success) {
-        setError(response.error ?? 'Error guardando agregados');
+        setError(
+          response.error?.includes('respuesta no valida')
+            ? 'No se pudo guardar porque el backend publicado aun no tiene esta ruta de agregados. Hay que publicar la Edge Function actualizada.'
+            : (response.error ?? 'Error guardando agregados')
+        );
         return;
       }
 

@@ -32,7 +32,22 @@ async function apiRequest<T = any>(
     }
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-    const data = await response.json();
+    const rawResponse = await response.text();
+
+    let data: any;
+    try {
+      data = rawResponse ? JSON.parse(rawResponse) : {};
+    } catch (parseError) {
+      console.error(`API Parse Error [${method} ${endpoint}]:`, {
+        parseError,
+        rawResponse,
+      });
+
+      return {
+        success: false,
+        error: 'El servidor devolvio una respuesta no valida. Si este modulo es nuevo, verifica que la Edge Function este publicada y actualizada.',
+      };
+    }
 
     // Only log errors that are NOT "Month not found" (which is expected)
     if (!response.ok && data.error !== 'Month not found') {
