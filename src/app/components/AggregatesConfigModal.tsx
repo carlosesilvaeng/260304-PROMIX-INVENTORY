@@ -4,7 +4,9 @@ import { Button } from './Button';
 import { Input } from './Input';
 import { Select } from './Select';
 import {
+  getMateriales,
   getPlantConfig,
+  getProcedencias,
   updatePlantAggregatesConfigEntries,
 } from '../utils/api';
 import type { Plant } from '../contexts/AuthContext';
@@ -62,6 +64,24 @@ export function AggregatesConfigModal({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [materialOptions, setMaterialOptions] = useState<string[]>([]);
+  const [procedenciaOptions, setProcedenciaOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    Promise.all([getMateriales(), getProcedencias()])
+      .then(([materialesResponse, procedenciasResponse]) => {
+        if (materialesResponse.success) {
+          setMaterialOptions((materialesResponse.data || []).map((item: any) => item.nombre).filter(Boolean));
+        }
+
+        if (procedenciasResponse.success) {
+          setProcedenciaOptions((procedenciasResponse.data || []).map((item: any) => item.nombre).filter(Boolean));
+        }
+      })
+      .catch((catalogError) => {
+        console.error('❌ Error cargando catalogos de agregados:', catalogError);
+      });
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +121,22 @@ export function AggregatesConfigModal({
     setRows((prev) => prev.map((row, rowIndex) => (rowIndex === index ? { ...row, ...updates } : row)));
   };
 
+  const buildSelectOptions = (
+    values: string[],
+    currentValue: string,
+    emptyLabel: string
+  ) => {
+    const normalizedValues = [...values];
+    if (currentValue.trim() && !normalizedValues.includes(currentValue.trim())) {
+      normalizedValues.unshift(currentValue.trim());
+    }
+
+    return [
+      { value: '', label: emptyLabel },
+      ...normalizedValues.map((value) => ({ value, label: value })),
+    ];
+  };
+
   const addRow = () => {
     setRows((prev) => [...prev, createEmptyRow()]);
   };
@@ -135,6 +171,14 @@ export function AggregatesConfigModal({
 
       if (!row.measurement_method) {
         return `${label}: el metodo de medicion es requerido`;
+      }
+
+      if (!row.material_type.trim()) {
+        return `${label}: el material es requerido`;
+      }
+
+      if (!row.location_area.trim()) {
+        return `${label}: la procedencia es requerida`;
       }
 
       if (row.measurement_method === 'BOX') {
@@ -259,17 +303,19 @@ export function AggregatesConfigModal({
                         placeholder="Ej: Cajon 1 / Cono Arena"
                         required
                       />
-                      <Input
+                      <Select
                         label="Material"
                         value={row.material_type}
                         onChange={(e) => updateRow(index, { material_type: e.target.value })}
-                        placeholder="Ej: Arena"
+                        options={buildSelectOptions(materialOptions, row.material_type, '— Seleccionar material —')}
+                        required
                       />
-                      <Input
-                        label="Ubicacion"
+                      <Select
+                        label="Procedencia"
                         value={row.location_area}
                         onChange={(e) => updateRow(index, { location_area: e.target.value })}
-                        placeholder="Ej: Cantera Norte"
+                        options={buildSelectOptions(procedenciaOptions, row.location_area, '— Seleccionar procedencia —')}
+                        required
                       />
                       <Select
                         label="Metodo de medicion"
@@ -288,7 +334,7 @@ export function AggregatesConfigModal({
                         <p className="mb-3 text-sm text-[#5F6773]">
                           Para cajon, ancho y alto quedan fijos en configuracion; el gerente solo capturara el largo.
                         </p>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <Input
                             label="Ancho (ft)"
                             type="number"
@@ -304,12 +350,6 @@ export function AggregatesConfigModal({
                             onChange={(e) => updateRow(index, { box_height_ft: e.target.value })}
                             placeholder="12"
                             required
-                          />
-                          <Input
-                            label="Unidad"
-                            value={row.unit}
-                            onChange={(e) => updateRow(index, { unit: e.target.value })}
-                            placeholder="CUBIC_YARDS"
                           />
                         </div>
                       </div>
