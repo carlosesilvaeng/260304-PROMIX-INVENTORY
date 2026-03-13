@@ -29,7 +29,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
     confirmPassword: ''
   });
 
-  // Initialize database schema
+  // Inicializar esquema de base de datos
   const handleInitializeDatabase = async () => {
     setLoading(true);
     setError(null);
@@ -52,11 +52,11 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Failed to initialize database');
+        throw new Error(data.error || 'No se pudo inicializar la base de datos');
       }
 
       console.log('✅ [InitialSetup] Database initialized successfully');
-      setSuccess('Database initialized successfully!');
+      setSuccess('Base de datos inicializada correctamente.');
       
       // Wait a moment then move to admin creation
       setTimeout(() => {
@@ -66,31 +66,31 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
 
     } catch (err: any) {
       console.error('❌ [InitialSetup] Database initialization error:', err);
-      setError(err.message || 'Failed to initialize database');
+      setError(err.message || 'No se pudo inicializar la base de datos');
     } finally {
       setLoading(false);
     }
   };
 
-  // Create Super Admin user
+  // Crear usuario super administrador
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    // Validate form
+    // Validar formulario
     if (!adminData.name || !adminData.email || !adminData.password) {
-      setError('Please fill in all fields');
+      setError('Completa todos los campos');
       return;
     }
 
     if (adminData.password !== adminData.confirmPassword) {
-      setError('Passwords do not match');
+      setError('Las contraseñas no coinciden');
       return;
     }
 
     if (adminData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
@@ -120,11 +120,11 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || 'Failed to create admin user');
+        throw new Error(data.error || 'No se pudo crear el usuario administrador');
       }
 
       console.log('✅ [InitialSetup] Super Admin created successfully');
-      setSuccess('Super Admin created successfully! Redirecting to login...');
+      setSuccess('Super Administrador creado correctamente. Redirigiendo al inicio de sesión...');
 
       // Wait a moment then complete setup
       setTimeout(() => {
@@ -133,7 +133,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
 
     } catch (err: any) {
       console.error('❌ [InitialSetup] Admin creation error:', err);
-      setError(err.message || 'Failed to create admin user');
+      setError(err.message || 'No se pudo crear el usuario administrador');
     } finally {
       setLoading(false);
     }
@@ -149,12 +149,12 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
 
         {/* Title */}
         <h1 className="text-2xl font-bold text-[#1A1D1F] text-center mb-2">
-          Initial Setup
+          Configuración Inicial
         </h1>
         <p className="text-sm text-[#6F767E] text-center mb-6">
           {step === 'database' 
-            ? 'Initialize the database schema to get started'
-            : 'Create your Super Admin account'}
+            ? 'Inicializa la base de datos para comenzar'
+            : 'Crea tu cuenta de Super Administrador'}
         </p>
 
         {/* Error Alert */}
@@ -176,16 +176,16 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
           <div className="space-y-4">
             <div className="bg-[#F5F6F7] rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-[#1A1D1F] mb-2">
-                Database Setup
+                Base de Datos
               </h3>
               <p className="text-sm text-[#6F767E] mb-3">
-                This will create all necessary tables and schema in your Supabase database.
+                Esto creará todas las tablas y el esquema necesarios en tu base de datos de Supabase.
               </p>
               <ul className="text-sm text-[#6F767E] space-y-1 list-disc list-inside">
-                <li>Users and authentication tables</li>
-                <li>Plant configuration tables</li>
-                <li>Inventory tracking tables</li>
-                <li>Module configuration</li>
+                <li>Tablas de usuarios y autenticación</li>
+                <li>Tablas de configuración de plantas</li>
+                <li>Tablas de seguimiento de inventarios</li>
+                <li>Configuración de módulos</li>
               </ul>
             </div>
 
@@ -195,7 +195,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
               fullWidth
               size="lg"
             >
-              {loading ? 'Initializing...' : 'Initialize Database'}
+              {loading ? 'Inicializando...' : 'Inicializar Base de Datos'}
             </Button>
           </div>
         )}
@@ -205,24 +205,24 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
           <form onSubmit={handleCreateAdmin} className="space-y-4">
             <div className="bg-[#F5F6F7] rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-[#1A1D1F] mb-2">
-                Super Admin Account
+                Cuenta de Super Administrador
               </h3>
               <p className="text-sm text-[#6F767E]">
-                Create your Super Admin account to manage the system.
+                Crea tu cuenta de Super Administrador para gestionar el sistema.
               </p>
             </div>
 
             <Input
-              label="Full Name"
+              label="Nombre Completo"
               type="text"
               value={adminData.name}
               onChange={(e) => setAdminData({ ...adminData, name: e.target.value })}
-              placeholder="John Doe"
+              placeholder="Juan Perez"
               required
             />
 
             <Input
-              label="Email"
+              label="Correo Electrónico"
               type="email"
               value={adminData.email}
               onChange={(e) => setAdminData({ ...adminData, email: e.target.value })}
@@ -231,7 +231,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
             />
 
             <Input
-              label="Password"
+              label="Contraseña"
               type="password"
               value={adminData.password}
               onChange={(e) => setAdminData({ ...adminData, password: e.target.value })}
@@ -240,7 +240,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
             />
 
             <Input
-              label="Confirm Password"
+              label="Confirmar Contraseña"
               type="password"
               value={adminData.confirmPassword}
               onChange={(e) => setAdminData({ ...adminData, confirmPassword: e.target.value })}
@@ -254,7 +254,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
               fullWidth
               size="lg"
             >
-              {loading ? 'Creating Admin...' : 'Create Super Admin'}
+              {loading ? 'Creando administrador...' : 'Crear Super Administrador'}
             </Button>
           </form>
         )}

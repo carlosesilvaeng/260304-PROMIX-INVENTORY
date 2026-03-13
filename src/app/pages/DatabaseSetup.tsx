@@ -46,15 +46,15 @@ export function DatabaseSetup() {
       );
       const healthData = await healthRes.json();
       results.tests.push({
-        name: 'Health Check',
+        name: 'Chequeo de Salud',
         status: healthRes.ok ? 'PASS' : 'FAIL',
         response: healthData
       });
     } catch (error) {
       results.tests.push({
-        name: 'Health Check',
+        name: 'Chequeo de Salud',
         status: 'FAIL',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Error desconocido'
       });
     }
 
@@ -72,21 +72,21 @@ export function DatabaseSetup() {
       );
       const dbData = await dbRes.json();
       results.tests.push({
-        name: 'Database Schema Check',
+        name: 'Chequeo de Esquema de Base de Datos',
         status: dbData.success ? 'PASS' : 'FAIL',
         response: dbData
       });
     } catch (error) {
       results.tests.push({
-        name: 'Database Schema Check',
+        name: 'Chequeo de Esquema de Base de Datos',
         status: 'FAIL',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Error desconocido'
       });
     }
 
     // Test 3: Environment Variables
     results.tests.push({
-      name: 'Environment Variables',
+      name: 'Variables de Entorno',
       status: 'INFO',
       data: {
         projectId: projectId,

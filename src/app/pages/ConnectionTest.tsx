@@ -50,15 +50,15 @@ export function ConnectionTest() {
       );
       const healthData = await healthRes.json();
       results.tests.push({
-        name: 'Health Check',
+        name: 'Chequeo de Salud',
         status: healthRes.ok ? 'PASS' : 'FAIL',
         response: healthData
       });
     } catch (error) {
       results.tests.push({
-        name: 'Health Check',
+        name: 'Chequeo de Salud',
         status: 'FAIL',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Error desconocido'
       });
     }
 
@@ -76,21 +76,21 @@ export function ConnectionTest() {
       );
       const dbData = await dbRes.json();
       results.tests.push({
-        name: 'Database Schema Check',
+        name: 'Chequeo de Esquema de Base de Datos',
         status: dbData.success ? 'PASS' : 'FAIL',
         response: dbData
       });
     } catch (error) {
       results.tests.push({
-        name: 'Database Schema Check',
+        name: 'Chequeo de Esquema de Base de Datos',
         status: 'FAIL',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Error desconocido'
       });
     }
 
     // Test 3: Environment Variables
     results.tests.push({
-      name: 'Environment Variables',
+      name: 'Variables de Entorno',
       status: 'INFO',
       data: {
         projectId: projectId,
@@ -122,11 +122,11 @@ export function ConnectionTest() {
         try {
           validateData = await validateRes.json();
         } catch (e) {
-          validateData = { error: 'Could not parse JSON response' };
+          validateData = { error: 'No se pudo interpretar la respuesta JSON' };
         }
         
         results.tests.push({
-          name: 'JWT Token Validation',
+          name: 'Validación de Token JWT',
           status: validateRes.ok && validateData.success ? 'PASS' : 'FAIL',
           httpStatus: validateRes.status,
           response: validateData,
@@ -146,23 +146,23 @@ export function ConnectionTest() {
                     isExpired: payload.exp ? Date.now() / 1000 > payload.exp : false
                   };
                 }
-                return 'Invalid JWT format';
+                return 'Formato JWT inválido';
               } catch (e) {
-                return 'Could not decode JWT';
+                return 'No se pudo decodificar el JWT';
               }
             })()
           }
         });
       } catch (error) {
         results.tests.push({
-          name: 'JWT Token Validation',
+          name: 'Validación de Token JWT',
           status: 'FAIL',
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Error desconocido'
         });
       }
     } else {
       results.tests.push({
-        name: 'JWT Token Validation',
+        name: 'Validación de Token JWT',
         status: 'SKIP',
         message: 'No hay usuario logueado - login primero para probar'
       });
@@ -221,7 +221,7 @@ export function ConnectionTest() {
       }
 
       results.tests.push({
-        name: 'Backend Build & Environment',
+        name: 'Build y Entorno del Backend',
         status: (lengthsMatch && prefixesMatch) ? 'PASS' : 'FAIL',
         httpStatus: response.status,
         response: data,
@@ -255,7 +255,7 @@ export function ConnectionTest() {
     } catch (error: any) {
       console.error('❌ Test #5 Error:', error);
       results.tests.push({
-        name: 'Backend Build & Environment',
+        name: 'Build y Entorno del Backend',
         status: 'FAIL',
         error: error.message 
       });
@@ -263,13 +263,13 @@ export function ConnectionTest() {
 
     // Test 6: Compare Frontend vs Backend Keys
     results.tests.push({
-      name: 'Key Comparison (Frontend vs Backend)',
+      name: 'Comparación de Claves (Frontend vs Backend)',
       status: 'INFO',
       data: {
         frontendProjectId: projectId,
         frontendAnonKeyPrefix: publicAnonKey.substring(0, 50) + '...',
         frontendAnonKeyLength: publicAnonKey.length,
-        note: 'Check Test 4 debugInfo.backendAnonKeyPrefix to compare'
+        note: 'Compara este valor con el prefijo ANON que devuelve el backend'
       }
     });
 
@@ -287,7 +287,7 @@ export function ConnectionTest() {
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🔧</span>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Connection Test</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Prueba de Conexión</h1>
                   <p className="text-sm text-gray-500 mt-1">
                     Diagnóstico completo de conectividad backend/frontend
                   </p>
@@ -312,13 +312,13 @@ export function ConnectionTest() {
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
               >
                 <span>🔄</span>
-                Clear Session & Re-login
+                Limpiar sesión y volver a entrar
               </button>
               <button
                 onClick={() => window.location.href = '/settings'}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                ← Volver a Settings
+                ← Volver a Configuración
               </button>
             </div>
           </div>
@@ -328,7 +328,7 @@ export function ConnectionTest() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-[#1A1D1F] mb-2">
-            🔍 Connection Test - Production Readiness
+            🔍 Prueba de Conexión - Verificación de Producción
           </h1>
           <p className="text-[#6F767E]">
             Verifica que el Edge Function esté desplegado y funcionando correctamente
@@ -365,7 +365,7 @@ export function ConnectionTest() {
                   className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-bold"
                 >
                   <span>🔄</span>
-                  LIMPIAR SESIÓN Y RE-LOGIN AHORA
+                  LIMPIAR SESIÓN Y VOLVER A ENTRAR
                 </button>
               </div>
             </div>
@@ -433,7 +433,7 @@ export function ConnectionTest() {
 
                   {test.httpStatus && (
                     <div className="text-sm mt-2">
-                      <strong>HTTP Status:</strong>{' '}
+                      <strong>Estado HTTP:</strong>{' '}
                       <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">
                         {test.httpStatus}
                       </code>
@@ -442,37 +442,37 @@ export function ConnectionTest() {
 
                   {test.tokenInfo && (
                     <div className="mt-3 p-3 bg-white rounded border">
-                      <strong className="text-sm">📋 Token Info:</strong>
+                      <strong className="text-sm">📋 Información del Token:</strong>
                       <div className="mt-2 space-y-1 text-xs">
                         <div>
-                          <strong>Length:</strong> {test.tokenInfo.tokenLength}
+                          <strong>Longitud:</strong> {test.tokenInfo.tokenLength}
                         </div>
                         <div>
-                          <strong>Prefix:</strong>{' '}
+                          <strong>Prefijo:</strong>{' '}
                           <code className="bg-gray-100 px-1">{test.tokenInfo.tokenPrefix}</code>
                         </div>
                         {typeof test.tokenInfo.decodedPayload === 'object' && (
                           <>
-                            <div className="font-semibold mt-2">Decoded JWT Payload:</div>
+                            <div className="font-semibold mt-2">Payload JWT Decodificado:</div>
                             <div className="ml-2">
                               <div>
-                                <strong>Issued At (iat):</strong> {test.tokenInfo.decodedPayload.iat}
+                                <strong>Emitido En (iat):</strong> {test.tokenInfo.decodedPayload.iat}
                               </div>
                               <div>
-                                <strong>Expires (exp):</strong> {test.tokenInfo.decodedPayload.exp}
+                                <strong>Expira En (exp):</strong> {test.tokenInfo.decodedPayload.exp}
                               </div>
                               <div>
-                                <strong>Subject (sub):</strong> {test.tokenInfo.decodedPayload.sub}
+                                <strong>Sujeto (sub):</strong> {test.tokenInfo.decodedPayload.sub}
                               </div>
                               <div className={test.tokenInfo.decodedPayload.isExpired ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                                <strong>Is Expired:</strong> {test.tokenInfo.decodedPayload.isExpired ? '❌ YES' : '✅ NO'}
+                                <strong>Está Expirado:</strong> {test.tokenInfo.decodedPayload.isExpired ? '❌ SI' : '✅ NO'}
                               </div>
                             </div>
                           </>
                         )}
                         {typeof test.tokenInfo.decodedPayload === 'string' && (
                           <div className="text-red-600">
-                            <strong>Decode Error:</strong> {test.tokenInfo.decodedPayload}
+                            <strong>Error al Decodificar:</strong> {test.tokenInfo.decodedPayload}
                           </div>
                         )}
                       </div>
@@ -494,29 +494,29 @@ export function ConnectionTest() {
 
                   {test.keyComparison && (
                     <div className="mt-3 p-3 bg-yellow-50 rounded border border-yellow-200">
-                      <strong className="text-sm">🔑 Key Comparison:</strong>
+                      <strong className="text-sm">🔑 Comparación de Claves:</strong>
                       <div className="mt-2 space-y-2 text-xs">
                         <div className="font-semibold">Frontend:</div>
                         <div className="ml-2">
-                          <div><strong>Length:</strong> {test.keyComparison.frontendAnonKeyLength}</div>
-                          <div><strong>Prefix:</strong> <code className="bg-gray-100 px-1">{test.keyComparison.frontendAnonKeyPrefix}</code></div>
+                          <div><strong>Longitud:</strong> {test.keyComparison.frontendAnonKeyLength}</div>
+                          <div><strong>Prefijo:</strong> <code className="bg-gray-100 px-1">{test.keyComparison.frontendAnonKeyPrefix}</code></div>
                           <div className="mt-1 p-2 bg-white rounded">
-                            <strong>FULL KEY:</strong>
+                            <strong>CLAVE COMPLETA:</strong>
                             <div className="font-mono text-[10px] break-all mt-1">{test.keyComparison.frontendAnonKeyFull}</div>
                           </div>
                         </div>
                         <div className="font-semibold mt-2">Backend:</div>
                         <div className="ml-2">
-                          <div><strong>Length:</strong> {test.keyComparison.backendAnonKeyLength}</div>
-                          <div><strong>Prefix:</strong> <code className="bg-gray-100 px-1">{test.keyComparison.backendAnonKeyPrefix}</code></div>
+                          <div><strong>Longitud:</strong> {test.keyComparison.backendAnonKeyLength}</div>
+                          <div><strong>Prefijo:</strong> <code className="bg-gray-100 px-1">{test.keyComparison.backendAnonKeyPrefix}</code></div>
                         </div>
-                        <div className="font-semibold mt-2">Comparison:</div>
+                        <div className="font-semibold mt-2">Comparación:</div>
                         <div className="ml-2">
                           <div className={test.keyComparison.lengthMatch ? 'text-green-600' : 'text-red-600 font-bold'}>
-                            <strong>Lengths Match:</strong> {test.keyComparison.lengthMatch ? '✅ YES' : '❌ NO (THIS IS THE PROBLEM!)'}
+                            <strong>Coinciden las Longitudes:</strong> {test.keyComparison.lengthMatch ? '✅ SI' : '❌ NO (AQUI ESTA EL PROBLEMA)'}
                           </div>
                           <div className={test.keyComparison.keysMatch ? 'text-green-600' : 'text-red-600 font-bold'}>
-                            <strong>Prefixes Match:</strong> {test.keyComparison.keysMatch ? '✅ YES' : '❌ NO'}
+                            <strong>Coinciden los Prefijos:</strong> {test.keyComparison.keysMatch ? '✅ SI' : '❌ NO'}
                           </div>
                         </div>
                       </div>
@@ -547,14 +547,14 @@ export function ConnectionTest() {
                       Publica el sitio en Figma Make.
                     </li>
                     <li>
-                      Si "Database Schema Check" falla: Las tablas no existen. 
-                      Ve a Database Setup y ejecuta el SQL en Supabase Dashboard.
+                      Si "Database Schema Check" falla: Las tablas no existen.
+                      Ve a Herramientas → Base de Datos y ejecuta el SQL en Supabase Dashboard.
                     </li>
                   </ul>
                 </div>
               ) : (
                 <p className="text-sm text-green-800">
-                  ✅ Todo funciona correctamente! Puedes ir a Database Setup 
+                  ✅ Todo funciona correctamente. Puedes ir a Herramientas → Base de Datos
                   y cargar las configuraciones de las plantas.
                 </p>
               )}
