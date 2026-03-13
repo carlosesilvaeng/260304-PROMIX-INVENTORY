@@ -133,7 +133,7 @@ export function Login() {
             {/* Build Version */}
             <div className="text-center mt-3">
               <p className="text-xs text-[#9CA0A6]">
-                Build: {BUILD_VERSION}
+                Version de build: {BUILD_VERSION}
               </p>
             </div>
           </form>

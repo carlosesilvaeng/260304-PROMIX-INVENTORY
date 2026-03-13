@@ -403,7 +403,7 @@ export function UserManagement() {
                 <thead className="bg-[#3B3A36] text-white">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Nombre</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Correo electronico</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Rol</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Plantas Asignadas</th>
                     <th className="px-6 py-3 text-center text-sm font-semibold">Estado</th>
@@ -504,7 +504,7 @@ export function UserManagement() {
               />
 
               <Input
-                label="Email"
+                label="Correo electronico"
                 type="email"
                 value={createForm.email}
                 onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
@@ -611,12 +611,12 @@ export function UserManagement() {
 
               <div>
                 <label className="block text-sm font-medium text-[#3B3A36] mb-1">
-                  Email
+                  Correo electronico
                 </label>
                 <div className="text-sm text-[#5F6773] bg-[#F2F3F5] p-3 rounded border border-[#E4E4E4]">
                   {selectedUser.email}
                 </div>
-                <p className="text-xs text-[#9D9B9A] mt-1">El email no se puede modificar</p>
+                <p className="text-xs text-[#9D9B9A] mt-1">El correo electronico no se puede modificar</p>
               </div>
 
               <Select

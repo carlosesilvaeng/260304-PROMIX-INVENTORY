@@ -202,7 +202,7 @@ export function Documentation() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h3 className="font-bold text-[#3B3A36] mb-2">📱 Responsive Design</h3>
+              <h3 className="font-bold text-[#3B3A36] mb-2">📱 Diseno Adaptable</h3>
               <ul className="list-disc list-inside text-[#5F6773] text-sm space-y-1">
                 <li>Desktop: 1440px optimizado</li>
                 <li>Móvil/Tablet: 390px+</li>
@@ -320,7 +320,7 @@ export function Documentation() {
               <div>
                 <p className="font-bold text-[#3B3A36]">Estilos</p>
                 <p className="text-[#5F6773]">Tailwind CSS v4</p>
-                <p className="text-[#5F6773]">Responsive Design</p>
+                <p className="text-[#5F6773]">Diseno adaptable</p>
               </div>
               <div>
                 <p className="font-bold text-[#3B3A36]">Estado</p>

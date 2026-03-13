@@ -621,7 +621,7 @@ export function Settings() {
       
       {/* Build Version Footer */}
       <div className="mt-6 text-center text-xs text-[#6F767E]">
-        Build: {BUILD_VERSION}
+        Version de build: {BUILD_VERSION}
       </div>
     </div>
   );

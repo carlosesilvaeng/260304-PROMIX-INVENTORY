@@ -240,7 +240,7 @@ export function ConnectionTest() {
         error: (!lengthsMatch || !prefixesMatch) 
           ? `⚠️ DESAJUSTE DE CLAVE: CLIENT_ANON_KEY del backend no está configurada correctamente.\n\nBackend: ${backendKeyLength} caracteres, Frontend: ${frontendKeyLength} caracteres\n\nDebes actualizar CLIENT_ANON_KEY en Supabase Dashboard → Edge Functions → Secrets.\nValor correcto: ${publicAnonKey}`
           : undefined,
-        details: `Build: ${data.buildVersion}\n\n` +
+        details: `Version de build: ${data.buildVersion}\n\n` +
           `Clave ANON del backend:\n` +
           `  Longitud: ${backendKeyLength}\n` +
           `  Prefijo: ${backendKeyPrefix}...\n\n` +
@@ -564,7 +564,7 @@ export function ConnectionTest() {
         
         {/* Build Version Footer */}
         <div className="mt-6 text-center text-xs text-[#6F767E]">
-          Build: {BUILD_VERSION}
+          Version de build: {BUILD_VERSION}
         </div>
       </div>
     </div>

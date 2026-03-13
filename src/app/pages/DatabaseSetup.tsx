@@ -238,7 +238,7 @@ export function DatabaseSetup() {
           <Card className="p-6 bg-amber-50 border-amber-300 border-2">
             <h2 className="text-xl font-semibold text-amber-900 mb-3 flex items-center gap-2">
               <span className="text-2xl">⚠️</span>
-              PASO 1 (OBLIGATORIO): Crear Tablas en Supabase Dashboard
+              PASO 1 (OBLIGATORIO): Crear tablas en Supabase
             </h2>
             
             <div className="space-y-4 text-sm text-amber-900">
@@ -262,7 +262,7 @@ export function DatabaseSetup() {
                   Haz clic en <strong className="bg-amber-100 px-2 py-0.5 rounded">SQL Editor</strong> en el menú lateral
                 </li>
                 <li className="font-medium">
-                  Haz clic en <strong className="bg-amber-100 px-2 py-0.5 rounded">New Query</strong>
+                  Haz clic en <strong className="bg-amber-100 px-2 py-0.5 rounded">"New query"</strong>
                 </li>
                 <li className="font-medium">
                   Abre el archivo <code className="bg-gray-800 text-green-400 px-2 py-1 rounded font-mono text-xs">/supabase/schema.sql</code> en tu editor de código
@@ -274,10 +274,10 @@ export function DatabaseSetup() {
                   Pega el contenido en el SQL Editor de Supabase
                 </li>
                 <li className="font-medium">
-                  Haz clic en <strong className="bg-green-600 text-white px-2 py-0.5 rounded">Run</strong> (o presiona Ctrl+Enter)
+                  Haz clic en <strong className="bg-green-600 text-white px-2 py-0.5 rounded">"Run"</strong> (o presiona Ctrl+Enter)
                 </li>
                 <li className="font-medium">
-                  Espera a que aparezca <span className="text-green-600 font-bold">"Success"</span>
+                  Espera a que aparezca <span className="text-green-600 font-bold">"Success"</span> como confirmación
                 </li>
                 <li className="font-medium">
                   Vuelve aquí y haz clic en <strong className="bg-blue-600 text-white px-2 py-0.5 rounded">Verificar Tablas</strong> abajo
@@ -290,7 +290,7 @@ export function DatabaseSetup() {
                 </p>
                 <p className="mt-1 text-xs">
                   Figma Make no puede ejecutar comandos DDL (CREATE TABLE) directamente en Supabase.
-                  Debes crear las 17 tablas ejecutando el script SQL en el Dashboard de Supabase.
+                  Debes crear las 17 tablas ejecutando el script SQL en Supabase.
                 </p>
               </div>
             </div>
@@ -305,7 +305,7 @@ export function DatabaseSetup() {
                   PASO 2: Verificar Tablas
                 </h2>
                 <p className="text-[#6F767E] mb-4">
-                  Después de ejecutar el script SQL en Supabase Dashboard (Paso 1),
+                  Después de ejecutar el script SQL en Supabase (Paso 1),
                   haz clic aquí para verificar que las tablas existan. La configuración
                   de plantas y usuarios debe hacerse explícitamente, no por semillas automáticas.
                 </p>
@@ -346,7 +346,7 @@ export function DatabaseSetup() {
                       <li>Ve a Supabase Dashboard → SQL Editor</li>
                       <li>Abre el archivo <code className="bg-gray-800 text-green-400 px-2 py-0.5 rounded font-mono">/supabase/migration_add_missing_columns.sql</code></li>
                       <li>Copia y pega el contenido en SQL Editor</li>
-                      <li>Haz clic en <strong>Run</strong></li>
+                      <li>Haz clic en <strong>"Run"</strong></li>
                       <li>Vuelve aquí y ejecuta "Verificar Tablas"</li>
                     </ol>
                   </div>
@@ -357,7 +357,7 @@ export function DatabaseSetup() {
                       <li>Ve a Supabase Dashboard → SQL Editor</li>
                       <li>Abre el archivo <code className="bg-gray-800 text-green-400 px-2 py-0.5 rounded font-mono">/supabase/schema.sql</code></li>
                       <li>Copia TODO el contenido (ahora es idempotente)</li>
-                      <li>Pega en SQL Editor y haz clic en <strong>Run</strong></li>
+                      <li>Pega en SQL Editor y haz clic en <strong>"Run"</strong></li>
                       <li>Vuelve aquí y ejecuta "Verificar Tablas"</li>
                     </ol>
                   </div>
@@ -570,7 +570,7 @@ export function DatabaseSetup() {
         
         {/* Build Version Footer */}
         <div className="mt-6 text-center text-xs text-[#6F767E]">
-          Build: {BUILD_VERSION}
+          Version de build: {BUILD_VERSION}
         </div>
       </div>
     </div>

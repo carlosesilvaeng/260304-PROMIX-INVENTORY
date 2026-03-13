@@ -262,7 +262,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
         {/* Build Version */}
         <div className="mt-6 text-center">
           <p className="text-xs text-[#9CA0A6]">
-            Build: {BUILD_VERSION}
+            Version de build: {BUILD_VERSION}
           </p>
         </div>
       </div>
