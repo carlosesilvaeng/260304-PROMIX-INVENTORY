@@ -23,7 +23,7 @@ import { canAccessAudit, canManageModules, canManagePlantConfiguration, canManag
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
-const BUILD_VERSION = '2603131705';
+const BUILD_VERSION = '2603131738';
 
 interface PlantModuleCounts {
   aggregates: number;
