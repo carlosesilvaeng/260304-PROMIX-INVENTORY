@@ -479,7 +479,7 @@ export function AdditivesConfigModal({
 
         <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
-            Cancelar
+            Salir
           </Button>
           <Button onClick={handleSave} loading={saving} disabled={loading}>
             Guardar Configuración

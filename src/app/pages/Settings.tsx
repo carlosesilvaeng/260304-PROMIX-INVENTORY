@@ -685,7 +685,7 @@ export function Settings() {
                   setNewPlantLocation('');
                 }}
               >
-                Cancelar
+                Salir
               </Button>
               <Button variant="secondary" className="flex-1" onClick={handleCreatePlant}>
                 Guardar

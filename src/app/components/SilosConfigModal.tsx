@@ -185,7 +185,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
         {/* Footer */}
         <div className="p-6 border-t border-[#9D9B9A] flex items-center justify-end gap-3">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
-            Cancelar
+            Salir
           </Button>
           <Button onClick={handleSave} loading={saving} disabled={loading}>
             Guardar Configuración

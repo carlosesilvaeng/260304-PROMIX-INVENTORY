@@ -180,7 +180,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
             disabled={loading}
             className="flex-1"
           >
-            Cancelar
+            Salir
           </Button>
           <Button
             variant="primary"

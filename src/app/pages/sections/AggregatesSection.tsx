@@ -499,7 +499,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
               variant="outline"
               onClick={() => onBack?.()}
             >
-              Cancelar
+              Salir
             </Button>
             <Button
               onClick={handleSave}

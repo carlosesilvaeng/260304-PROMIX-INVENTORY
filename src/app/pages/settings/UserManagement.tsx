@@ -724,7 +724,7 @@ export function UserManagement() {
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1"
                 >
-                  Cancelar
+                  Salir
                 </Button>
               </div>
             </form>
@@ -836,7 +836,7 @@ export function UserManagement() {
                   onClick={() => setShowEditModal(false)}
                   className="flex-1"
                 >
-                  Cancelar
+                  Salir
                 </Button>
               </div>
             </form>
@@ -948,7 +948,7 @@ export function UserManagement() {
                   className="flex-1"
                   disabled={resetPasswordLoading}
                 >
-                  Cancelar
+                  Salir
                 </Button>
               </div>
             </form>

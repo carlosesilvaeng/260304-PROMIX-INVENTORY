@@ -392,7 +392,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               variant="outline"
               onClick={() => onBack?.()}
             >
-              Cancelar
+              Salir
             </Button>
             <Button
               onClick={handleSave}
