@@ -6,7 +6,7 @@ import { Select } from '../../components/Select';
 import { Alert } from '../../components/Alert';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { UserPlus, Edit2, Trash2, X, Check, AlertCircle } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, X, AlertCircle, KeyRound } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -38,6 +38,11 @@ interface EditUserFormData {
   role: 'plant_manager' | 'admin' | 'super_admin';
   assigned_plants: string[];
   is_active: boolean;
+}
+
+interface ResetPasswordFormData {
+  newPassword: string;
+  confirmPassword: string;
 }
 
 // ============================================================================
@@ -104,11 +109,13 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Form data
@@ -125,6 +132,11 @@ export function UserManagement() {
     role: 'plant_manager',
     assigned_plants: [],
     is_active: true,
+  });
+
+  const [resetPasswordForm, setResetPasswordForm] = useState<ResetPasswordFormData>({
+    newPassword: '',
+    confirmPassword: '',
   });
 
   // ============================================================================
@@ -282,6 +294,74 @@ export function UserManagement() {
     } catch (err: any) {
       setError(err.message || 'Error al eliminar usuario');
       console.error('Error deleting user:', err);
+    }
+  };
+
+  // ============================================================================
+  // RESET PASSWORD
+  // ============================================================================
+
+  const handleOpenResetPassword = (user: User) => {
+    setSelectedUser(user);
+    setResetPasswordForm({
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setShowResetPasswordModal(true);
+  };
+
+  const handleCloseResetPassword = () => {
+    setShowResetPasswordModal(false);
+    setResetPasswordLoading(false);
+    setResetPasswordForm({
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setSelectedUser(null);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedUser) return;
+
+    setError('');
+    setSuccess('');
+
+    if (!resetPasswordForm.newPassword || !resetPasswordForm.confirmPassword) {
+      setError('Debes completar y confirmar la nueva contraseña');
+      return;
+    }
+
+    if (resetPasswordForm.newPassword.length < 8) {
+      setError('La nueva contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    if (resetPasswordForm.newPassword !== resetPasswordForm.confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    setResetPasswordLoading(true);
+
+    try {
+      const response = await callAPI(`/auth/users/${selectedUser.id}/reset-password`, 'POST', {
+        newPassword: resetPasswordForm.newPassword,
+      }, accessToken);
+
+      if (response.success) {
+        setSuccess(`Contraseña reseteada para ${selectedUser.name}`);
+        handleCloseResetPassword();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(response.error || 'Error al resetear la contraseña');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al resetear la contraseña');
+      console.error('Error resetting password:', err);
+    } finally {
+      setResetPasswordLoading(false);
     }
   };
 
@@ -460,6 +540,14 @@ export function UserManagement() {
                             title="Editar usuario"
                           >
                             <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenResetPassword(user)}
+                            className="p-2 hover:bg-amber-50 rounded-lg text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={user.id === currentUser?.id ? 'Usa Cambiar Contraseña para tu propia cuenta' : 'Resetear contraseña'}
+                            disabled={user.id === currentUser?.id}
+                          >
+                            <KeyRound className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleOpenDelete(user)}
@@ -738,6 +826,75 @@ export function UserManagement() {
                 </Button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-[#3B3A36]">Resetear Contraseña</h3>
+                <p className="text-sm text-[#5F6773] mt-1">
+                  Define una contraseña temporal para <strong>{selectedUser.name}</strong>
+                </p>
+              </div>
+              <button
+                onClick={handleCloseResetPassword}
+                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                disabled={resetPasswordLoading}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="p-6 space-y-4">
+              <Input
+                label="Nueva contraseña temporal"
+                type="password"
+                value={resetPasswordForm.newPassword}
+                onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, newPassword: e.target.value })}
+                required
+                minLength={8}
+                placeholder="Mínimo 8 caracteres"
+                helperText="Compártela de forma segura con el usuario."
+                disabled={resetPasswordLoading}
+              />
+
+              <Input
+                label="Confirmar contraseña"
+                type="password"
+                value={resetPasswordForm.confirmPassword}
+                onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, confirmPassword: e.target.value })}
+                required
+                minLength={8}
+                placeholder="Repite la contraseña"
+                disabled={resetPasswordLoading}
+              />
+
+              <div className="bg-amber-50 border border-amber-200 rounded p-3">
+                <p className="text-xs text-amber-800">
+                  Esta acción reemplaza la contraseña actual del usuario inmediatamente.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" className="flex-1" loading={resetPasswordLoading}>
+                  Resetear
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleCloseResetPassword}
+                  className="flex-1"
+                  disabled={resetPasswordLoading}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

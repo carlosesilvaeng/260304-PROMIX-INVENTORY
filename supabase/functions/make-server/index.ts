@@ -281,6 +281,44 @@ app.post("/make-server/auth/change-password", async (c) => {
   }
 });
 
+// Reset Password - Administrador resetea la contraseña de otro usuario
+app.post("/make-server/auth/users/:userId/reset-password", requireAdmin, async (c) => {
+  try {
+    const requestingUser = c.get('user');
+    const userId = c.req.param("userId");
+    const body = await c.req.json();
+
+    const result = await auth.resetUserPassword(userId, body, requestingUser.id);
+
+    if (!result.success) {
+      const status = result.error === 'Unauthorized' || result.error?.startsWith('Solo el Super Administrador')
+        ? 403
+        : 400;
+      return c.json(result, status);
+    }
+
+    if (result.user) {
+      logAudit(db.getSupabaseClient(), {
+        user_email: requestingUser.email,
+        user_name: requestingUser.name,
+        user_id: requestingUser.id,
+        action: 'USER_PASSWORD_RESET',
+        details: {
+          target_user_id: result.user.id,
+          target_user_email: result.user.email,
+          target_user_name: result.user.name,
+          target_user_role: result.user.role,
+        },
+      });
+    }
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Reset user password error:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // Check if this is first-time setup (no users exist)
 app.get("/make-server/auth/check-first-time", async (c) => {
   try {

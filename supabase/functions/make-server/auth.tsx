@@ -89,6 +89,17 @@ export interface ChangePasswordResponse {
   message?: string;
 }
 
+export interface ResetUserPasswordRequest {
+  newPassword: string;
+}
+
+export interface ResetUserPasswordResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+  user?: Pick<User, 'id' | 'name' | 'email' | 'role'>;
+}
+
 // ============================================================================
 // VERIFY TOKEN - Verify JWT without expiration check
 // ============================================================================
@@ -471,6 +482,92 @@ export async function changePassword(
     
   } catch (error) {
     console.error('[changePassword] Unexpected error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ============================================================================
+// RESET USER PASSWORD - Cambiar contraseña de otro usuario desde admin
+// ============================================================================
+
+export async function resetUserPassword(
+  userId: string,
+  { newPassword }: ResetUserPasswordRequest,
+  requestingUserId: string
+): Promise<ResetUserPasswordResponse> {
+  try {
+    const supabase = getSupabaseClient();
+
+    if (!newPassword || newPassword.trim().length < 8) {
+      return { success: false, error: 'La nueva contraseña debe tener al menos 8 caracteres' };
+    }
+
+    if (requestingUserId === userId) {
+      return { success: false, error: 'Usa la opción de cambiar tu contraseña para actualizar la tuya' };
+    }
+
+    const { data: requestingUser, error: requestingUserError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', requestingUserId)
+      .single();
+
+    if (requestingUserError || !requestingUser) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin') {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const { data: targetUser, error: targetUserError } = await supabase
+      .from('users')
+      .select('id, name, email, role, auth_user_id')
+      .eq('id', userId)
+      .single();
+
+    if (targetUserError || !targetUser) {
+      return { success: false, error: 'Usuario no encontrado' };
+    }
+
+    if (!targetUser.auth_user_id) {
+      return { success: false, error: 'El usuario no tiene una cuenta de autenticación vinculada' };
+    }
+
+    if (targetUser.role === 'super_admin' && requestingUser.role !== 'super_admin') {
+      return { success: false, error: 'Solo el Super Administrador puede resetear la contraseña de otro Super Administrador' };
+    }
+
+    const { error: updateAuthError } = await supabase.auth.admin.updateUserById(targetUser.auth_user_id, {
+      password: newPassword.trim(),
+    });
+
+    if (updateAuthError) {
+      console.error('❌ [resetUserPassword] Auth password reset failed:', updateAuthError.message);
+      return { success: false, error: 'No se pudo resetear la contraseña: ' + updateAuthError.message };
+    }
+
+    const { error: updateUserError } = await supabase
+      .from('users')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', targetUser.id);
+
+    if (updateUserError) {
+      console.warn('⚠️ [resetUserPassword] Password updated but users.updated_at could not be refreshed:', updateUserError.message);
+    }
+
+    return {
+      success: true,
+      message: 'Contraseña reseteada exitosamente',
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+    };
+  } catch (error) {
+    console.error('[resetUserPassword] Unexpected error:', error);
     return { success: false, error: error.message };
   }
 }
