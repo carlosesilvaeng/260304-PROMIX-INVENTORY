@@ -22,7 +22,7 @@ import type { Plant } from '../contexts/AuthContext';
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
-const BUILD_VERSION = '2603050601';
+const BUILD_VERSION = '2603131532';
 
 interface PlantModuleCounts {
   aggregates: number;
@@ -47,6 +47,12 @@ function countActiveEntries(entries: any[] | undefined) {
 function hasActiveDieselConfig(diesel: any) {
   if (!diesel || typeof diesel !== 'object') return false;
   return Object.keys(diesel).length > 0 && diesel.is_active !== false;
+}
+
+function getAggregateCountWithLegacyFallback(config: { aggregates?: any[]; cajones?: any[] }) {
+  const aggregateCount = countActiveEntries(config.aggregates);
+  if (aggregateCount > 0) return aggregateCount;
+  return countActiveEntries(config.cajones);
 }
 
 export function Settings() {
@@ -101,7 +107,10 @@ export function Settings() {
           return [
             plant.id,
             {
-              aggregates: countActiveEntries(response.data.aggregates),
+              aggregates: getAggregateCountWithLegacyFallback({
+                aggregates: response.data.aggregates,
+                cajones: response.data.cajones ?? plant.cajones,
+              }),
               silos: countActiveEntries(response.data.silos),
               additives: countActiveEntries(response.data.additives),
               diesel: hasActiveDieselConfig(response.data.diesel) ? 1 : 0,

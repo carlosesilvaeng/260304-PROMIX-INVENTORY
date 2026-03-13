@@ -101,6 +101,7 @@ export async function getPlantConfigPackage(plantId: string) {
       aggregatesRes,
       silosRes,
       siloAllowedProductsRes,
+      cajonesRes,
       additivesRes,
       dieselRes,
       productsRes,
@@ -110,6 +111,7 @@ export async function getPlantConfigPackage(plantId: string) {
       supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_silos_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('silo_allowed_products').select('silo_config_id, product_name'),
+      supabase.from('plant_cajones_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
       supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
@@ -133,6 +135,10 @@ export async function getPlantConfigPackage(plantId: string) {
 
     if (siloAllowedProductsRes.error) {
       console.error(`❌ [getPlantConfigPackage] Silo allowed products query error:`, siloAllowedProductsRes.error);
+    }
+
+    if (cajonesRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Cajones query error:`, cajonesRes.error);
     }
     
     // Get unique calibration curve IDs
@@ -167,10 +173,22 @@ export async function getPlantConfigPackage(plantId: string) {
       ...silo,
       allowed_products: siloAllowedProductsBySiloId[silo.id] || []
     }));
+
+    const cajones = (cajonesRes.data || []).map((cajon: any) => ({
+      id: cajon.id,
+      name: cajon.cajon_name,
+      material: cajon.material ?? '',
+      procedencia: cajon.procedencia ?? '',
+      ancho: Number(cajon.box_width_ft ?? 0),
+      alto: Number(cajon.box_height_ft ?? 0),
+      sort_order: cajon.sort_order ?? 0,
+      is_active: cajon.is_active ?? true,
+    }));
     
     return {
       plant_id: plantId,
       aggregates: aggregatesRes.data || [],
+      cajones,
       silos,
       additives: additivesRes.data || [],
       diesel: dieselRes.data || null,

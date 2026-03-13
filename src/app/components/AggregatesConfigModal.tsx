@@ -93,9 +93,10 @@ export function AggregatesConfigModal({
         }
 
         const aggregateEntries = response.data?.aggregates ?? [];
+        const legacyCajones = response.data?.cajones ?? plant.cajones ?? [];
 
         if (aggregateEntries.length === 0) {
-          setRows((plant.cajones || []).map(mapCajonToAggregateRow));
+          setRows(legacyCajones.map(mapCajonToAggregateRow));
           return;
         }
 

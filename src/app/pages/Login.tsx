@@ -9,7 +9,7 @@ import { PromixLogo } from '../components/PromixLogo';
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603050601';
+const BUILD_VERSION = '2603131532';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
 
 export function Login() {

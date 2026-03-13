@@ -9,7 +9,7 @@ import { initializeDatabase, clearAllConfigurations, reloadSchemaCache } from '.
 
 // Build Version - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
 // 26/02/18 20:00 = February 18, 2026 at 8:00 PM
-const BUILD_VERSION = '2603050601';
+const BUILD_VERSION = '2603131532';
 
 interface SetupState {
   loading: boolean;

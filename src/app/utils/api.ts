@@ -89,6 +89,7 @@ export async function clearAllConfigurations(): Promise<ApiResponse> {
 export interface PlantConfigPackage {
   plant_id: string;
   aggregates: any[];
+  cajones: any[];
   silos: any[];
   additives: any[];
   diesel: any;
