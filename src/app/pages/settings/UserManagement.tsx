@@ -686,6 +686,9 @@ export function UserManagement() {
               >
                 <option value="plant_manager">Gerente de Planta</option>
                 {currentUser?.role !== 'operations_manager' && (
+                  <option value="operations_manager">Gerente de Operaciones</option>
+                )}
+                {currentUser?.role !== 'operations_manager' && (
                   <option value="admin">Administrador</option>
                 )}
                 {currentUser?.role === 'super_admin' && (
@@ -783,6 +786,9 @@ export function UserManagement() {
                 required
               >
                 <option value="plant_manager">Gerente de Planta</option>
+                {currentUser?.role !== 'operations_manager' && (
+                  <option value="operations_manager">Gerente de Operaciones</option>
+                )}
                 {currentUser?.role !== 'operations_manager' && (
                   <option value="admin">Administrador</option>
                 )}
