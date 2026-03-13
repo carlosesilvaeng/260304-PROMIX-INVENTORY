@@ -24,4 +24,4 @@
   `npm run check:make-server`
 
   Confirm that the deployed function shows `"verify_jwt": false`.
-  
+  <!-- trigger vercel deploy -->
