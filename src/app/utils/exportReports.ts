@@ -219,7 +219,7 @@ async function fetchDetail(
       const aggregateVolumeUnit = getAggregateVolumeUnit(data.agregados[0]);
       sections.push({
         name: 'Agregados',
-        headers: ['Nombre', 'Material', 'Área', 'Método', 'Detalle cajón/cono', `Volumen (${aggregateVolumeUnit})`, 'Notas', 'Foto'],
+        headers: ['Nombre', 'Material', 'Procedencia', 'Método', 'Detalle de medición', `Volumen (${aggregateVolumeUnit})`, 'Notas', 'Foto'],
         rows: data.agregados.map((e: any) => [
           e.aggregate_name ?? '-',
           e.material_type ?? '-',

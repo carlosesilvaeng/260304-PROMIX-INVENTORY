@@ -242,10 +242,10 @@ export function AggregatesConfigModal({
       <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white">
         <div className="border-b border-[#9D9B9A] p-6">
           <h3 className="text-xl font-medium text-[#3B3A36]">
-            Configuracion de Agregados - {plant.name}
+            Configuración de Agregados - {plant.name}
           </h3>
           <p className="mt-1 text-sm text-[#5F6773]">
-            Esta es la configuracion principal de agregados por planta. El gerente solo captura usando el metodo definido aqui.
+            Esta es la configuración principal de agregados por planta. El gerente solo captura usando el método definido aquí.
           </p>
         </div>
 
@@ -261,12 +261,12 @@ export function AggregatesConfigModal({
           ) : (
             <div className="space-y-4">
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                <p className="font-semibold">Como funciona esta configuracion</p>
+                <p className="font-semibold">Cómo funciona esta configuración</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
-                  <li>Si eliges <strong>Cajon</strong>, el gerente solo ingresara el largo y el sistema usara ancho y alto fijos.</li>
-                  <li>Si eliges <strong>Cono</strong>, el gerente ingresara M1 a M6 y D1 a D2 en la captura.</li>
-                  <li>Si la planta aun no tiene agregados configurados, se precargan aqui desde la configuracion anterior para facilitar la migracion inicial.</li>
-                  <li>Despues de guardar en esta pantalla, los agregados de la planta se administran unicamente aqui.</li>
+                  <li>Si eliges <strong>Cajón</strong>, el gerente solo ingresará el largo y el sistema usará ancho y alto fijos.</li>
+                  <li>Si eliges <strong>Cono</strong>, el gerente ingresará M1 a M6 y D1 a D2 en la captura.</li>
+                  <li>Si la planta aún no tiene agregados configurados, se precargan aquí desde la configuración anterior para facilitar la migración inicial.</li>
+                  <li>Después de guardar en esta pantalla, los agregados de la planta se administran únicamente aquí.</li>
                 </ul>
               </div>
 
@@ -300,7 +300,7 @@ export function AggregatesConfigModal({
                         label="Nombre del agregado"
                         value={row.aggregate_name}
                         onChange={(e) => updateRow(index, { aggregate_name: e.target.value })}
-                        placeholder="Ej: Cajon 1 / Cono Arena"
+                        placeholder="Ej: Cajón 1 / Cono Arena"
                         required
                       />
                       <Select
@@ -322,7 +322,7 @@ export function AggregatesConfigModal({
                         value={row.measurement_method}
                         onChange={(e) => handleMethodChange(index, e.target.value as AggregateMeasurementMethod)}
                         options={[
-                          { value: 'BOX', label: 'Cajon' },
+                          { value: 'BOX', label: 'Cajón' },
                           { value: 'CONE', label: 'Cono' },
                         ]}
                         required
@@ -332,7 +332,7 @@ export function AggregatesConfigModal({
                     {row.measurement_method === 'BOX' ? (
                       <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
                         <p className="mb-3 text-sm text-[#5F6773]">
-                          Para cajon, ancho y alto quedan fijos en configuracion; el gerente solo capturara el largo.
+                          Para cajón, ancho y alto quedan fijos en configuración; el gerente solo capturará el largo.
                         </p>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <Input
@@ -355,9 +355,9 @@ export function AggregatesConfigModal({
                       </div>
                     ) : (
                       <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                        <p className="font-semibold">Metodo Cono</p>
+                        <p className="font-semibold">Método Cono</p>
                         <p className="mt-1 text-amber-800">
-                          En inventario, el gerente capturara las 6 medidas M y los 2 diametros D. No se usan ancho ni alto fijos.
+                          En inventario, el gerente capturará las 6 medidas M y los 2 diámetros D. No se usan ancho ni alto fijos.
                         </p>
                       </div>
                     )}
@@ -377,7 +377,7 @@ export function AggregatesConfigModal({
             Cancelar
           </Button>
           <Button onClick={handleSave} loading={saving} disabled={loading}>
-            Guardar configuracion
+            Guardar configuración
           </Button>
         </div>
       </div>

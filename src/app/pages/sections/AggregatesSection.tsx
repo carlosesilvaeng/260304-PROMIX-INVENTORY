@@ -283,11 +283,11 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
             📋 Instrucciones
           </h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-            <li><strong>Campos bloqueados 🔒:</strong> Material, ubicación, método, ancho y alto (vienen de configuración)</li>
-            <li><strong>Método CAJÓN (BOX):</strong> Solo captura el largo en {lengthUnitLabel}</li>
-            <li><strong>Método CONO (CONE):</strong> Captura 6 medidas M y 2 diámetros D en {lengthUnitLabel}</li>
+            <li><strong>Campos bloqueados 🔒:</strong> Material, procedencia, método, ancho y alto (vienen de configuración)</li>
+            <li><strong>Método Cajón:</strong> Solo captura el largo en {lengthUnitLabel}</li>
+            <li><strong>Método Cono:</strong> Captura 6 medidas M y 2 diámetros D en {lengthUnitLabel}</li>
             <li><strong>Volumen calculado:</strong> Se actualiza automáticamente en {volumeUnitLabel}</li>
-            <li><strong>Área no usada:</strong> Si un cajón/cono no se usó, ingresa 0 en largo o medidas</li>
+            <li><strong>Agregado no usado:</strong> Si un agregado no se usó, ingresa 0 en largo o medidas</li>
             <li><strong>Evidencia fotográfica:</strong> Requerida para cada agregado</li>
           </ul>
         </Card>
@@ -304,7 +304,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   </h3>
                   <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
                     <span>📦 {entry.material_type}</span>
-                    <span>📍 {entry.location_area}</span>
+                    <span>📍 Procedencia: {entry.location_area}</span>
                     <span className="font-medium text-[#2B7DE9]">
                       {entry.measurement_method === 'BOX' ? '📏 Cajón' : '🔺 Cono'}
                     </span>

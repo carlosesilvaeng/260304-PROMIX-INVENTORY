@@ -28,7 +28,7 @@ export function PlantSelection() {
   const getAggregatesMethodsLabel = (plant: typeof allPlants[number]) => {
     const methods: string[] = [];
 
-    if (plant.methods?.hasCajonMeasurement) methods.push('Cajon');
+    if (plant.methods?.hasCajonMeasurement) methods.push('Cajón');
     if (plant.methods?.hasConeMeasurement) methods.push('Cono');
 
     if (methods.length === 0) return 'Pendiente de configurar';
