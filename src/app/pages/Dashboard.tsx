@@ -307,8 +307,13 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                 {user?.role === 'super_admin' ? 'Super Administrador' : 'Administrador'} - Acceso Global
               </p>
               <p className="text-[#5F6773] text-sm max-w-lg mx-auto">
-                Tienes acceso completo a todas las funciones del sistema. Usa el menú lateral para:
+                Estás en la pantalla de inicio del sistema. Usa el menu lateral para acceder a las funciones operativas.
               </p>
+              {user?.role === 'super_admin' && (
+                <p className="text-[#5F6773] text-sm max-w-lg mx-auto mt-2">
+                  Como super administrador, tambien tienes acceso a modulos y herramientas tecnicas.
+                </p>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mt-8">

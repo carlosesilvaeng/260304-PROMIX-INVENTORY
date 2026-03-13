@@ -53,9 +53,9 @@ const translations = {
     'sidebar.dashboard': 'Inicio',
     'sidebar.inventory': 'Inventario Mensual',
     'sidebar.reports': 'Reportes',
-    'sidebar.history': 'Historial',
     'sidebar.settings': 'Configuración',
     'sidebar.documentation': 'Documentación',
+    'sidebar.tools': 'Herramientas',
     
     // TopBar
     'topbar.plant': 'Planta',
@@ -378,9 +378,9 @@ const translations = {
     'sidebar.dashboard': 'Home',
     'sidebar.inventory': 'Monthly Inventory',
     'sidebar.reports': 'Reports',
-    'sidebar.history': 'History',
     'sidebar.settings': 'Settings',
     'sidebar.documentation': 'Documentation',
+    'sidebar.tools': 'Tools',
     
     // TopBar
     'topbar.plant': 'Plant',

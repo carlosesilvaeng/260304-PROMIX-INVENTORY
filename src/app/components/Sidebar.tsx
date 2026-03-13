@@ -12,26 +12,27 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const { user } = useAuth();
   const isPlantManager = user?.role === 'plant_manager';
   
-  const menuItems = [
+  const mainMenuItems = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: '📊' },
     { id: 'reports', label: t('sidebar.reports'), icon: '📈' },
     { id: 'settings', label: t('sidebar.settings'), icon: '⚙️' },
   ];
+  const toolsMenuItems: Array<{ id: string; label: string; icon: string }> = [];
 
   if (isPlantManager) {
-    menuItems.splice(1, 0, { id: 'inventory', label: t('sidebar.inventory'), icon: '📝' });
+    mainMenuItems.splice(1, 0, { id: 'inventory', label: t('sidebar.inventory'), icon: '📝' });
   }
 
   // Reporte de Fotos — admin + super_admin
   if (user?.role === 'admin' || user?.role === 'super_admin') {
-    menuItems.push({ id: 'photos-report', label: 'Reporte de Fotos', icon: '🖼️' });
+    mainMenuItems.push({ id: 'photos-report', label: 'Reporte de Fotos', icon: '🖼️' });
   }
 
-  // Solo agregar Documentación y Database Setup si el usuario es super_admin
+  // Herramientas solo para super_admin
   if (user?.role === 'super_admin') {
-    menuItems.push({ id: 'documentation', label: t('sidebar.documentation'), icon: '📄' });
-    menuItems.push({ id: 'database-setup', label: 'Database Setup', icon: '🔧' });
-    menuItems.push({ id: 'connection-test', label: 'Connection Test', icon: '🔍' });
+    toolsMenuItems.push({ id: 'documentation', label: t('sidebar.documentation'), icon: '📄' });
+    toolsMenuItems.push({ id: 'database-setup', label: 'Database Setup', icon: '🔧' });
+    toolsMenuItems.push({ id: 'connection-test', label: 'Connection Test', icon: '🔍' });
   }
 
   return (
@@ -45,7 +46,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {menuItems.map((item) => (
+          {mainMenuItems.map((item) => (
             <li key={item.id}>
               <button
                 onClick={() => onViewChange(item.id)}
@@ -63,6 +64,33 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             </li>
           ))}
         </ul>
+
+        {toolsMenuItems.length > 0 && (
+          <div className="mt-6 border-t border-[#5F6773] pt-4">
+            <p className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+              {t('sidebar.tools')}
+            </p>
+            <ul className="space-y-2">
+              {toolsMenuItems.map((item) => (
+                <li key={item.id}>
+                  <button
+                    onClick={() => onViewChange(item.id)}
+                    className={`
+                      w-full flex items-center gap-3 px-4 py-3 rounded transition-all
+                      ${currentView === item.id
+                        ? 'bg-[#2475C7] text-white'
+                        : 'text-white/80 hover:bg-[#5F6773] hover:text-white'
+                      }
+                    `}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
