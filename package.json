@@ -6,7 +6,9 @@
   "scripts": {
     "build": "vite build",
     "preview": "vite preview",
-    "dev": "vite"
+    "dev": "vite",
+    "deploy:make-server": "supabase functions deploy make-server --project-ref jnlsahsxqiufusfamccz --no-verify-jwt",
+    "check:make-server": "supabase functions list --project-ref jnlsahsxqiufusfamccz -o json"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
