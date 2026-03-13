@@ -318,7 +318,7 @@ export function validateProductsSection(entries: any[]): SectionValidationResult
 
   return {
     sectionId: 'products',
-    sectionName: 'Productos',
+    sectionName: 'Aceites y Productos',
     isComplete: issues.filter(i => i.severity === 'error').length === 0,
     totalItems: entries.length,
     completeItems,

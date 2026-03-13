@@ -244,7 +244,7 @@ export function ModuleManagementPanel() {
           <ol className="list-decimal list-inside space-y-1 text-sm text-yellow-800">
             <li><strong>Fase 1:</strong> Habilitar solo <strong>Agregados</strong> → Probar con usuarios</li>
             <li><strong>Fase 2:</strong> Agregar <strong>Silos</strong> y <strong>Aditivos</strong> → Validar</li>
-            <li><strong>Fase 3:</strong> Agregar <strong>Diesel</strong> y <strong>Productos</strong></li>
+            <li><strong>Fase 3:</strong> Agregar <strong>Diesel</strong> y <strong>Aceites y Productos</strong></li>
             <li><strong>Fase 4:</strong> Agregar <strong>Utilities</strong> y <strong>Petty Cash</strong></li>
             <li><strong>Fase 5:</strong> Habilitar <strong>Revisar y Aprobar</strong> para flujo completo</li>
           </ol>

@@ -64,8 +64,8 @@ export const DEFAULT_MODULE_CONFIG: ModuleSettings = {
     },
     products: {
       key: 'products',
-      name: 'Productos Terminados',
-      description: 'Inventario de productos finales',
+      name: 'Aceites y Productos',
+      description: 'Inventario de aceites, lubricantes, consumibles y equipos',
       enabled: false,
       icon: '📦',
       order: 5,

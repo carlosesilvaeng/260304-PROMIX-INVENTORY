@@ -196,7 +196,7 @@ export function ProductsSection() {
       );
 
       if (response.success) {
-        setSaveMessage({ type: 'success', text: '✓ Productos guardados exitosamente' });
+        setSaveMessage({ type: 'success', text: '✓ Aceites y Productos guardados exitosamente' });
         // Reload data to get fresh IDs from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();
@@ -412,7 +412,7 @@ export function ProductsSection() {
         <div className="p-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Total Productos</p>
+              <p className="text-sm font-semibold text-[#5F6773]">Total Aceites y Productos</p>
               <p className="text-2xl font-bold text-[#2475C7]">{productos.length}</p>
             </div>
             <div>
@@ -488,7 +488,7 @@ export function ProductsSection() {
           size="lg"
           className="min-w-[200px]"
         >
-          {saving ? 'Guardando...' : 'Guardar Productos'}
+          {saving ? 'Guardando...' : 'Guardar Aceites y Productos'}
         </Button>
       </div>
     </div>

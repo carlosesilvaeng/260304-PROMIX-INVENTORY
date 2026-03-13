@@ -319,7 +319,7 @@ export function Settings() {
                           size="sm"
                           onClick={() => setEditingProducts(plant)}
                         >
-                          🛢️ Productos
+                          🛢️ Aceites y Productos
                         </Button>
                         <Button
                           variant="ghost"

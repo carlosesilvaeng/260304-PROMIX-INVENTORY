@@ -289,10 +289,10 @@ async function fetchDetail(
       });
     }
 
-    // ── Productos ──────────────────────────────────────────────────────────
+    // ── Aceites y Productos ────────────────────────────────────────────────
     if (data.productos?.length) {
       sections.push({
-        name: 'Productos',
+        name: 'Aceites y Productos',
         headers: ['Producto', 'Categoría', 'UOM', 'Cantidad', 'Foto'],
         rows: data.productos.map((e: any) => [
           e.product_name ?? '-',

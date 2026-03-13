@@ -79,9 +79,9 @@ const SECTION_LABELS: Record<string, string> = {
   silos: 'Silos',
   additives: 'Aditivos',
   diesel: 'Diesel',
-  products: 'Productos',
+  products: 'Aceites y Productos',
   utilities: 'Utilidades',
-  'petty-cash': 'Caja Chica',
+  'petty-cash': 'Petty Cash',
 };
 
 const STATUS_CONFIG = {

@@ -15,7 +15,6 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: '📊' },
     { id: 'reports', label: t('sidebar.reports'), icon: '📈' },
-    { id: 'history', label: t('sidebar.history'), icon: '📋' },
     { id: 'settings', label: t('sidebar.settings'), icon: '⚙️' },
   ];
 

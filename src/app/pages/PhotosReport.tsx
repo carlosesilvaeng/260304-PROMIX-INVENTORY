@@ -54,9 +54,10 @@ const SECTION_COLORS: Record<string, string> = {
   'Silos':      'bg-blue-100 text-blue-800',
   'Aditivos':   'bg-purple-100 text-purple-800',
   'Diesel':     'bg-orange-100 text-orange-800',
-  'Productos':  'bg-green-100 text-green-800',
+  'Productos': 'bg-green-100 text-green-800',
+  'Aceites y Productos': 'bg-green-100 text-green-800',
   'Utilidades': 'bg-cyan-100 text-cyan-800',
-  'Caja Chica': 'bg-pink-100 text-pink-800',
+  'Petty Cash': 'bg-pink-100 text-pink-800',
 };
 
 interface PhotoRecord {

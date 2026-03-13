@@ -27,7 +27,7 @@ const REVIEW_SECTION_CONFIG = {
   silos: { route: 'silos', moduleKey: 'silos', name: 'Silos' },
   additives: { route: 'aditivos', moduleKey: 'additives', name: 'Aditivos' },
   diesel: { route: 'diesel', moduleKey: 'diesel', name: 'Diesel' },
-  products: { route: 'aceites', moduleKey: 'products', name: 'Productos' },
+  products: { route: 'aceites', moduleKey: 'products', name: 'Aceites y Productos' },
   utilities: { route: 'utilidades', moduleKey: 'utilities', name: 'Utilidades' },
   petty_cash: { route: 'petty-cash', moduleKey: 'petty_cash', name: 'Petty Cash' },
 } as const;

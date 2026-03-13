@@ -87,8 +87,9 @@ export function Documentation() {
                 <li>Crear y gestionar plantas</li>
                 <li>Activar/desactivar plantas</li>
                 <li>Configuración completa del sistema</li>
-                <li>Acceso a todas las plantas activas</li>
-                <li>Gestión de usuarios y asignaciones</li>
+                <li>Acceso global operativo</li>
+                <li>Gestión de módulos y herramientas técnicas</li>
+                <li>Gestión de usuarios y asignaciones, incluyendo super administradores</li>
               </ul>
             </div>
             <div className="border border-[#9D9B9A] p-4 rounded">
@@ -96,9 +97,10 @@ export function Documentation() {
               <ul className="list-disc list-inside text-[#5F6773] text-sm space-y-1">
                 <li>Aprobar inventarios completados</li>
                 <li>Visualizar reportes y estadísticas</li>
-                <li>Acceso a plantas asignadas</li>
-                <li>Configuración de plantas</li>
+                <li>Acceso operativo amplio a la aplicación</li>
+                <li>Configuración de plantas, usuarios, auditoría y catálogos</li>
                 <li>Auditoría y trazabilidad</li>
+                <li>No puede ver ni gestionar usuarios super administradores</li>
               </ul>
             </div>
             <div className="border border-[#9D9B9A] p-4 rounded">
@@ -108,7 +110,7 @@ export function Documentation() {
                 <li>Toma de fotografías como evidencia</li>
                 <li>Acceso a plantas asignadas específicamente</li>
                 <li>Completar secciones del inventario</li>
-                <li>Visualizar historial de su planta</li>
+                <li>Consultar reportes de sus plantas</li>
               </ul>
             </div>
           </div>
@@ -242,7 +244,7 @@ export function Documentation() {
             <div>
               <h3 className="font-bold text-[#3B3A36] mb-2">📊 Reportes y Auditoría</h3>
               <ul className="list-disc list-inside text-[#5F6773] text-sm space-y-1">
-                <li>Historial completo</li>
+                <li>Consulta completa de inventarios</li>
                 <li>Filtros por planta y fecha</li>
                 <li>Exportación de datos</li>
               </ul>
@@ -373,7 +375,7 @@ export function Documentation() {
                 3
               </div>
               <div className="flex-1 border border-[#9D9B9A] p-3 rounded">
-                <p className="font-bold text-[#3B3A36]">Dashboard Principal</p>
+                <p className="font-bold text-[#3B3A36]">Pantalla de Inicio</p>
                 <p className="text-sm text-[#5F6773]">Vista general con progreso de las 7 secciones del inventario</p>
               </div>
             </div>

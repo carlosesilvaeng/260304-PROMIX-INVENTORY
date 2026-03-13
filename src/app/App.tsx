@@ -13,7 +13,6 @@ import { TopBar } from "./components/TopBar";
 import { MigrationAlert } from "./components/MigrationAlert";
 import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
-import { ReviewAndApprove } from "./pages/ReviewAndApprove";
 import { Documentation } from "./pages/Documentation";
 import { DatabaseSetup } from "./pages/DatabaseSetup";
 import { ConnectionTest } from "./pages/ConnectionTest";
@@ -140,16 +139,15 @@ function AppContent() {
 
   const mobileNavItems = isPlantManager
     ? [
-        { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+        { id: 'dashboard', icon: '📊', label: 'Inicio' },
         { id: 'inventory', icon: '📝', label: 'Inventario' },
         { id: 'reports', icon: '📈', label: 'Reportes' },
-        { id: 'settings', icon: '⚙️', label: 'Settings' },
+        { id: 'settings', icon: '⚙️', label: 'Configuracion' },
       ]
     : [
-        { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+        { id: 'dashboard', icon: '📊', label: 'Inicio' },
         { id: 'reports', icon: '📈', label: 'Reportes' },
-        { id: 'history', icon: '📋', label: 'Historial' },
-        { id: 'settings', icon: '⚙️', label: 'Settings' },
+        { id: 'settings', icon: '⚙️', label: 'Configuracion' },
       ];
 
   useEffect(() => {
@@ -272,19 +270,6 @@ function AppContent() {
           
           {currentView === "connection-test" && <ConnectionTest />}
           
-          {currentView === "history" && (
-            <div className="p-6">
-              <div className="bg-white rounded-lg border border-[#9D9B9A] p-12 text-center">
-                <h2 className="text-2xl text-[#3B3A36] mb-2">
-                  Historial
-                </h2>
-                <p className="text-[#5F6773]">
-                  Vista de historial de inventarios
-                </p>
-              </div>
-            </div>
-          )}
-
           {currentView === "inventory" && isPlantManager && (
             <Dashboard onNavigate={handleNavigate} initialContext={inventoryContext} />
           )}
@@ -292,7 +277,7 @@ function AppContent() {
 
         {/* Mobile bottom navigation */}
         <div className="lg:hidden bg-[#3B3A36] border-t border-[#5F6773] p-2">
-          <div className="grid grid-cols-4 gap-1">
+          <div className={`grid gap-1 ${mobileNavItems.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
             {mobileNavItems.map((item) => (
               <button
                 key={item.id}

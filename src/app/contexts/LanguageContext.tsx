@@ -50,7 +50,7 @@ const translations = {
     'common.download': 'Descargar',
     
     // Sidebar
-    'sidebar.dashboard': 'Dashboard',
+    'sidebar.dashboard': 'Inicio',
     'sidebar.inventory': 'Inventario Mensual',
     'sidebar.reports': 'Reportes',
     'sidebar.history': 'Historial',
@@ -191,8 +191,8 @@ const translations = {
     'products.quantity': 'Cantidad',
     'products.photo': 'Foto',
     'products.addProduct': 'Agregar Producto',
-    'products.saveSection': 'Guardar Productos',
-    'products.totalProducts': 'Total Productos',
+    'products.saveSection': 'Guardar Aceites y Productos',
+    'products.totalProducts': 'Total Aceites y Productos',
     'products.completed': 'Completados',
     'products.pending': 'Pendientes',
     'products.tankReading': 'Tanque con Lectura',
@@ -281,7 +281,7 @@ const translations = {
     
     // Reports
     'reports.title': 'Reportes',
-    'reports.description': 'Historial y exportación de inventarios',
+    'reports.description': 'Consulta y exportación de inventarios',
     'reports.filters': 'Filtros',
     'reports.month': 'Mes',
     'reports.year': 'Año',
@@ -375,7 +375,7 @@ const translations = {
     'common.download': 'Download',
     
     // Sidebar
-    'sidebar.dashboard': 'Dashboard',
+    'sidebar.dashboard': 'Home',
     'sidebar.inventory': 'Monthly Inventory',
     'sidebar.reports': 'Reports',
     'sidebar.history': 'History',
@@ -599,7 +599,7 @@ const translations = {
     
     // Reports
     'reports.title': 'Reports',
-    'reports.description': 'History and export of inventories',
+    'reports.description': 'Inventory lookup and export',
     'reports.filters': 'Filters',
     'reports.month': 'Month',
     'reports.year': 'Year',

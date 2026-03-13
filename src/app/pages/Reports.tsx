@@ -245,7 +245,7 @@ export function Reports({ onNavigate }: ReportsProps) {
 
       <div>
         <h2 className="text-2xl text-[#3B3A36]">Reportes</h2>
-        <p className="text-[#5F6773]">Historial y exportación de inventarios</p>
+        <p className="text-[#5F6773]">Consulta y exportación de inventarios</p>
       </div>
 
       {showExportSuccess && (
