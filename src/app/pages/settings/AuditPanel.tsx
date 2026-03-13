@@ -102,6 +102,16 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function formatExactDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('es-PR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -426,9 +436,15 @@ export function AuditPanel() {
                             {log.plant_id && ` · ${log.plant_id}`}
                           </p>
                         </div>
-                        <span className="text-xs text-[#9D9B9A] flex-shrink-0" title={formatDateTime(log.timestamp)}>
-                          {timeAgo(log.timestamp)}
-                        </span>
+                        <div
+                          className="flex-shrink-0 text-right"
+                          title={formatExactDateTime(log.timestamp)}
+                        >
+                          <p className="text-xs text-[#9D9B9A]">{timeAgo(log.timestamp)}</p>
+                          <p className="text-[11px] text-[#5F6773] whitespace-nowrap mt-0.5">
+                            {formatExactDateTime(log.timestamp)}
+                          </p>
+                        </div>
                       </div>
                     );
                   })}
