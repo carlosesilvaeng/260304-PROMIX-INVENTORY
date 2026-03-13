@@ -11,6 +11,7 @@ import { ModuleManagementPanel } from './settings/ModuleManagementPanel';
 import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
+import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
 import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
 import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
@@ -18,17 +19,18 @@ import { DieselConfigModal } from '../components/DieselConfigModal';
 import { ProductsConfigModal } from '../components/ProductsConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { getMateriales, getProcedencias } from '../utils/api';
-import type { Plant, CajonConfig } from '../types';
+import type { Plant, CajonConfig } from '../contexts/AuthContext';
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
 const BUILD_VERSION = '2603050601';
 
 export function Settings() {
-  const { user, allPlants, togglePlantStatus, updatePlant, createPlant, savePlantCajones } = useAuth();
+  const { user, allPlants, togglePlantStatus, updatePlant, createPlant, savePlantCajones, refreshPlants } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
   const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
+  const [editingAggregates, setEditingAggregates] = useState<Plant | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
   const [editingDiesel, setEditingDiesel] = useState<Plant | null>(null);
@@ -296,6 +298,13 @@ export function Settings() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setEditingAggregates(plant)}
+                        >
+                          📐 Agregados
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setEditingCajones({ plant })}
                         >
                           📦 Cajones
@@ -391,6 +400,23 @@ export function Settings() {
       {/* Units Tab */}
       {canManageSettings && activeTab === 'units' && (
         <UnitsPanel />
+      )}
+
+      {editingAggregates && (
+        <AggregatesConfigModal
+          plant={editingAggregates}
+          onSaved={() => {
+            refreshPlants()
+              .catch((error) => {
+                console.error('❌ Error recargando plantas tras guardar agregados:', error);
+              })
+              .finally(() => {
+                setEditingAggregates(null);
+                handleSave();
+              });
+          }}
+          onClose={() => setEditingAggregates(null)}
+        />
       )}
 
       {/* Cajones Config Modal */}

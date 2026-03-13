@@ -86,6 +86,7 @@ interface AuthContextType {
   createPlant: (plant: Omit<Plant, 'id'>) => void;
   togglePlantStatus: (plantId: string) => void;
   savePlantCajones: (plantId: string, cajones: CajonConfig[]) => Promise<void>;
+  refreshPlants: () => Promise<void>;
   dismissMigrationMessage: () => void;
   refreshUser: () => Promise<void>;
   refreshFirstTimeCheck: () => Promise<void>; // NEW: Re-verificar si hay usuarios
@@ -457,6 +458,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshPlants = async () => {
+    if (!accessToken) return;
+
+    const plants = await loadPlants(accessToken);
+    if (currentPlant) {
+      const refreshedPlant = plants.find((plant) => plant.id === currentPlant.id);
+      if (refreshedPlant) {
+        setCurrentPlant(refreshedPlant);
+        localStorage.setItem('promix_plant', JSON.stringify(refreshedPlant));
+      }
+    }
+  };
+
   const dismissMigrationMessage = () => {
     setShowMigrationMessage(false);
   };
@@ -499,6 +513,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createPlant,
         togglePlantStatus,
     savePlantCajones,
+    refreshPlants,
     dismissMigrationMessage,
     refreshUser,
     refreshFirstTimeCheck,

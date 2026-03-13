@@ -362,6 +362,33 @@ export async function updateProcedencia(
 export async function deleteProcedencia(id: string): Promise<ApiResponse> {
   return apiRequest(`/catalogs/procedencias/${id}`, 'DELETE');
 }
+
+// ============================================================================
+// AGGREGATES CONFIGURATION API
+// ============================================================================
+
+export async function getPlantAggregatesConfigEntries(plantId: string): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/aggregates`, 'GET');
+}
+
+export async function updatePlantAggregatesConfigEntries(
+  plantId: string,
+  aggregates: {
+    id?: string;
+    aggregate_name: string;
+    material_type?: string;
+    location_area?: string;
+    measurement_method: 'BOX' | 'CONE';
+    unit?: string;
+    box_width_ft?: number | null;
+    box_height_ft?: number | null;
+    sort_order?: number;
+    is_active?: boolean;
+  }[]
+): Promise<ApiResponse> {
+  return apiRequest(`/plants/${plantId}/aggregates`, 'PUT', { aggregates });
+}
+
 // ============================================================================
 // SILO CONFIGURATION API
 // ============================================================================

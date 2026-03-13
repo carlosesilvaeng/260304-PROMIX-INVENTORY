@@ -747,6 +747,106 @@ app.put("/make-server/plants/:plantId/cajones", async (c) => {
   }
 });
 
+// GET /plants/:plantId/aggregates — list aggregates for a plant (admin/super_admin only)
+app.get("/make-server/plants/:plantId/aggregates", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('plant_aggregates_config')
+      .select(`
+        id,
+        aggregate_name,
+        material_type,
+        location_area,
+        measurement_method,
+        unit,
+        box_width_ft,
+        box_height_ft,
+        is_active,
+        sort_order
+      `)
+      .eq('plant_id', plantId)
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    return c.json({ success: true, data: data ?? [] });
+  } catch (error: any) {
+    console.error("❌ Error fetching aggregates config:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/aggregates — replace all aggregates for a plant (admin/super_admin only)
+app.put("/make-server/plants/:plantId/aggregates", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const aggregates: {
+      id?: string;
+      aggregate_name: string;
+      material_type?: string;
+      location_area?: string;
+      measurement_method: string;
+      unit?: string;
+      box_width_ft?: number | null;
+      box_height_ft?: number | null;
+      sort_order?: number;
+      is_active?: boolean;
+    }[] = body.aggregates ?? [];
+
+    const supabase = db.getSupabaseClient();
+
+    const { error: deleteError } = await supabase
+      .from('plant_aggregates_config')
+      .delete()
+      .eq('plant_id', plantId);
+    if (deleteError) throw deleteError;
+
+    if (aggregates.length > 0) {
+      const rows = aggregates.map((aggregate, index) => {
+        const measurementMethod = String(aggregate.measurement_method || 'BOX').toUpperCase();
+        const isBoxMethod = measurementMethod === 'BOX';
+
+        return {
+          ...(aggregate.id ? { id: aggregate.id } : {}),
+          plant_id: plantId,
+          aggregate_name: aggregate.aggregate_name,
+          material_type: aggregate.material_type ?? '',
+          location_area: aggregate.location_area ?? '',
+          measurement_method: isBoxMethod ? 'BOX' : 'CONE',
+          unit: aggregate.unit || 'CUBIC_YARDS',
+          box_width_ft: isBoxMethod ? (aggregate.box_width_ft ?? 0) : null,
+          box_height_ft: isBoxMethod ? (aggregate.box_height_ft ?? 0) : null,
+          sort_order: aggregate.sort_order ?? index,
+          is_active: aggregate.is_active ?? true,
+        };
+      });
+
+      const { error: insertError } = await supabase
+        .from('plant_aggregates_config')
+        .insert(rows);
+      if (insertError) throw insertError;
+    }
+
+    console.log(`✅ [PUT /plants/${plantId}/aggregates] Saved ${aggregates.length} aggregates by ${user.email}`);
+    return c.json({ success: true, count: aggregates.length });
+  } catch (error: any) {
+    console.error("❌ Error saving aggregates config:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // GET /plants/:plantId/silos — list silos for a plant (admin/super_admin only)
 app.get("/make-server/plants/:plantId/silos", async (c) => {
   try {
