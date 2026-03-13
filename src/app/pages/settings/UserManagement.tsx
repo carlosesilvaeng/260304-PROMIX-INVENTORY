@@ -110,6 +110,7 @@ export function UserManagement() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [statusUpdatingUserId, setStatusUpdatingUserId] = useState<string | null>(null);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -294,6 +295,49 @@ export function UserManagement() {
     } catch (err: any) {
       setError(err.message || 'Error al eliminar usuario');
       console.error('Error deleting user:', err);
+    }
+  };
+
+  const handleToggleUserStatus = async (user: User) => {
+    if (user.id === currentUser?.id) {
+      setError('No puedes cambiar el estado de tu propio usuario desde esta tabla');
+      return;
+    }
+
+    const nextStatus = user.is_active ? 'inactivo' : 'activo';
+    const confirmed = window.confirm(
+      `¿Confirmas cambiar el usuario "${user.name}" a estado ${nextStatus}?`
+    );
+
+    if (!confirmed) return;
+
+    setError('');
+    setSuccess('');
+    setStatusUpdatingUserId(user.id);
+
+    try {
+      const response = await callAPI(`/auth/users/${user.id}`, 'PUT', {
+        is_active: !user.is_active,
+      }, accessToken);
+
+      if (response.success) {
+        setUsers((prevUsers) =>
+          prevUsers.map((existingUser) =>
+            existingUser.id === user.id
+              ? { ...existingUser, is_active: !user.is_active, updated_at: new Date().toISOString() }
+              : existingUser
+          )
+        );
+        setSuccess(`Usuario ${!user.is_active ? 'activado' : 'inactivado'} exitosamente`);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(response.error || 'Error al cambiar el estado del usuario');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al cambiar el estado del usuario');
+      console.error('Error toggling user status:', err);
+    } finally {
+      setStatusUpdatingUserId(null);
     }
   };
 
@@ -517,15 +561,28 @@ export function UserManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {user.is_active ? (
-                          <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                            Activo
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                            Inactivo
-                          </span>
-                        )}
+                        <button
+                          onClick={() => handleToggleUserStatus(user)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            user.is_active
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                          }`}
+                          disabled={user.id === currentUser?.id || statusUpdatingUserId === user.id}
+                          title={
+                            user.id === currentUser?.id
+                              ? 'No puedes cambiar tu propio estado aquí'
+                              : user.is_active
+                                ? 'Clic para inactivar usuario'
+                                : 'Clic para activar usuario'
+                          }
+                        >
+                          {statusUpdatingUserId === user.id
+                            ? 'Actualizando...'
+                            : user.is_active
+                              ? 'Activo'
+                              : 'Inactivo'}
+                        </button>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="text-xs text-[#5F6773]">
