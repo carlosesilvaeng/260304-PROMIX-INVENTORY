@@ -901,6 +901,7 @@ app.get("/make-server/plants/:plantId/additives", async (c) => {
       .from('plant_additives_config')
       .select(`
         id,
+        catalog_additive_id,
         additive_name,
         additive_type,
         measurement_method,
@@ -937,6 +938,7 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
     const body = await c.req.json();
     const additives: {
       id?: string;
+      catalog_additive_id?: string | null;
       additive_name: string;
       additive_type: string;
       measurement_method?: string;
@@ -963,6 +965,7 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
       const rows = additives.map((additive, index) => ({
         ...(additive.id ? { id: additive.id } : {}),
         plant_id: plantId,
+        catalog_additive_id: additive.catalog_additive_id || null,
         additive_name: additive.additive_name,
         additive_type: String(additive.additive_type || 'MANUAL').toUpperCase(),
         measurement_method: additive.measurement_method || (String(additive.additive_type || '').toUpperCase() === 'TANK' ? 'TANK_LEVEL' : 'MANUAL_QUANTITY'),
@@ -2228,7 +2231,7 @@ app.get("/make-server/auth/validate", async (c) => {
 });
 
 // ============================================================================
-// CATALOG ENDPOINTS — materiales y procedencias
+// CATALOG ENDPOINTS — materiales, procedencias, aditivos y curvas
 // ============================================================================
 
 // ── MATERIALES ──
@@ -2376,6 +2379,181 @@ app.delete("/make-server/catalogs/procedencias/:id", async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error("❌ Error deleting procedencia:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ── ADITIVOS ──
+
+app.get("/make-server/catalogs/additivos", async (c) => {
+  try {
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('additives_catalog')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error fetching additive catalog:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/additivos", async (c) => {
+  try {
+    const { nombre, marca, uom } = await c.req.json();
+    if (!nombre?.trim()) return c.json({ success: false, error: 'nombre requerido' }, 400);
+    if (!uom?.trim()) return c.json({ success: false, error: 'unidad requerida' }, 400);
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('additives_catalog')
+      .insert({
+        nombre: nombre.trim(),
+        marca: marca?.trim() || null,
+        uom: uom.trim(),
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data }, 201);
+  } catch (error) {
+    console.error("❌ Error creating additive catalog item:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.put("/make-server/catalogs/additivos/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (body.nombre !== undefined) update.nombre = body.nombre.trim();
+    if (body.marca !== undefined) update.marca = body.marca?.trim() || null;
+    if (body.uom !== undefined) update.uom = body.uom.trim();
+    if (body.sort_order !== undefined) update.sort_order = body.sort_order;
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('additives_catalog')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error updating additive catalog item:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.delete("/make-server/catalogs/additivos/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('additives_catalog')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("❌ Error deleting additive catalog item:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ── CURVAS DE CONVERSION ──
+
+app.get("/make-server/catalogs/calibration-curves", async (c) => {
+  try {
+    const plantId = c.req.query('plant_id');
+    if (!plantId?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('calibration_curves')
+      .select('*')
+      .eq('plant_id', plantId.trim())
+      .order('curve_name');
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error fetching calibration curves:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/calibration-curves", async (c) => {
+  try {
+    const { plant_id, curve_name, measurement_type, reading_uom, data_points } = await c.req.json();
+    if (!plant_id?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
+    if (!curve_name?.trim()) return c.json({ success: false, error: 'curve_name requerido' }, 400);
+    if (!measurement_type?.trim()) return c.json({ success: false, error: 'measurement_type requerido' }, 400);
+    if (!data_points || typeof data_points !== 'object' || Array.isArray(data_points) || Object.keys(data_points).length === 0) {
+      return c.json({ success: false, error: 'data_points requerido' }, 400);
+    }
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('calibration_curves')
+      .insert({
+        plant_id: plant_id.trim(),
+        curve_name: curve_name.trim(),
+        measurement_type: measurement_type.trim(),
+        reading_uom: reading_uom?.trim() || null,
+        data_points,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data }, 201);
+  } catch (error) {
+    console.error("❌ Error creating calibration curve:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.put("/make-server/catalogs/calibration-curves/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (body.curve_name !== undefined) update.curve_name = body.curve_name.trim();
+    if (body.measurement_type !== undefined) update.measurement_type = body.measurement_type.trim();
+    if (body.reading_uom !== undefined) update.reading_uom = body.reading_uom?.trim() || null;
+    if (body.data_points !== undefined) update.data_points = body.data_points;
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('calibration_curves')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Error updating calibration curve:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.delete("/make-server/catalogs/calibration-curves/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('calibration_curves')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("❌ Error deleting calibration curve:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

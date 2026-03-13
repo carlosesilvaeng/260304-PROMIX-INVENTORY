@@ -91,6 +91,17 @@ CREATE TABLE IF NOT EXISTS procedencias_catalog (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS additives_catalog (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  nombre TEXT NOT NULL UNIQUE,
+  marca TEXT,
+  uom TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS kv_store (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL,
@@ -107,6 +118,7 @@ CREATE TABLE IF NOT EXISTS calibration_curves (
   plant_id TEXT NOT NULL,
   curve_name TEXT NOT NULL,
   measurement_type TEXT NOT NULL,
+  reading_uom TEXT,
   data_points JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -169,6 +181,7 @@ CREATE TABLE IF NOT EXISTS silo_allowed_products (
 CREATE TABLE IF NOT EXISTS plant_additives_config (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   plant_id TEXT NOT NULL,
+  catalog_additive_id TEXT,
   additive_name TEXT NOT NULL,
   additive_type TEXT NOT NULL DEFAULT 'MANUAL',
   measurement_method TEXT NOT NULL,
@@ -442,6 +455,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC
 CREATE INDEX IF NOT EXISTS idx_audit_logs_plant_id ON audit_logs(plant_id);
 CREATE INDEX IF NOT EXISTS idx_materiales_catalog_active ON materiales_catalog(is_active, sort_order);
 CREATE INDEX IF NOT EXISTS idx_procedencias_catalog_active ON procedencias_catalog(is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_additives_catalog_active ON additives_catalog(is_active, sort_order);
 CREATE INDEX IF NOT EXISTS idx_kv_store_prefix ON kv_store(key text_pattern_ops);
 
 CREATE INDEX IF NOT EXISTS idx_calibration_curves_plant_id ON calibration_curves(plant_id);
@@ -522,7 +536,7 @@ DO $$
 DECLARE
   t TEXT;
   tables_with_updated_at TEXT[] := ARRAY[
-    'users','plants','audit_logs','materiales_catalog','procedencias_catalog','kv_store',
+    'users','plants','audit_logs','materiales_catalog','procedencias_catalog','additives_catalog','kv_store',
     'calibration_curves','plant_aggregates_config','plant_silos_config','plant_cajones_config','plant_additives_config',
     'plant_diesel_config','plant_products_config','plant_utilities_meters_config','plant_petty_cash_config',
     'inventory_month','inventory_aggregates_entries','inventory_silos_entries','inventory_additives_entries',

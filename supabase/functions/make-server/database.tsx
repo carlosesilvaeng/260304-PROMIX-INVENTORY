@@ -29,6 +29,7 @@ export async function initializeDatabaseSchema() {
     
     // Check if tables exist by attempting to query them
     const tablesToCheck = [
+      'additives_catalog',
       'calibration_curves',
       'plant_aggregates_config',
       'plant_silos_config',
@@ -66,7 +67,7 @@ export async function initializeDatabaseSchema() {
       
       const friendlyMessage = 
         `❌ Las tablas de base de datos no existen todavía.\\n\\n` +
-        `📋 Tablas faltantes: ${missingTables.length}/17\\n\\n` +
+        `📋 Tablas faltantes: ${missingTables.length}/${tablesToCheck.length}\\n\\n` +
         `📝 ACCIÓN REQUERIDA:\\n` +
         `1. Ve a Supabase Dashboard → SQL Editor\\n` +
         `2. Ejecuta el contenido del archivo /supabase/schema.sql\\n` +

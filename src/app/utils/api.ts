@@ -329,8 +329,25 @@ export async function updateModuleSettings(settings: any): Promise<ApiResponse> 
 }
 
 // ============================================================================
-// CATALOG ENDPOINTS — Materiales y Procedencias
+// CATALOG ENDPOINTS — Materiales, Procedencias, Aditivos y Curvas
 // ============================================================================
+
+export interface AdditiveCatalogItem {
+  id: string;
+  nombre: string;
+  marca?: string | null;
+  uom: string;
+  sort_order: number;
+}
+
+export interface CalibrationCurveCatalogItem {
+  id: string;
+  plant_id: string;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom?: string | null;
+  data_points: Record<string, number>;
+}
 
 /** Obtiene la lista de materiales activos */
 export async function getMateriales(): Promise<ApiResponse> {
@@ -376,6 +393,69 @@ export async function updateProcedencia(
 /** Elimina (soft delete) una procedencia del catálogo (admin only) */
 export async function deleteProcedencia(id: string): Promise<ApiResponse> {
   return apiRequest(`/catalogs/procedencias/${id}`, 'DELETE');
+}
+
+/** Obtiene la lista de aditivos activos */
+export async function getAdditivesCatalog(): Promise<ApiResponse<AdditiveCatalogItem[]>> {
+  return apiRequest('/catalogs/additivos', 'GET');
+}
+
+/** Crea un nuevo aditivo en el catálogo (admin only) */
+export async function createAdditiveCatalogItem(
+  nombre: string,
+  marca: string,
+  uom: string
+): Promise<ApiResponse<AdditiveCatalogItem>> {
+  return apiRequest('/catalogs/additivos', 'POST', { nombre, marca, uom });
+}
+
+/** Actualiza un aditivo existente (admin only) */
+export async function updateAdditiveCatalogItem(
+  id: string,
+  data: { nombre?: string; marca?: string; uom?: string; sort_order?: number }
+): Promise<ApiResponse<AdditiveCatalogItem>> {
+  return apiRequest(`/catalogs/additivos/${id}`, 'PUT', data);
+}
+
+/** Elimina (soft delete) un aditivo del catálogo (admin only) */
+export async function deleteAdditiveCatalogItem(id: string): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/additivos/${id}`, 'DELETE');
+}
+
+/** Obtiene las curvas configuradas para una planta */
+export async function getCalibrationCurvesCatalog(
+  plantId: string
+): Promise<ApiResponse<CalibrationCurveCatalogItem[]>> {
+  return apiRequest(`/catalogs/calibration-curves?plant_id=${encodeURIComponent(plantId)}`, 'GET');
+}
+
+/** Crea una nueva curva de conversión para una planta */
+export async function createCalibrationCurveCatalogItem(data: {
+  plant_id: string;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom?: string | null;
+  data_points: Record<string, number>;
+}): Promise<ApiResponse<CalibrationCurveCatalogItem>> {
+  return apiRequest('/catalogs/calibration-curves', 'POST', data);
+}
+
+/** Actualiza una curva existente */
+export async function updateCalibrationCurveCatalogItem(
+  id: string,
+  data: {
+    curve_name?: string;
+    measurement_type?: string;
+    reading_uom?: string | null;
+    data_points?: Record<string, number>;
+  }
+): Promise<ApiResponse<CalibrationCurveCatalogItem>> {
+  return apiRequest(`/catalogs/calibration-curves/${id}`, 'PUT', data);
+}
+
+/** Elimina una curva existente */
+export async function deleteCalibrationCurveCatalogItem(id: string): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/calibration-curves/${id}`, 'DELETE');
 }
 
 // ============================================================================
@@ -439,6 +519,7 @@ export async function updatePlantAdditivesConfigEntries(
   plantId: string,
   additives: {
     id?: string;
+    catalog_additive_id?: string | null;
     additive_name: string;
     additive_type: 'TANK' | 'MANUAL';
     measurement_method?: string;
