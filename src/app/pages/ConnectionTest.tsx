@@ -238,19 +238,19 @@ export function ConnectionTest() {
           jwtSecretLength: data.environment?.jwtSecretLength || 0
         },
         error: (!lengthsMatch || !prefixesMatch) 
-          ? `⚠️ KEY MISMATCH: Backend CLIENT_ANON_KEY is NOT configured correctly!\n\nBackend: ${backendKeyLength} chars, Frontend: ${frontendKeyLength} chars\n\nYou MUST update CLIENT_ANON_KEY in Supabase Dashboard → Edge Functions → Secrets\nCorrect value: ${publicAnonKey}`
+          ? `⚠️ DESAJUSTE DE CLAVE: CLIENT_ANON_KEY del backend no está configurada correctamente.\n\nBackend: ${backendKeyLength} caracteres, Frontend: ${frontendKeyLength} caracteres\n\nDebes actualizar CLIENT_ANON_KEY en Supabase Dashboard → Edge Functions → Secrets.\nValor correcto: ${publicAnonKey}`
           : undefined,
         details: `Build: ${data.buildVersion}\n\n` +
-          `Backend ANON Key:\n` +
-          `  Length: ${backendKeyLength}\n` +
-          `  Prefix: ${backendKeyPrefix}...\n\n` +
-          `Frontend ANON Key:\n` +
-          `  Length: ${frontendKeyLength}\n` +
-          `  Prefix: ${frontendKeyPrefix}...\n\n` +
-          `Comparison:\n` +
-          `  ✅ Lengths Match: ${lengthsMatch ? 'YES' : 'NO (THIS IS THE PROBLEM!)'}\n` +
-          `  ✅ Prefixes Match: ${prefixesMatch ? 'YES' : 'NO'}\n\n` +
-          `${!lengthsMatch || !prefixesMatch ? '🚨 ACTION REQUIRED:\n1. Go to Supabase Dashboard\n2. Navigate to Edge Functions → Secrets\n3. Update CLIENT_ANON_KEY with the correct 208-char value\n4. Wait 1-2 minutes\n5. Re-run this test' : '✅ Keys match! JWT validation should work correctly.'}`
+          `Clave ANON del backend:\n` +
+          `  Longitud: ${backendKeyLength}\n` +
+          `  Prefijo: ${backendKeyPrefix}...\n\n` +
+          `Clave ANON del frontend:\n` +
+          `  Longitud: ${frontendKeyLength}\n` +
+          `  Prefijo: ${frontendKeyPrefix}...\n\n` +
+          `Comparación:\n` +
+          `  ✅ Coinciden las longitudes: ${lengthsMatch ? 'SI' : 'NO (AQUI ESTA EL PROBLEMA)'}\n` +
+          `  ✅ Coinciden los prefijos: ${prefixesMatch ? 'SI' : 'NO'}\n\n` +
+          `${!lengthsMatch || !prefixesMatch ? '🚨 ACCION REQUERIDA:\n1. Ve a Supabase Dashboard\n2. Abre Edge Functions → Secrets\n3. Actualiza CLIENT_ANON_KEY con el valor correcto de 208 caracteres\n4. Espera 1-2 minutos\n5. Ejecuta esta prueba nuevamente' : '✅ Las claves coinciden. La validación JWT debería funcionar correctamente.'}`
       });
     } catch (error: any) {
       console.error('❌ Test #5 Error:', error);
@@ -395,7 +395,7 @@ export function ConnectionTest() {
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Resultados</h2>
             <div className="text-xs text-[#6F767E] mb-4">
-              Ejecutado: {new Date(testResults.timestamp).toLocaleString()}
+              Ejecutado: {new Date(testResults.timestamp).toLocaleString('es-PR')}
             </div>
 
             <div className="space-y-4">
@@ -543,11 +543,11 @@ export function ConnectionTest() {
                   </p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>
-                      Si "Health Check" falla: El Edge Function no está desplegado. 
+                      Si "Chequeo de Salud" falla: El Edge Function no está desplegado. 
                       Publica el sitio en Figma Make.
                     </li>
                     <li>
-                      Si "Database Schema Check" falla: Las tablas no existen.
+                      Si "Chequeo de Esquema de Base de Datos" falla: Las tablas no existen.
                       Ve a Herramientas → Base de Datos y ejecuta el SQL en Supabase Dashboard.
                     </li>
                   </ul>

@@ -26,7 +26,7 @@ export function ModuleManagementPanel() {
             <span className="text-3xl">🔒</span>
             <div>
               <h3 className="text-lg font-bold text-red-900">Acceso Denegado</h3>
-              <p className="text-red-700">Solo Super Admins pueden gestionar módulos.</p>
+              <p className="text-red-700">Solo los Super Administradores pueden gestionar módulos.</p>
             </div>
           </div>
         </Card>
@@ -222,7 +222,7 @@ export function ModuleManagementPanel() {
           <div className="p-4 text-sm text-[#5F6773]">
             <p>
               <strong>Última actualización:</strong>{' '}
-              {new Date(moduleSettings.lastUpdatedAt!).toLocaleString('es-ES', {
+              {new Date(moduleSettings.lastUpdatedAt!).toLocaleString('es-PR', {
                 dateStyle: 'full',
                 timeStyle: 'short',
               })}

@@ -88,7 +88,7 @@ export function Documentation() {
                 <li>Activar/desactivar plantas</li>
                 <li>Configuración completa del sistema</li>
                 <li>Acceso global operativo</li>
-                <li>Gestión de módulos y herramientas técnicas</li>
+                <li>Gestión de módulos y acceso a herramientas técnicas</li>
                 <li>Gestión de usuarios y asignaciones, incluyendo super administradores</li>
               </ul>
             </div>
@@ -96,10 +96,10 @@ export function Documentation() {
               <h3 className="font-bold text-[#3B3A36] mb-2">👨‍💻 Administrador</h3>
               <ul className="list-disc list-inside text-[#5F6773] text-sm space-y-1">
                 <li>Aprobar inventarios completados</li>
-                <li>Visualizar reportes y estadísticas</li>
+                <li>Visualizar reportes, historial operativo y auditoría</li>
                 <li>Acceso operativo amplio a la aplicación</li>
                 <li>Configuración de plantas, usuarios, auditoría y catálogos</li>
-                <li>Auditoría y trazabilidad</li>
+                <li>No tiene acceso a módulos ni a herramientas técnicas exclusivas</li>
                 <li>No puede ver ni gestionar usuarios super administradores</li>
               </ul>
             </div>

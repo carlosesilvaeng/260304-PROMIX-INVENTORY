@@ -104,11 +104,7 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Debug state
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [showDebugPanel, setShowDebugPanel] = useState(true); // Mostrar debug por defecto
-  
+
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -130,129 +126,6 @@ export function UserManagement() {
     assigned_plants: [],
     is_active: true,
   });
-
-  // ============================================================================
-  // DEBUG INFO - Verificar estado de autenticación
-  // ============================================================================
-  
-  useEffect(() => {
-    const storedToken = localStorage.getItem('promix_access_token');
-    const storedUser = localStorage.getItem('promix_user');
-    
-    console.log('🔍 [UserManagement] Auth Debug Info:');
-    console.log('   Current User:', currentUser?.email || 'NONE');
-    console.log('   Access Token from Context:', accessToken ? `${accessToken.substring(0, 30)}...` : 'NONE');
-    console.log('   Access Token Length:', accessToken?.length || 0);
-    console.log('   Stored Token in localStorage:', storedToken ? `${storedToken.substring(0, 30)}...` : 'NONE');
-    console.log('   Stored Token Length:', storedToken?.length || 0);
-    console.log('   Token Match:', accessToken === storedToken ? '✅' : '❌');
-    console.log('   Stored User:', storedUser ? JSON.parse(storedUser).email : 'NONE');
-    
-    // Comparar token con publicAnonKey
-    const isAnonKey = accessToken === publicAnonKey;
-    console.log('   Is Anon Key?:', isAnonKey ? '⚠️ YES (WRONG!)' : '✅ NO (correct)');
-    
-    setDebugInfo({
-      hasUser: !!currentUser,
-      hasToken: !!accessToken,
-      tokenLength: accessToken?.length || 0,
-      tokenPrefix: accessToken?.substring(0, 30) || 'N/A',
-      isAnonKey: isAnonKey,
-      userEmail: currentUser?.email || 'N/A',
-      userRole: currentUser?.role || 'N/A',
-    });
-  }, [currentUser, accessToken]);
-
-  // ============================================================================
-  // TEST TOKEN - Verificar si el token actual es válido
-  // ============================================================================
-  
-  const testCurrentToken = async () => {
-    if (!accessToken) {
-      alert('No hay token para probar');
-      return;
-    }
-
-    console.log('🧪 [TEST] Testing current token...');
-    console.log('   Token:', accessToken.substring(0, 50) + '...');
-
-    try {
-      const response = await callAPI('/auth/verify', 'POST', {}, accessToken);
-      console.log('✅ [TEST] Token is VALID!', response);
-      alert('✅ Token es válido! Usuario: ' + response.user.email);
-    } catch (error: any) {
-      console.error('❌ [TEST] Token is INVALID!', error);
-      alert('❌ Token inválido: ' + error.message + '\n\nDebes cerrar sesión y volver a hacer login.');
-    }
-  };
-
-  // ============================================================================
-  // FORCE RE-LOGIN - Limpiar todo y forzar re-login
-  // ============================================================================
-  
-  const forceReLogin = () => {
-    if (!confirm('⚠️ Esto cerrará tu sesión y deberás iniciar sesión nuevamente.\n\n¿Continuar?')) {
-      return;
-    }
-
-    console.log('🔄 [FORCE] Forcing re-login...');
-    
-    // Limpiar todo
-    localStorage.removeItem('promix_access_token');
-    localStorage.removeItem('promix_user');
-    localStorage.removeItem('promix_plant');
-    
-    console.log('✅ [FORCE] Session cleared, reloading...');
-    
-    // Recargar la página para que AuthContext detecte que no hay sesión
-    window.location.reload();
-  };
-
-  // ============================================================================
-  // RESET EVERYTHING - Nuclear option
-  // ============================================================================
-  
-  const resetEverything = async () => {
-    if (!confirm('🚨 PELIGRO: Esto eliminará TODOS los usuarios del sistema.\n\nSolo úsalo si estás en modo de desarrollo y necesitas empezar de cero.\n\n¿Estás SEGURO?')) {
-      return;
-    }
-
-    if (!confirm('🚨 ÚLTIMA ADVERTENCIA: ¿REALMENTE quieres eliminar todo?\n\nEsto no se puede deshacer.')) {
-      return;
-    }
-
-    console.log('💣 [RESET] Starting nuclear reset...');
-    
-    try {
-      // 1. Obtener todos los usuarios
-      const usersResponse = await callAPI('/users', 'GET', undefined, accessToken);
-      
-      if (!usersResponse.success || !usersResponse.users) {
-        throw new Error('No se pudieron cargar los usuarios');
-      }
-
-      // 2. Eliminar cada usuario
-      for (const user of usersResponse.users) {
-        console.log('🗑️ Deleting user:', user.email);
-        await callAPI(`/users/${user.id}`, 'DELETE', undefined, accessToken);
-      }
-
-      console.log('✅ [RESET] All users deleted');
-      
-      // 3. Limpiar localStorage
-      localStorage.clear();
-      
-      console.log('✅ [RESET] LocalStorage cleared');
-      
-      // 4. Recargar
-      alert('✅ Sistema reseteado completamente.\n\nRecargando...');
-      window.location.reload();
-      
-    } catch (error: any) {
-      console.error('❌ [RESET] Error:', error);
-      alert('❌ Error al resetear: ' + error.message);
-    }
-  };
 
   // ============================================================================
   // LOAD USERS
@@ -277,18 +150,13 @@ export function UserManagement() {
     try {
       const response = await callAPI('/auth/users', 'GET', null, accessToken);
       
-      console.log('[UserManagement] API Response:', response);
-      
-      // Save debug info
-      setDebugInfo({
-        success: true,
-        responseStatus: 'OK',
-        responseData: JSON.stringify(response).substring(0, 200),
-      });
-      
       if (response.success && response.users) {
-        setUsers(response.users);
-        console.log('[UserManagement] Loaded', response.users.length, 'users');
+        const visibleUsers = currentUser?.role === 'super_admin'
+          ? response.users
+          : response.users.filter((loadedUser: User) => loadedUser.role !== 'super_admin');
+
+        setUsers(visibleUsers);
+        console.log('[UserManagement] Loaded', visibleUsers.length, 'users');
       } else {
         setError(response.error || 'Error al cargar usuarios');
         console.error('[UserManagement] Error response:', response);
@@ -296,17 +164,7 @@ export function UserManagement() {
     } catch (err: any) {
       const errorMsg = err.message || 'Error al cargar usuarios';
       setError(errorMsg);
-      
-      // Save debug info for errors - capture details if available
-      setDebugInfo({
-        success: false,
-        errorMessage: errorMsg,
-        httpStatus: err.details?.status || 'N/A',
-        httpStatusText: err.details?.statusText || 'N/A',
-        serverError: err.details?.errorMessage || 'N/A',
-        fullServerResponse: JSON.stringify(err.details?.fullResponse || {}).substring(0, 300),
-      });
-      
+
       console.error('[UserManagement] Error loading users:', err);
       console.error('[UserManagement] Error details:', err.details);
     } finally {
@@ -434,10 +292,7 @@ export function UserManagement() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'super_admin':
-        // Si el usuario actual NO es super_admin, mostrar como admin (azul)
-        return currentUser?.role === 'super_admin' 
-          ? 'bg-purple-100 text-purple-700 border border-purple-300'
-          : 'bg-blue-100 text-blue-700 border border-blue-300';
+        return 'bg-purple-100 text-purple-700 border border-purple-300';
       case 'admin':
         return 'bg-blue-100 text-blue-700 border border-blue-300';
       case 'plant_manager':
@@ -450,8 +305,7 @@ export function UserManagement() {
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case 'super_admin':
-        // Si el usuario actual NO es super_admin, mostrar como "Administrador"
-        return currentUser?.role === 'super_admin' ? 'Super Admin' : 'Administrador';
+        return 'Super Administrador';
       case 'admin':
         return 'Administrador';
       case 'plant_manager':
@@ -494,72 +348,15 @@ export function UserManagement() {
 
   return (
     <div className="space-y-4">
-      {/* DEBUG PANEL - TEMPORAL */}
-      {showDebugPanel && currentUser?.role === 'super_admin' && (
-        <Card>
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded">
-            <div className="flex justify-between items-start mb-2">
-              <h4 className="font-semibold text-yellow-800">🔍 Debug Info (Temporal)</h4>
-              <button
-                onClick={() => setShowDebugPanel(false)}
-                className="text-yellow-600 hover:text-yellow-800 text-xs"
-              >
-                Ocultar
-              </button>
-            </div>
-            <div className="space-y-1 text-sm font-mono">
-              <div>Usuario: {currentUser?.email || 'NO USER'}</div>
-              <div>Rol: {currentUser?.role || 'NO ROLE'}</div>
-              <div>Token Existe: {accessToken ? '✅ SÍ' : '❌ NO'}</div>
-              <div>Token (primeros 30 chars): {accessToken ? accessToken.substring(0, 30) + '...' : 'N/A'}</div>
-              <div>URL API: {API_BASE_URL}/auth/users</div>
-              <div>Estado Carga: {loading ? 'Cargando...' : 'Terminó'}</div>
-              <div>Usuarios Cargados: {users.length}</div>
-              {debugInfo && (
-                <div className="mt-2">
-                  <h5 className="font-bold">Debug Info:</h5>
-                  <pre className="text-xs bg-gray-100 p-2 rounded max-h-40 overflow-y-auto">
-                    {JSON.stringify(debugInfo, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-            
-            {/* Botones de Diagnóstico */}
-            <div className="mt-4 pt-4 border-t border-yellow-300 grid grid-cols-3 gap-2">
-              <button
-                onClick={testCurrentToken}
-                className="px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-              >
-                🧪 Test Token
-              </button>
-              <button
-                onClick={forceReLogin}
-                className="px-3 py-2 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors"
-              >
-                🔄 Force Re-Login
-              </button>
-              <button
-                onClick={resetEverything}
-                className="px-3 py-2 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-              >
-                💣 Reset Todo
-              </button>
-            </div>
-            
-            <p className="text-xs text-yellow-700 mt-2">
-              Si el token es inválido, usa "Force Re-Login" para resolver el problema.
-            </p>
-          </div>
-        </Card>
-      )}
-
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold text-[#3B3A36]">Gestión de Usuarios</h3>
           <p className="text-sm text-[#5F6773] mt-1">
-            Crear, editar y administrar usuarios del sistema
+            Crear, editar y administrar usuarios operativos del sistema
+          </p>
+          <p className="text-xs text-[#9D9B9A] mt-1">
+            Solo el Super Administrador puede ver y crear usuarios con rol de Super Administrador.
           </p>
         </div>
         <Button 
@@ -593,12 +390,7 @@ export function UserManagement() {
           </div>
         </Card>
       ) : (() => {
-        // Filtrar super_admins si el usuario actual es solo admin
-        const filteredUsers = currentUser?.role === 'super_admin' 
-          ? users 
-          : users.filter(u => u.role !== 'super_admin');
-
-        return filteredUsers.length === 0 ? (
+        return users.length === 0 ? (
           <Card>
             <div className="text-center py-8 text-[#5F6773]">
               No hay usuarios registrados
@@ -620,7 +412,7 @@ export function UserManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E4E4E4]">
-                  {filteredUsers.map((user) => (
+                  {users.map((user) => (
                     <tr key={user.id} className="hover:bg-[#F2F3F5] transition-colors">
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-[#3B3A36]">{user.name}</div>
