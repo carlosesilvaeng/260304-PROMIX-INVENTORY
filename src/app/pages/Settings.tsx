@@ -11,6 +11,7 @@ import { ModuleManagementPanel } from './settings/ModuleManagementPanel';
 import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
+import { getPlantConfig } from '../utils/api';
 import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
 import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
@@ -22,6 +23,31 @@ import type { Plant } from '../contexts/AuthContext';
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
 const BUILD_VERSION = '2603050601';
+
+interface PlantModuleCounts {
+  aggregates: number;
+  silos: number;
+  additives: number;
+  diesel: number;
+  products: number;
+}
+
+const EMPTY_MODULE_COUNTS: PlantModuleCounts = {
+  aggregates: 0,
+  silos: 0,
+  additives: 0,
+  diesel: 0,
+  products: 0,
+};
+
+function countActiveEntries(entries: any[] | undefined) {
+  return (entries || []).filter((entry) => entry?.is_active !== false).length;
+}
+
+function hasActiveDieselConfig(diesel: any) {
+  if (!diesel || typeof diesel !== 'object') return false;
+  return Object.keys(diesel).length > 0 && diesel.is_active !== false;
+}
 
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
@@ -38,6 +64,7 @@ export function Settings() {
   const [newPlantName, setNewPlantName] = useState('');
   const [newPlantCode, setNewPlantCode] = useState('');
   const [newPlantLocation, setNewPlantLocation] = useState('');
+  const [plantModuleCounts, setPlantModuleCounts] = useState<Record<string, PlantModuleCounts>>({});
   const canManageSettings = user?.role === 'admin' || user?.role === 'super_admin';
 
   useEffect(() => {
@@ -50,6 +77,89 @@ export function Settings() {
     setShowSaveSuccess(true);
     setTimeout(() => setShowSaveSuccess(false), 3000);
   };
+
+  const loadPlantModuleCounts = async (plants: Plant[]) => {
+    if (plants.length === 0) {
+      setPlantModuleCounts({});
+      return;
+    }
+
+    const results = await Promise.all(
+      plants.map(async (plant) => {
+        try {
+          const response = await getPlantConfig(plant.id);
+          if (!response.success || !response.data) {
+            return [
+              plant.id,
+              {
+                ...EMPTY_MODULE_COUNTS,
+                silos: plant.silos.length,
+              },
+            ] as const;
+          }
+
+          return [
+            plant.id,
+            {
+              aggregates: countActiveEntries(response.data.aggregates),
+              silos: countActiveEntries(response.data.silos),
+              additives: countActiveEntries(response.data.additives),
+              diesel: hasActiveDieselConfig(response.data.diesel) ? 1 : 0,
+              products: countActiveEntries(response.data.products),
+            },
+          ] as const;
+        } catch (error) {
+          console.error(`❌ Error cargando conteos de configuración para ${plant.name}:`, error);
+          return [
+            plant.id,
+            {
+              ...EMPTY_MODULE_COUNTS,
+              silos: plant.silos.length,
+            },
+          ] as const;
+        }
+      })
+    );
+
+    setPlantModuleCounts(Object.fromEntries(results));
+  };
+
+  useEffect(() => {
+    if (!canManageSettings || activeTab !== 'plants') return;
+    loadPlantModuleCounts(allPlants);
+  }, [activeTab, allPlants, canManageSettings]);
+
+  const getCountsForPlant = (plant: Plant) => {
+    return plantModuleCounts[plant.id] || {
+      ...EMPTY_MODULE_COUNTS,
+      silos: plant.silos.length,
+    };
+  };
+
+  const renderConfigActionButton = ({
+    icon,
+    label,
+    count,
+    onClick,
+  }: {
+    icon: string;
+    label: string;
+    count: number;
+    onClick: () => void;
+  }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      className="min-w-[92px] flex-col gap-0.5 px-2 py-2 leading-tight"
+    >
+      <span className="text-xl leading-none">{icon}</span>
+      <span className="text-xs font-medium text-center">{label}</span>
+      <span className={`text-lg font-semibold leading-none ${count > 0 ? 'text-[#C94A4A]' : 'text-[#9D9B9A]'}`}>
+        {count}
+      </span>
+    </Button>
+  );
 
   const handleTogglePlantStatus = (plant: Plant) => {
     const nextStatus = plant.isActive ? 'inactiva' : 'activa';
@@ -221,86 +331,84 @@ export function Settings() {
           </div>
 
           <Card noPadding>
-            <table className="w-full">
-              <thead className="bg-[#3B3A36] text-white">
-                <tr>
-                  <th className="px-6 py-3 text-left">Nombre</th>
-                  <th className="px-6 py-3 text-left">Código</th>
-                  <th className="px-6 py-3 text-center">Silos</th>
-                  <th className="px-6 py-3 text-center">Estado</th>
-                  <th className="px-6 py-3 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allPlants.map((plant) => (
-                  <tr key={plant.id} className="border-b border-[#9D9B9A]">
-                    <td className="px-6 py-4 text-[#3B3A36] font-medium">{plant.name}</td>
-                    <td className="px-6 py-4 text-[#5F6773]">{plant.code}</td>
-                    <td className="px-6 py-4 text-center text-[#3B3A36]">
-                      {plant.silos.length}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => handleTogglePlantStatus(plant)}
-                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                          plant.isActive
-                            ? 'bg-[#2ecc71]/10 text-[#2ecc71] hover:bg-[#2ecc71]/20'
-                            : 'bg-[#C94A4A]/10 text-[#C94A4A] hover:bg-[#C94A4A]/20'
-                        }`}
-                      >
-                        {plant.isActive ? 'Activa' : 'Inactiva'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingSilos(plant)}
-                        >
-                          🏗️ Silos
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingAggregates(plant)}
-                        >
-                          📐 Agregados
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingAdditives(plant)}
-                        >
-                          ⚗️ Aditivos
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingDiesel(plant)}
-                        >
-                          ⛽ Diesel
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingProducts(plant)}
-                        >
-                          🛢️ Aceites y Productos
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setViewingPlantDetails(plant)}
-                        >
-                          Ver Detalles
-                        </Button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px]">
+                <thead className="bg-[#3B3A36] text-white">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Nombre</th>
+                    <th className="px-6 py-3 text-left">Código</th>
+                    <th className="px-6 py-3 text-center">Estado</th>
+                    <th className="px-6 py-3 text-center">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {allPlants.map((plant) => {
+                    const counts = getCountsForPlant(plant);
+
+                    return (
+                      <tr key={plant.id} className="border-b border-[#9D9B9A]">
+                        <td className="px-6 py-4 text-[#3B3A36] font-medium">{plant.name}</td>
+                        <td className="px-6 py-4 text-[#5F6773]">{plant.code}</td>
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => handleTogglePlantStatus(plant)}
+                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                              plant.isActive
+                                ? 'bg-[#2ecc71]/10 text-[#2ecc71] hover:bg-[#2ecc71]/20'
+                                : 'bg-[#C94A4A]/10 text-[#C94A4A] hover:bg-[#C94A4A]/20'
+                            }`}
+                          >
+                            {plant.isActive ? 'Activa' : 'Inactiva'}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex flex-wrap items-start justify-center gap-2">
+                            {renderConfigActionButton({
+                              icon: '🏗️',
+                              label: 'Silos',
+                              count: counts.silos,
+                              onClick: () => setEditingSilos(plant),
+                            })}
+                            {renderConfigActionButton({
+                              icon: '📐',
+                              label: 'Agregados',
+                              count: counts.aggregates,
+                              onClick: () => setEditingAggregates(plant),
+                            })}
+                            {renderConfigActionButton({
+                              icon: '⚗️',
+                              label: 'Aditivos',
+                              count: counts.additives,
+                              onClick: () => setEditingAdditives(plant),
+                            })}
+                            {renderConfigActionButton({
+                              icon: '⛽',
+                              label: 'Diesel',
+                              count: counts.diesel,
+                              onClick: () => setEditingDiesel(plant),
+                            })}
+                            {renderConfigActionButton({
+                              icon: '🛢️',
+                              label: 'Aceites y Productos',
+                              count: counts.products,
+                              onClick: () => setEditingProducts(plant),
+                            })}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-w-[110px] self-center"
+                              onClick={() => setViewingPlantDetails(plant)}
+                            >
+                              Ver Detalles
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </Card>
 
           <div className="mt-4 p-4 bg-[#F2F3F5] rounded border border-[#9D9B9A]">
@@ -368,6 +476,7 @@ export function Settings() {
               .catch((error) => {
                 console.error('❌ Error recargando plantas tras guardar agregados:', error);
               })
+              .then(() => loadPlantModuleCounts(allPlants))
               .finally(() => {
                 setEditingAggregates(null);
                 handleSave();
@@ -381,7 +490,11 @@ export function Settings() {
       {editingSilos && (
         <SilosConfigModal
           plant={editingSilos}
-          onSaved={() => setEditingSilos(null)}
+          onSaved={() => {
+            setEditingSilos(null);
+            loadPlantModuleCounts(allPlants);
+            handleSave();
+          }}
           onClose={() => setEditingSilos(null)}
         />
       )}
@@ -391,6 +504,7 @@ export function Settings() {
           plant={editingAdditives}
           onSaved={() => {
             setEditingAdditives(null);
+            loadPlantModuleCounts(allPlants);
             handleSave();
           }}
           onClose={() => setEditingAdditives(null)}
@@ -402,6 +516,7 @@ export function Settings() {
           plant={editingDiesel}
           onSaved={() => {
             setEditingDiesel(null);
+            loadPlantModuleCounts(allPlants);
             handleSave();
           }}
           onClose={() => setEditingDiesel(null)}
@@ -413,6 +528,7 @@ export function Settings() {
           plant={editingProducts}
           onSaved={() => {
             setEditingProducts(null);
+            loadPlantModuleCounts(allPlants);
             handleSave();
           }}
           onClose={() => setEditingProducts(null)}
