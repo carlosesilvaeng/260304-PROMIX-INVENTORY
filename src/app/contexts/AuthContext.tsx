@@ -63,9 +63,9 @@ export interface Plant {
     hasConeMeasurement: boolean;
     hasCajonMeasurement: boolean;
   };
-  cajones?: CajonConfig[]; // Configuración de cajones por planta
+  cajones?: CajonConfig[]; // Compatibilidad legacy para fallback de agregados BOX
   silos: SiloConfig[];
-  conesCount?: number;
+  conesCount?: number; // Conteo legacy expuesto por backend
   pettyCashEstablished: number;
   isActive: boolean;
 }
@@ -85,7 +85,6 @@ interface AuthContextType {
   updatePlant: (plant: Plant) => void;
   createPlant: (plant: Omit<Plant, 'id'>) => void;
   togglePlantStatus: (plantId: string) => void;
-  savePlantCajones: (plantId: string, cajones: CajonConfig[]) => Promise<void>;
   refreshPlants: () => Promise<void>;
   dismissMigrationMessage: () => void;
   refreshUser: () => Promise<void>;
@@ -428,36 +427,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const savePlantCajones = async (plantId: string, cajones: CajonConfig[]) => {
-    // Optimistic update in UI
-    setAllPlants(prev =>
-      prev.map(p => (p.id === plantId ? { ...p, cajones } : p))
-    );
-
-    try {
-      await callAPI(
-        `/plants/${plantId}/cajones`,
-        'PUT',
-        {
-          cajones: cajones.map((c, index) => ({
-            id: c.id,
-            name: c.name,
-            material: c.material,
-            procedencia: c.procedencia,
-            ancho: c.ancho ?? 0,
-            alto: c.alto ?? 0,
-            sort_order: index,
-            is_active: true,
-          })),
-        },
-        accessToken || undefined
-      );
-    } catch (e) {
-      console.error('❌ [AuthContext] Error persisting cajones update:', e);
-      throw e;
-    }
-  };
-
   const refreshPlants = async () => {
     if (!accessToken) return;
 
@@ -509,10 +478,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         selectPlant,
         clearSelectedPlant,
-        updatePlant,
-        createPlant,
-        togglePlantStatus,
-    savePlantCajones,
+    updatePlant,
+    createPlant,
+    togglePlantStatus,
     refreshPlants,
     dismissMigrationMessage,
     refreshUser,

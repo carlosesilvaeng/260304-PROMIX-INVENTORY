@@ -56,9 +56,20 @@ const SECTION_COLORS: Record<string, string> = {
   'Diesel':     'bg-orange-100 text-orange-800',
   'Productos': 'bg-green-100 text-green-800',
   'Aceites y Productos': 'bg-green-100 text-green-800',
+  'Caja Chica': 'bg-pink-100 text-pink-800',
   'Utilidades': 'bg-cyan-100 text-cyan-800',
   'Petty Cash': 'bg-pink-100 text-pink-800',
 };
+
+function normalizePhotoSection(section: string): string {
+  const normalized = String(section || '').trim().toLowerCase();
+
+  if (normalized === 'productos') return 'Aceites y Productos';
+  if (normalized === 'caja chica') return 'Petty Cash';
+  if (normalized === 'petty cash') return 'Petty Cash';
+
+  return section;
+}
 
 interface PhotoRecord {
   id: string;
@@ -125,7 +136,10 @@ export function PhotosReport() {
       );
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Error al cargar fotos');
-      setPhotos(json.data || []);
+      setPhotos((json.data || []).map((photo: PhotoRecord) => ({
+        ...photo,
+        section: normalizePhotoSection(photo.section),
+      })));
     } catch (err: any) {
       setError(err.message);
     } finally {

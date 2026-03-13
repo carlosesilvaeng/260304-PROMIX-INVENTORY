@@ -279,6 +279,7 @@ const translations = {
     'review.reject': 'Rechazar',
     'review.createdBy': 'Llenado por',
     'review.approvedBy': 'Aprobado por',
+    'review.pendingApproval': 'Pendiente de aprobación',
     'review.canSubmit': 'Puedes enviar a aprobación',
     'review.cannotSubmit': 'Corrige los errores antes de enviar',
     
