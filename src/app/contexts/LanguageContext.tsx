@@ -55,6 +55,9 @@ const translations = {
     'sidebar.reports': 'Reportes',
     'sidebar.settings': 'Configuración',
     'sidebar.documentation': 'Documentación',
+    'sidebar.photosReport': 'Reporte de Fotos',
+    'sidebar.databaseSetup': 'Base de Datos',
+    'sidebar.connectionTest': 'Prueba de Conexión',
     'sidebar.tools': 'Herramientas',
     
     // TopBar
@@ -380,6 +383,9 @@ const translations = {
     'sidebar.reports': 'Reports',
     'sidebar.settings': 'Settings',
     'sidebar.documentation': 'Documentation',
+    'sidebar.photosReport': 'Photos Report',
+    'sidebar.databaseSetup': 'Database Setup',
+    'sidebar.connectionTest': 'Connection Test',
     'sidebar.tools': 'Tools',
     
     // TopBar

@@ -138,16 +138,16 @@ function AppContent() {
   };
 
   const mobileNavItems = isPlantManager
-    ? [
+      ? [
         { id: 'dashboard', icon: '📊', label: 'Inicio' },
         { id: 'inventory', icon: '📝', label: 'Inventario' },
         { id: 'reports', icon: '📈', label: 'Reportes' },
-        { id: 'settings', icon: '⚙️', label: 'Configuracion' },
+        { id: 'settings', icon: '⚙️', label: 'Configuración' },
       ]
     : [
         { id: 'dashboard', icon: '📊', label: 'Inicio' },
         { id: 'reports', icon: '📈', label: 'Reportes' },
-        { id: 'settings', icon: '⚙️', label: 'Configuracion' },
+        { id: 'settings', icon: '⚙️', label: 'Configuración' },
       ];
 
   useEffect(() => {

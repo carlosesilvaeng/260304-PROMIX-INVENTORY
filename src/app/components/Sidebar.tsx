@@ -25,14 +25,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
   // Reporte de Fotos — admin + super_admin
   if (user?.role === 'admin' || user?.role === 'super_admin') {
-    mainMenuItems.push({ id: 'photos-report', label: 'Reporte de Fotos', icon: '🖼️' });
+    mainMenuItems.push({ id: 'photos-report', label: t('sidebar.photosReport'), icon: '🖼️' });
   }
 
   // Herramientas solo para super_admin
   if (user?.role === 'super_admin') {
     toolsMenuItems.push({ id: 'documentation', label: t('sidebar.documentation'), icon: '📄' });
-    toolsMenuItems.push({ id: 'database-setup', label: 'Database Setup', icon: '🔧' });
-    toolsMenuItems.push({ id: 'connection-test', label: 'Connection Test', icon: '🔍' });
+    toolsMenuItems.push({ id: 'database-setup', label: t('sidebar.databaseSetup'), icon: '🔧' });
+    toolsMenuItems.push({ id: 'connection-test', label: t('sidebar.connectionTest'), icon: '🔍' });
   }
 
   return (

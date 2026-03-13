@@ -307,16 +307,16 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                 {user?.role === 'super_admin' ? 'Super Administrador' : 'Administrador'} - Acceso Global
               </p>
               <p className="text-[#5F6773] text-sm max-w-lg mx-auto">
-                Estás en la pantalla de inicio del sistema. Usa el menu lateral para acceder a las funciones operativas.
+                Estás en la pantalla de inicio del sistema. Usa el menú lateral para acceder a las funciones operativas.
               </p>
               {user?.role === 'super_admin' && (
                 <p className="text-[#5F6773] text-sm max-w-lg mx-auto mt-2">
-                  Como super administrador, tambien tienes acceso a modulos y herramientas tecnicas.
+                  Como super administrador, también tienes acceso a módulos y herramientas técnicas.
                 </p>
               )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto mt-8">
               <button
                 onClick={() => onNavigate('settings')}
                 className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
@@ -343,18 +343,48 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                 <h3 className="font-semibold text-[#3B3A36] mb-1">Reporte de Fotos</h3>
                 <p className="text-sm text-[#5F6773]">Ver todas las fotos capturadas en inventarios</p>
               </button>
-
-              {user?.role === 'super_admin' && (
-                <button
-                  onClick={() => onNavigate('database-setup')}
-                  className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
-                >
-                  <div className="text-3xl mb-2">🗄️</div>
-                  <h3 className="font-semibold text-[#3B3A36] mb-1">Base de Datos</h3>
-                  <p className="text-sm text-[#5F6773]">Configurar datos iniciales del sistema</p>
-                </button>
-              )}
             </div>
+
+            {user?.role === 'super_admin' && (
+              <div className="max-w-5xl mx-auto mt-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-px flex-1 bg-[#D4D2CF]" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5F6773]">
+                    Herramientas
+                  </p>
+                  <div className="h-px flex-1 bg-[#D4D2CF]" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <button
+                    onClick={() => onNavigate('documentation')}
+                    className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">📄</div>
+                    <h3 className="font-semibold text-[#3B3A36] mb-1">Documentación</h3>
+                    <p className="text-sm text-[#5F6773]">Consultar documentación interna y operativa</p>
+                  </button>
+
+                  <button
+                    onClick={() => onNavigate('database-setup')}
+                    className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">🗄️</div>
+                    <h3 className="font-semibold text-[#3B3A36] mb-1">Base de Datos</h3>
+                    <p className="text-sm text-[#5F6773]">Configurar tablas y datos iniciales del sistema</p>
+                  </button>
+
+                  <button
+                    onClick={() => onNavigate('connection-test')}
+                    className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">🔍</div>
+                    <h3 className="font-semibold text-[#3B3A36] mb-1">Prueba de Conexión</h3>
+                    <p className="text-sm text-[#5F6773]">Validar conectividad y configuración técnica</p>
+                  </button>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
