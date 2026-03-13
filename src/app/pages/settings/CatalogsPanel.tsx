@@ -1,7 +1,7 @@
 /**
  * CatalogsPanel
  * Admin panel to manage standardized catalogs:
- * - Materiales (materials for cajones) — includes nombre + clase
+ * - Materiales (materials for aggregates) — includes nombre + clase
  * - Procedencias (source/origin of materials) — nombre only
  */
 
@@ -329,8 +329,8 @@ export function CatalogsPanel() {
       <div>
         <h3 className="text-lg text-[#3B3A36]">Catálogos</h3>
         <p className="text-[#5F6773] text-sm mt-1">
-          Administra los valores estandarizados para Materiales y Procedencias de cajones.
-          Estos valores aparecerán como opciones en la configuración de cajones de cada planta.
+          Administra los valores estandarizados para Materiales y Procedencias de agregados.
+          Estos valores sirven como referencia para la configuración de agregados de cada planta.
         </p>
       </div>
 

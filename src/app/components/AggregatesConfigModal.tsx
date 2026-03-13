@@ -201,7 +201,7 @@ export function AggregatesConfigModal({
             Configuracion de Agregados - {plant.name}
           </h3>
           <p className="mt-1 text-sm text-[#5F6773]">
-            Define por planta si cada agregado se mide por cajon o por cono. El gerente solo captura usando el metodo configurado aqui.
+            Esta es la configuracion principal de agregados por planta. El gerente solo captura usando el metodo definido aqui.
           </p>
         </div>
 
@@ -221,7 +221,8 @@ export function AggregatesConfigModal({
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
                   <li>Si eliges <strong>Cajon</strong>, el gerente solo ingresara el largo y el sistema usara ancho y alto fijos.</li>
                   <li>Si eliges <strong>Cono</strong>, el gerente ingresara M1 a M6 y D1 a D2 en la captura.</li>
-                  <li>Si la planta aun no tiene agregados configurados, se precargan desde los cajones existentes para facilitar la migracion.</li>
+                  <li>Si la planta aun no tiene agregados configurados, se precargan aqui desde la configuracion anterior para facilitar la migracion inicial.</li>
+                  <li>Despues de guardar en esta pantalla, los agregados de la planta se administran unicamente aqui.</li>
                 </ul>
               </div>
 

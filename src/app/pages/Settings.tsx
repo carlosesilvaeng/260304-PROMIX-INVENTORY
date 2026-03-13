@@ -12,24 +12,21 @@ import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
 import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
-import { CajonesConfigModal } from '../components/CajonesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
 import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
 import { DieselConfigModal } from '../components/DieselConfigModal';
 import { ProductsConfigModal } from '../components/ProductsConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
-import { getMateriales, getProcedencias } from '../utils/api';
-import type { Plant, CajonConfig } from '../contexts/AuthContext';
+import type { Plant } from '../contexts/AuthContext';
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
 const BUILD_VERSION = '2603050601';
 
 export function Settings() {
-  const { user, allPlants, togglePlantStatus, updatePlant, createPlant, savePlantCajones, refreshPlants } = useAuth();
+  const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
-  const [editingCajones, setEditingCajones] = useState<{ plant: Plant } | null>(null);
   const [editingAggregates, setEditingAggregates] = useState<Plant | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
@@ -41,22 +38,7 @@ export function Settings() {
   const [newPlantName, setNewPlantName] = useState('');
   const [newPlantCode, setNewPlantCode] = useState('');
   const [newPlantLocation, setNewPlantLocation] = useState('');
-
-  // Catalog options for CajonesConfigModal dropdowns
-  const [catalogMateriales, setCatalogMateriales] = useState<string[]>([]);
-  const [catalogProcedencias, setCatalogProcedencias] = useState<string[]>([]);
   const canManageSettings = user?.role === 'admin' || user?.role === 'super_admin';
-
-  useEffect(() => {
-    if (!canManageSettings) return;
-
-    getMateriales().then(r => {
-      if (r.success) setCatalogMateriales((r.data || []).map((m: any) => m.nombre));
-    });
-    getProcedencias().then(r => {
-      if (r.success) setCatalogProcedencias((r.data || []).map((p: any) => p.nombre));
-    });
-  }, [canManageSettings]);
 
   useEffect(() => {
     if (user && !canManageSettings) {
@@ -67,17 +49,6 @@ export function Settings() {
   const handleSave = () => {
     setShowSaveSuccess(true);
     setTimeout(() => setShowSaveSuccess(false), 3000);
-  };
-
-  const handleSaveCajones = (cajones: CajonConfig[]) => {
-    if (editingCajones) {
-      savePlantCajones(editingCajones.plant.id, cajones)
-        .then(() => handleSave())
-        .catch((error) => {
-          console.error('❌ Error guardando cajones:', error);
-          window.alert(error?.message || 'No se pudo guardar la configuración de cajones.');
-        });
-    }
   };
 
   const handleTogglePlantStatus = (plant: Plant) => {
@@ -256,7 +227,6 @@ export function Settings() {
                   <th className="px-6 py-3 text-left">Nombre</th>
                   <th className="px-6 py-3 text-left">Código</th>
                   <th className="px-6 py-3 text-center">Silos</th>
-                  <th className="px-6 py-3 text-center">Cajones</th>
                   <th className="px-6 py-3 text-center">Estado</th>
                   <th className="px-6 py-3 text-center">Acciones</th>
                 </tr>
@@ -268,11 +238,6 @@ export function Settings() {
                     <td className="px-6 py-4 text-[#5F6773]">{plant.code}</td>
                     <td className="px-6 py-4 text-center text-[#3B3A36]">
                       {plant.silos.length}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-[#3B3A36]">
-                        {plant.cajones?.length || 0}
-                      </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button
@@ -301,13 +266,6 @@ export function Settings() {
                           onClick={() => setEditingAggregates(plant)}
                         >
                           📐 Agregados
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingCajones({ plant })}
-                        >
-                          📦 Cajones
                         </Button>
                         <Button
                           variant="ghost"
@@ -419,18 +377,6 @@ export function Settings() {
         />
       )}
 
-      {/* Cajones Config Modal */}
-      {editingCajones && (
-        <CajonesConfigModal
-          plantName={editingCajones.plant.name}
-          cajones={editingCajones.plant.cajones || []}
-          materiales={catalogMateriales}
-          procedencias={catalogProcedencias}
-          onSave={handleSaveCajones}
-          onClose={() => setEditingCajones(null)}
-        />
-      )}
-
       {/* Silos Config Modal */}
       {editingSilos && (
         <SilosConfigModal
@@ -530,27 +476,6 @@ export function Settings() {
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Cajones */}
-              <div>
-                <h4 className="text-sm font-semibold text-[#3B3A36] mb-3">
-                  Cajones ({viewingPlantDetails.cajones?.length || 0})
-                </h4>
-                {viewingPlantDetails.cajones && viewingPlantDetails.cajones.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {viewingPlantDetails.cajones.map((cajon) => (
-                      <div key={cajon.id} className="p-3 border border-[#E4E4E4] rounded-lg bg-[#F2F3F5]">
-                        <div className="font-medium text-[#3B3A36]">{cajon.name}</div>
-                        <div className="text-sm text-[#5F6773] mt-1">
-                          {cajon.material}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-[#9D9B9A]">No hay cajones configurados</p>
-                )}
               </div>
 
               {/* Ubicación completa */}

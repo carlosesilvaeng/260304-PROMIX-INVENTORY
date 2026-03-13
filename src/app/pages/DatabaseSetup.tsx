@@ -396,7 +396,7 @@ export function DatabaseSetup() {
                   Paso 2: Configurar Datos Reales
                 </h3>
                 <p className="text-sm text-[#6F767E] mb-3">
-                  Registra usuarios, plantas, cajones, silos, catálogos y demás configuraciones
+                  Registra usuarios, plantas, agregados, silos, catálogos y demás configuraciones
                   desde las pantallas administrativas. Ya no se cargan datos semilla automáticos.
                 </p>
               </div>

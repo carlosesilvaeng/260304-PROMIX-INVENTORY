@@ -25,6 +25,17 @@ export function PlantSelection() {
     return t('role.plantManager');
   };
 
+  const getAggregatesMethodsLabel = (plant: typeof allPlants[number]) => {
+    const methods: string[] = [];
+
+    if (plant.methods?.hasCajonMeasurement) methods.push('Cajon');
+    if (plant.methods?.hasConeMeasurement) methods.push('Cono');
+
+    if (methods.length === 0) return 'Pendiente de configurar';
+    if (methods.length === 1) return methods[0];
+    return methods.join(' y ');
+  };
+
   return (
     <div className="min-h-screen bg-[#F2F3F5]">
       {/* Header */}
@@ -140,13 +151,13 @@ export function PlantSelection() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M6 7v10h12V7M9 11h6M9 14h6" />
                       </svg>
-                      <span>{plant.cajones?.length || 0} cajones preconfigurados</span>
+                      <span>Agregados configurados por planta</span>
                     </div>
                     <div className="flex items-center gap-2 text-[#5F6773]">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l8 18H4L12 3z" />
                       </svg>
-                      <span>{plant.conesCount || 0} conos preconfigurados</span>
+                      <span>Metodos: {getAggregatesMethodsLabel(plant)}</span>
                     </div>
                   </div>
 

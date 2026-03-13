@@ -69,7 +69,7 @@ export function Documentation() {
             Plantas PROMIX
           </h2>
           <p className="text-[#3B3A36] leading-relaxed">
-            La información de plantas, códigos, ubicaciones, silos, cajones y caja menor se toma de la
+            La información de plantas, códigos, ubicaciones, silos, agregados y caja menor se toma de la
             configuración activa del sistema. Esta documentación no incluye ejemplos fijos para evitar
             confusión con datos reales de operación.
           </p>
