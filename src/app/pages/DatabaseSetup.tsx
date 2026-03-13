@@ -329,7 +329,7 @@ export function DatabaseSetup() {
             
             <div className="space-y-4 text-sm text-red-900">
               <p className="font-semibold text-base">
-                ¿Ves errores como "Could not find the 'box_height_ft' column" o "Could not find the 'location_area' column"?
+                ¿Ves errores por columnas faltantes de agregados, como "Could not find the 'box_height_ft' column" o "Could not find the 'location_area' column"?
               </p>
               
               <p className="bg-white p-3 rounded border border-red-300">

@@ -127,8 +127,8 @@ export function Documentation() {
               <div>
                 <h3 className="font-bold text-[#3B3A36]">1. Agregados</h3>
                 <p className="text-sm text-[#5F6773]">
-                  Medición de Arena, Piedra y Gravilla con métodos Cajón y Cono. Incluye cálculos 
-                  automáticos de volúmenes y fotografías obligatorias.
+                  Medición de arena, piedra y gravilla con métodos Cajón y Cono según la configuración
+                  de cada planta. Incluye procedencia, cálculos automáticos de volumen y fotografías obligatorias.
                 </p>
               </div>
             </div>
