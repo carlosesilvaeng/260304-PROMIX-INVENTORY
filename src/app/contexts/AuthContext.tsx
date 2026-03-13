@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { UserRole } from '../utils/permissions';
 
 // DIAGNOSTIC LOG - Verificar que se carguen los valores correctos
 console.log('🔍 [AuthContext] Supabase Config Loaded:');
@@ -17,7 +18,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: UserRole;
   assigned_plants: string[]; // IDs de plantas asignadas
   is_active: boolean;
   auth_user_id?: string;
@@ -32,6 +33,7 @@ const normalizeUser = (rawUser: any): User => {
 
   if (normalizedRole === 'super_admin') role = 'super_admin';
   else if (normalizedRole === 'admin') role = 'admin';
+  else if (normalizedRole === 'operations_manager') role = 'operations_manager';
 
   return {
     ...rawUser,

@@ -4,6 +4,7 @@ import { Card } from '../components/Card';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
+import { getRoleLabelKey, hasGlobalPlantAccess } from '../utils/permissions';
 
 export function PlantSelection() {
   const { user, allPlants, selectPlant, logout } = useAuth();
@@ -11,18 +12,14 @@ export function PlantSelection() {
 
   // Filtrar plantas según usuario
   const availablePlants = allPlants.filter(plant => {
-    // Super admin ve todas las plantas activas
-    if (user?.role === 'super_admin') {
+    if (hasGlobalPlantAccess(user?.role)) {
       return plant.isActive;
     }
-    // Otros usuarios solo ven plantas asignadas y activas
     return plant.isActive && user?.assigned_plants?.includes(plant.id);
   });
 
   const getRoleLabel = (role: string) => {
-    if (role === 'super_admin') return t('role.superAdmin');
-    if (role === 'admin') return t('role.admin');
-    return t('role.plantManager');
+    return t(getRoleLabelKey(role));
   };
 
   const getAggregatesMethodsLabel = (plant: typeof allPlants[number]) => {

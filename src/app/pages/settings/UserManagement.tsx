@@ -7,6 +7,7 @@ import { Alert } from '../../components/Alert';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { UserPlus, Edit2, Trash2, X, AlertCircle, KeyRound } from 'lucide-react';
+import { canDeleteUsers, canManagePlantManagers, UserRole } from '../../utils/permissions';
 
 // ============================================================================
 // TYPES
@@ -16,7 +17,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: UserRole;
   assigned_plants: string[];
   is_active: boolean;
   auth_user_id?: string;
@@ -29,13 +30,13 @@ interface CreateUserFormData {
   name: string;
   email: string;
   password: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: UserRole;
   assigned_plants: string[];
 }
 
 interface EditUserFormData {
   name: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: UserRole;
   assigned_plants: string[];
   is_active: boolean;
 }
@@ -105,6 +106,8 @@ async function callAPI(endpoint: string, method: string = 'GET', body?: any, tok
 
 export function UserManagement() {
   const { user: currentUser, accessToken, allPlants } = useAuth();
+  const canManageUsers = canManagePlantManagers(currentUser?.role);
+  const canDeleteUserAccounts = canDeleteUsers(currentUser?.role);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -186,8 +189,9 @@ export function UserManagement() {
   };
 
   useEffect(() => {
+    if (!canManageUsers) return;
     loadUsers();
-  }, [currentUser, accessToken]);
+  }, [currentUser, accessToken, canManageUsers]);
 
   // ============================================================================
   // CREATE USER
@@ -270,6 +274,7 @@ export function UserManagement() {
   // ============================================================================
 
   const handleOpenDelete = (user: User) => {
+    if (!canDeleteUserAccounts) return;
     setSelectedUser(user);
     setShowDeleteConfirm(true);
   };
@@ -419,6 +424,8 @@ export function UserManagement() {
         return 'bg-purple-100 text-purple-700 border border-purple-300';
       case 'admin':
         return 'bg-blue-100 text-blue-700 border border-blue-300';
+      case 'operations_manager':
+        return 'bg-orange-100 text-orange-700 border border-orange-300';
       case 'plant_manager':
         return 'bg-green-100 text-green-700 border border-green-300';
       default:
@@ -432,6 +439,8 @@ export function UserManagement() {
         return 'Super Administrador';
       case 'admin':
         return 'Administrador';
+      case 'operations_manager':
+        return 'Gerente de Operaciones';
       case 'plant_manager':
         return 'Gerente de Planta';
       default:
@@ -455,12 +464,12 @@ export function UserManagement() {
   // PERMISSION CHECK
   // ============================================================================
 
-  if (currentUser?.role !== 'super_admin' && currentUser?.role !== 'admin') {
+  if (!canManageUsers) {
     return (
       <div className="p-6">
         <Alert 
           type="warning" 
-          message="Solo Administradores pueden gestionar usuarios" 
+          message="No tienes permisos para gestionar usuarios" 
         />
       </div>
     );
@@ -480,7 +489,9 @@ export function UserManagement() {
             Crear, editar y administrar usuarios operativos del sistema
           </p>
           <p className="text-xs text-[#9D9B9A] mt-1">
-            Solo el Super Administrador puede ver y crear usuarios con rol de Super Administrador.
+            {currentUser?.role === 'operations_manager'
+              ? 'Como Gerente de Operaciones, solo puedes gestionar usuarios con rol de Gerente de Planta.'
+              : 'Solo el Super Administrador puede ver y crear usuarios con rol de Super Administrador.'}
           </p>
         </div>
         <Button 
@@ -610,7 +621,7 @@ export function UserManagement() {
                             onClick={() => handleOpenDelete(user)}
                             className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors"
                             title="Eliminar usuario"
-                            disabled={user.id === currentUser?.id}
+                            disabled={user.id === currentUser?.id || !canDeleteUserAccounts}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -674,8 +685,9 @@ export function UserManagement() {
                 required
               >
                 <option value="plant_manager">Gerente de Planta</option>
-                <option value="admin">Administrador</option>
-                {/* Solo Super Admin puede crear otros Super Admin */}
+                {currentUser?.role !== 'operations_manager' && (
+                  <option value="admin">Administrador</option>
+                )}
                 {currentUser?.role === 'super_admin' && (
                   <option value="super_admin">Super Administrador</option>
                 )}
@@ -771,8 +783,9 @@ export function UserManagement() {
                 required
               >
                 <option value="plant_manager">Gerente de Planta</option>
-                <option value="admin">Administrador</option>
-                {/* Solo Super Admin puede crear otros Super Admin */}
+                {currentUser?.role !== 'operations_manager' && (
+                  <option value="admin">Administrador</option>
+                )}
                 {currentUser?.role === 'super_admin' && (
                   <option value="super_admin">Super Administrador</option>
                 )}

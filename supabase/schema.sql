@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  role TEXT NOT NULL CHECK (role IN ('plant_manager', 'admin', 'super_admin')),
+  role TEXT NOT NULL CHECK (role IN ('plant_manager', 'operations_manager', 'admin', 'super_admin')),
   assigned_plants TEXT[] NOT NULL DEFAULT '{}',
   is_active BOOLEAN NOT NULL DEFAULT true,
   auth_user_id TEXT UNIQUE,

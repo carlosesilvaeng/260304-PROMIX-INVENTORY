@@ -28,6 +28,7 @@ import { ReviewAndApproveSection } from "./pages/sections/ReviewAndApproveSectio
 import { ErrorBoundary } from "./utils/errorBoundary";
 import { UnitsProvider } from "./contexts/UnitsContext";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { isPlantManagerLike } from "./utils/permissions";
 
 // ============================================================================
 // AUTO-CLEANUP: Clear expired tokens on app start
@@ -65,12 +66,12 @@ const APP_KEY = Date.now();
 
 // Build version for tracking - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
 // 26/02/18 20:00 = February 18, 2026 at 8:00 PM
-const BUILD_VERSION = '2603131532';
+const BUILD_VERSION = '2603131705';
 
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
-  const isPlantManager = user?.role === 'plant_manager';
+  const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
   const [currentSection, setCurrentSection] = useState<
@@ -97,7 +98,7 @@ function AppContent() {
   };
 
   const handleViewChange = (view: string) => {
-    const nextView = view === 'inventory' && !isPlantManager ? 'dashboard' : view;
+    const nextView = view === 'inventory' && !isOperationalUser ? 'dashboard' : view;
     setCurrentView(nextView);
     if (view !== 'section') {
       setCurrentSection(null);
@@ -137,7 +138,7 @@ function AppContent() {
     await refreshFirstTimeCheck();
   };
 
-  const mobileNavItems = isPlantManager
+  const mobileNavItems = isOperationalUser
       ? [
         { id: 'dashboard', icon: '📊', label: 'Inicio' },
         { id: 'inventory', icon: '📝', label: 'Inventario' },
@@ -157,11 +158,11 @@ function AppContent() {
   }, [user, currentPlant, clearCurrentInventory]);
 
   useEffect(() => {
-    if (!isPlantManager && currentView === 'inventory') {
+    if (!isOperationalUser && currentView === 'inventory') {
       setCurrentView('dashboard');
       setInventoryContext(null);
     }
-  }, [isPlantManager, currentView]);
+  }, [isOperationalUser, currentView]);
 
   // Show loading screen while verifying session
   if (isLoading) {
@@ -185,9 +186,8 @@ function AppContent() {
     return <Login />;
   }
 
-  // Show plant selection ONLY for Plant Managers (they MUST select a plant)
-  // Admins and Super Admins can access the app without selecting a plant
-  if (!currentPlant && user.role === 'plant_manager') {
+  // Plant-manager-like roles must select a plant before using operational screens
+  if (!currentPlant && isPlantManagerLike(user.role)) {
     return <PlantSelection />;
   }
 

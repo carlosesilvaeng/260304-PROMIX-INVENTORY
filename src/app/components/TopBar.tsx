@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useInventory } from '../contexts/InventoryContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from './Button';
+import { getRoleLabelKey, isPlantManagerLike } from '../utils/permissions';
 
 interface TopBarProps {
   onChangePlant: () => void;
@@ -38,9 +39,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
   };
 
   const getRoleLabel = (role: string) => {
-    if (role === 'super_admin') return t('role.superAdmin');
-    if (role === 'admin') return t('role.admin');
-    return t('role.plantManager');
+    return t(getRoleLabelKey(role));
   };
 
   return (
@@ -90,8 +89,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
             </div>
           )}
           
-          {/* Show "Change Plant" button for Plant Managers or if a plant is selected */}
-          {(user?.role === 'plant_manager' || currentPlant) && (
+          {(isPlantManagerLike(user?.role) || currentPlant) && (
             <Button variant="ghost" size="sm" onClick={onChangePlant} className="self-start px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm">
               {t('topbar.changePlant')}
             </Button>

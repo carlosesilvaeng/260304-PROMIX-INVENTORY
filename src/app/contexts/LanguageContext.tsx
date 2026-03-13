@@ -338,6 +338,7 @@ const translations = {
     // Roles
     'role.superAdmin': 'Super Administrador',
     'role.admin': 'Administrador',
+    'role.operationsManager': 'Gerente de Operaciones',
     'role.plantManager': 'Gerente de Planta',
   },
   en: {
@@ -659,6 +660,7 @@ const translations = {
     // Roles
     'role.superAdmin': 'Super Administrator',
     'role.admin': 'Administrator',
+    'role.operationsManager': 'Operations Manager',
     'role.plantManager': 'Plant Manager',
   },
 };

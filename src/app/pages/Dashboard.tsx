@@ -10,6 +10,7 @@ import { getInventoryMonth, getReports, ReportSummary } from '../utils/api';
 import { getSectionTranslation } from '../utils/sectionTranslations';
 import { validateAllSections } from '../utils/validation';
 import { PromixLogo } from '../components/PromixLogo';
+import { getRoleLabelKey, isPlantManagerLike } from '../utils/permissions';
 
 interface DashboardProps {
   onNavigate: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
@@ -22,7 +23,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const { t, language } = useLanguage();
   const { isModuleEnabled } = useModules();
   const { prefillData, setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
-  const isPlantManager = String(user?.role || '').toLowerCase() === 'plant_manager';
+  const isPlantManager = isPlantManagerLike(user?.role);
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
   const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
   const [startingInventory, setStartingInventory] = React.useState(false);
@@ -76,9 +77,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
 
   const getRoleLabel = React.useCallback(() => {
     if (!user) return '';
-    if (user.role === 'super_admin') return t('role.superAdmin');
-    if (user.role === 'admin') return t('role.admin');
-    return t('role.plantManager');
+    return t(getRoleLabelKey(user.role));
   }, [user, t]);
 
   const openInventoryPeriod = React.useCallback(async (yearMonth: string) => {

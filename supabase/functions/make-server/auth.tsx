@@ -41,7 +41,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: 'plant_manager' | 'operations_manager' | 'admin' | 'super_admin';
   assigned_plants: string[];
   is_active: boolean;
   auth_user_id?: string;
@@ -54,7 +54,7 @@ export interface SignupData {
   name: string;
   email: string;
   password: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: 'plant_manager' | 'operations_manager' | 'admin' | 'super_admin';
   assigned_plants?: string[];
   created_by_id?: string; // ID del Super Admin que lo crea
 }
@@ -98,6 +98,34 @@ export interface ResetUserPasswordResponse {
   error?: string;
   message?: string;
   user?: Pick<User, 'id' | 'name' | 'email' | 'role'>;
+}
+
+type UserRole = User['role'];
+
+const USER_UPDATE_FIELDS = new Set(['name', 'role', 'assigned_plants', 'is_active']);
+
+function isUserManager(role?: UserRole | null): boolean {
+  return role === 'operations_manager' || role === 'admin' || role === 'super_admin';
+}
+
+function canCreateRole(requestingRole: UserRole, targetRole: UserRole): boolean {
+  if (requestingRole === 'super_admin') return true;
+  if (requestingRole === 'admin') return targetRole !== 'super_admin';
+  if (requestingRole === 'operations_manager') return targetRole === 'plant_manager';
+  return false;
+}
+
+function canManageTargetRole(requestingRole: UserRole, targetRole: UserRole): boolean {
+  if (requestingRole === 'super_admin') return true;
+  if (requestingRole === 'admin') return targetRole !== 'super_admin';
+  if (requestingRole === 'operations_manager') return targetRole === 'plant_manager';
+  return false;
+}
+
+function sanitizeUserUpdates(updates: Partial<User>): Partial<User> {
+  return Object.fromEntries(
+    Object.entries(updates).filter(([key]) => USER_UPDATE_FIELDS.has(key))
+  ) as Partial<User>;
 }
 
 // ============================================================================
@@ -226,11 +254,25 @@ export async function login({ email, password }: LoginRequest): Promise<LoginRes
 // SIGNUP - Create new user
 // ============================================================================
 
-export async function signup(data: SignupData): Promise<AuthResult> {
+export async function signup(data: SignupData, requestingUserId: string): Promise<AuthResult> {
   console.log('👤 [signup] Creating user:', data.email);
   
   try {
     const supabase = getSupabaseClient();
+
+    const { data: requestingUser, error: requestingUserError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', requestingUserId)
+      .single();
+
+    if (requestingUserError || !requestingUser || !isUserManager(requestingUser.role as UserRole)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!canCreateRole(requestingUser.role as UserRole, data.role)) {
+      return { success: false, error: 'No tienes permisos para crear usuarios con ese rol' };
+    }
     
     // Check if user already exists
     const { data: existingUser } = await supabase
@@ -306,7 +348,9 @@ export async function getAllUsers(requestingUserId: string): Promise<{ success: 
       .eq('id', requestingUserId)
       .single();
     
-    if (!requestingUser || (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin')) {
+    const requestingRole = requestingUser?.role as UserRole | undefined;
+
+    if (!requestingUser || !isUserManager(requestingRole)) {
       return { success: false, error: 'Unauthorized' };
     }
     
@@ -320,7 +364,13 @@ export async function getAllUsers(requestingUserId: string): Promise<{ success: 
       return { success: false, error: error.message };
     }
     
-    return { success: true, users: users as User[] };
+    let visibleUsers = users as User[];
+
+    if (requestingRole === 'operations_manager') {
+      visibleUsers = visibleUsers.filter((user) => user.role === 'plant_manager');
+    }
+
+    return { success: true, users: visibleUsers };
     
   } catch (error) {
     return { success: false, error: error.message };
@@ -346,15 +396,47 @@ export async function updateUser(
       .eq('id', requestingUserId)
       .single();
     
-    if (!requestingUser || (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin')) {
+    const requestingRole = requestingUser?.role as UserRole | undefined;
+
+    if (!requestingUser || !isUserManager(requestingRole)) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    const { data: targetUser, error: targetUserError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', userId)
+      .single();
+
+    if (targetUserError || !targetUser) {
+      return { success: false, error: 'Usuario no encontrado' };
+    }
+
+    if (!canManageTargetRole(requestingRole, targetUser.role as UserRole)) {
+      return { success: false, error: 'No tienes permisos para modificar este usuario' };
+    }
+
+    const sanitizedUpdates = sanitizeUserUpdates(updates);
+
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return { success: false, error: 'No hay cambios permitidos para actualizar' };
+    }
+
+    if ('role' in sanitizedUpdates) {
+      const nextRole = sanitizedUpdates.role as UserRole;
+      if (!canCreateRole(requestingRole, nextRole)) {
+        return { success: false, error: 'No tienes permisos para asignar ese rol' };
+      }
+      if (requestingRole === 'operations_manager' && nextRole !== 'plant_manager') {
+        return { success: false, error: 'El Gerente de Operaciones solo puede mantener usuarios como Gerente de Planta' };
+      }
     }
     
     // Update user
     const { data: updatedUser, error } = await supabase
       .from('users')
       .update({
-        ...updates,
+        ...sanitizedUpdates,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId)
@@ -390,19 +472,25 @@ export async function deleteUser(
       .eq('id', requestingUserId)
       .single();
     
-    if (!requestingUser || (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin')) {
+    const requestingRole = requestingUser?.role as UserRole | undefined;
+
+    if (!requestingUser || !['admin', 'super_admin'].includes(String(requestingRole))) {
       return { success: false, error: 'Unauthorized' };
     }
     
     // Get user to delete
     const { data: userToDelete } = await supabase
       .from('users')
-      .select('auth_user_id')
+      .select('auth_user_id, role')
       .eq('id', userId)
       .single();
     
     if (!userToDelete) {
       return { success: false, error: 'User not found' };
+    }
+
+    if (!canManageTargetRole(requestingRole, userToDelete.role as UserRole)) {
+      return { success: false, error: 'No tienes permisos para eliminar este usuario' };
     }
     
     // Delete from our table
@@ -516,7 +604,7 @@ export async function resetUserPassword(
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (requestingUser.role !== 'admin' && requestingUser.role !== 'super_admin') {
+    if (!isUserManager(requestingUser.role as UserRole)) {
       return { success: false, error: 'Unauthorized' };
     }
 
@@ -534,8 +622,11 @@ export async function resetUserPassword(
       return { success: false, error: 'El usuario no tiene una cuenta de autenticación vinculada' };
     }
 
-    if (targetUser.role === 'super_admin' && requestingUser.role !== 'super_admin') {
-      return { success: false, error: 'Solo el Super Administrador puede resetear la contraseña de otro Super Administrador' };
+    if (!canManageTargetRole(requestingUser.role as UserRole, targetUser.role as UserRole)) {
+      if (targetUser.role === 'super_admin') {
+        return { success: false, error: 'Solo el Super Administrador puede resetear la contraseña de otro Super Administrador' };
+      }
+      return { success: false, error: 'No tienes permisos para resetear la contraseña de este usuario' };
     }
 
     const { error: updateAuthError } = await supabase.auth.admin.updateUserById(targetUser.auth_user_id, {

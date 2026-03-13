@@ -19,10 +19,11 @@ import { DieselConfigModal } from '../components/DieselConfigModal';
 import { ProductsConfigModal } from '../components/ProductsConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import type { Plant } from '../contexts/AuthContext';
+import { canAccessAudit, canManageModules, canManagePlantConfiguration, canManagePlantManagers } from '../utils/permissions';
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/02/18 20:00 = Feb 18, 2026 8:00 PM
-const BUILD_VERSION = '2603131532';
+const BUILD_VERSION = '2603131705';
 
 interface PlantModuleCounts {
   aggregates: number;
@@ -71,13 +72,31 @@ export function Settings() {
   const [newPlantCode, setNewPlantCode] = useState('');
   const [newPlantLocation, setNewPlantLocation] = useState('');
   const [plantModuleCounts, setPlantModuleCounts] = useState<Record<string, PlantModuleCounts>>({});
-  const canManageSettings = user?.role === 'admin' || user?.role === 'super_admin';
+  const canManageUsers = canManagePlantManagers(user?.role);
+  const canManagePlants = canManagePlantConfiguration(user?.role);
+  const canViewAudit = canAccessAudit(user?.role);
+  const canManageSystemModules = canManageModules(user?.role);
+  const hasManagementTabs = canManageUsers || canManagePlants || canViewAudit || canManageSystemModules;
 
   useEffect(() => {
-    if (user && !canManageSettings) {
+    if (!user) return;
+
+    const allowedTabs = new Set<typeof activeTab>(['account']);
+    if (canManageUsers) allowedTabs.add('users');
+    if (canManagePlants) {
+      allowedTabs.add('plants');
+      allowedTabs.add('catalogs');
+      allowedTabs.add('units');
+    }
+    if (canViewAudit) allowedTabs.add('audit');
+    if (canManageSystemModules) allowedTabs.add('modules');
+
+    if (!allowedTabs.has(activeTab)) {
+      setActiveTab(canManageUsers ? 'users' : 'account');
+    } else if (!hasManagementTabs) {
       setActiveTab('account');
     }
-  }, [user, canManageSettings]);
+  }, [user, activeTab, canManageUsers, canManagePlants, canViewAudit, canManageSystemModules, hasManagementTabs]);
 
   const handleSave = () => {
     setShowSaveSuccess(true);
@@ -134,9 +153,9 @@ export function Settings() {
   };
 
   useEffect(() => {
-    if (!canManageSettings || activeTab !== 'plants') return;
+    if (!canManagePlants || activeTab !== 'plants') return;
     loadPlantModuleCounts(allPlants);
-  }, [activeTab, allPlants, canManageSettings]);
+  }, [activeTab, allPlants, canManagePlants]);
 
   const getCountsForPlant = (plant: Plant) => {
     return plantModuleCounts[plant.id] || {
@@ -240,7 +259,7 @@ export function Settings() {
       {/* Tabs */}
       <div className="border-b border-[#9D9B9A]">
         <div className="flex gap-4">
-          {canManageSettings && (
+          {canManagePlants && (
             <>
               <button
                 onClick={() => setActiveTab('plants')}
@@ -251,16 +270,6 @@ export function Settings() {
                 }`}
               >
                 Plantas
-              </button>
-              <button
-                onClick={() => setActiveTab('users')}
-                className={`px-4 py-2 border-b-2 transition-colors ${
-                  activeTab === 'users'
-                    ? 'border-[#2475C7] text-[#2475C7]'
-                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-                }`}
-              >
-                Usuarios
               </button>
               <button
                 onClick={() => setActiveTab('audit')}
@@ -294,7 +303,19 @@ export function Settings() {
               </button>
             </>
           )}
-          {canManageSettings && user?.role === 'super_admin' && (
+          {canManageUsers && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-4 py-2 border-b-2 transition-colors ${
+                activeTab === 'users'
+                  ? 'border-[#2475C7] text-[#2475C7]'
+                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+              }`}
+            >
+              Usuarios
+            </button>
+          )}
+          {canManageSystemModules && (
             <button
               onClick={() => setActiveTab('modules')}
               className={`px-4 py-2 border-b-2 transition-colors ${
@@ -320,7 +341,7 @@ export function Settings() {
         </div>
       </div>
 
-      {!canManageSettings && (
+      {!hasManagementTabs && (
         <Alert
           type="warning"
           message="Acceso limitado: como Gerente solo puedes administrar Mi Cuenta y cambiar tu contraseña."
@@ -328,7 +349,7 @@ export function Settings() {
       )}
 
       {/* Plants Tab */}
-      {canManageSettings && activeTab === 'plants' && (
+      {canManagePlants && activeTab === 'plants' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
@@ -430,17 +451,17 @@ export function Settings() {
       )}
 
       {/* Users Tab */}
-      {canManageSettings && activeTab === 'users' && (
+      {canManageUsers && activeTab === 'users' && (
         <UserManagement />
       )}
 
       {/* Audit Tab */}
-      {canManageSettings && activeTab === 'audit' && (
+      {canViewAudit && activeTab === 'audit' && (
         <AuditPanel />
       )}
       
       {/* Modules Tab */}
-      {canManageSettings && activeTab === 'modules' && (
+      {canManageSystemModules && activeTab === 'modules' && (
         <div className="space-y-4">
           <ModuleManagementPanel />
         </div>
@@ -468,12 +489,12 @@ export function Settings() {
       )}
       
       {/* Catalogs Tab */}
-      {canManageSettings && activeTab === 'catalogs' && (
+      {canManagePlants && activeTab === 'catalogs' && (
         <CatalogsPanel />
       )}
 
       {/* Units Tab */}
-      {canManageSettings && activeTab === 'units' && (
+      {canManagePlants && activeTab === 'units' && (
         <UnitsPanel />
       )}
 

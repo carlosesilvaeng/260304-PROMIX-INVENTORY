@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/Card';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { UserRole } from '../../utils/permissions';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
@@ -48,7 +49,7 @@ interface AuditUser {
   id: string;
   name: string;
   email: string;
-  role: 'plant_manager' | 'admin' | 'super_admin';
+  role: UserRole;
   is_active: boolean;
 }
 

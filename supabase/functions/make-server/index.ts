@@ -11,7 +11,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603131532';
+const BUILD_VERSION = '2603131705';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -95,8 +95,37 @@ async function requireAdmin(c: any, next: any) {
   await next();
 }
 
+async function requireUserManagement(c: any, next: any) {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  const token = authHeader.slice(7);
+  const { user, error } = await auth.verifyToken(token);
+  if (!user || error) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  if (!canManagePlantManagers(user)) {
+    return c.json({ success: false, error: 'Forbidden: User management access required' }, 403);
+  }
+  c.set('user', user);
+  await next();
+}
+
+function isPlantManagerLike(user: any): boolean {
+  return user?.role === 'plant_manager' || user?.role === 'operations_manager';
+}
+
+function canAccessAllPlants(user: any): boolean {
+  return user?.role === 'operations_manager' || user?.role === 'admin' || user?.role === 'super_admin';
+}
+
+function canManagePlantManagers(user: any): boolean {
+  return user?.role === 'operations_manager' || user?.role === 'admin' || user?.role === 'super_admin';
+}
+
 function checkPlantAccess(user: any, plantId: string): boolean {
-  if (user.role === 'admin' || user.role === 'super_admin') return true;
+  if (canAccessAllPlants(user)) return true;
   return (user.assigned_plants as string[])?.includes(plantId) ?? false;
 }
 
@@ -212,14 +241,33 @@ app.get("/make-server/debug/env", (c) => {
 // AUTHENTICATION ENDPOINTS
 // ============================================================================
 
-// Signup - Create new user (Admin / Super Admin only)
-app.post("/make-server/auth/signup", requireAdmin, async (c) => {
+// Signup - Create new user (Operations / Admin / Super Admin with role restrictions)
+app.post("/make-server/auth/signup", requireUserManagement, async (c) => {
   try {
     const body = await c.req.json();
-    const result = await auth.signup(body);
+    const requestingUser = c.get('user');
+    const result = await auth.signup(body, requestingUser.id);
     
     if (!result.success) {
-      return c.json(result, 400);
+      const status = result.error === 'Unauthorized' || result.error?.startsWith('No tienes permisos')
+        ? 403
+        : 400;
+      return c.json(result, status);
+    }
+
+    if (result.user) {
+      logAudit(db.getSupabaseClient(), {
+        user_email: requestingUser.email,
+        user_name: requestingUser.name,
+        user_id: requestingUser.id,
+        action: 'USER_CREATED',
+        plant_id: null,
+        details: {
+          target_user_id: result.user.id,
+          target_user_email: result.user.email,
+          target_user_role: result.user.role,
+        },
+      });
     }
     
     return c.json(result);
@@ -281,8 +329,8 @@ app.post("/make-server/auth/change-password", async (c) => {
   }
 });
 
-// Reset Password - Administrador resetea la contraseña de otro usuario
-app.post("/make-server/auth/users/:userId/reset-password", requireAdmin, async (c) => {
+// Reset Password - Usuario autorizado resetea la contraseña de otro usuario
+app.post("/make-server/auth/users/:userId/reset-password", requireUserManagement, async (c) => {
   try {
     const requestingUser = c.get('user');
     const userId = c.req.param("userId");
@@ -291,7 +339,7 @@ app.post("/make-server/auth/users/:userId/reset-password", requireAdmin, async (
     const result = await auth.resetUserPassword(userId, body, requestingUser.id);
 
     if (!result.success) {
-      const status = result.error === 'Unauthorized' || result.error?.startsWith('Solo el Super Administrador')
+      const status = result.error === 'Unauthorized' || result.error?.startsWith('Solo el Super Administrador') || result.error?.startsWith('No tienes permisos')
         ? 403
         : 400;
       return c.json(result, status);
@@ -434,7 +482,22 @@ app.put("/make-server/auth/users/:userId", async (c) => {
     const result = await auth.updateUser(userId, updates, requestingUser.id);
     
     if (!result.success) {
-      return c.json(result, 403);
+      return c.json(result, result.error === 'Usuario no encontrado' ? 404 : 403);
+    }
+
+    if (result.user) {
+      logAudit(db.getSupabaseClient(), {
+        user_email: requestingUser.email,
+        user_name: requestingUser.name,
+        user_id: requestingUser.id,
+        action: 'USER_UPDATED',
+        plant_id: null,
+        details: {
+          target_user_id: result.user.id,
+          target_user_email: result.user.email,
+          target_user_role: result.user.role,
+        },
+      });
     }
     
     return c.json(result);
@@ -465,8 +528,19 @@ app.delete("/make-server/auth/users/:userId", async (c) => {
     const result = await auth.deleteUser(userId, requestingUser.id);
     
     if (!result.success) {
-      return c.json(result, 403);
+      return c.json(result, result.error === 'User not found' ? 404 : 403);
     }
+
+    logAudit(db.getSupabaseClient(), {
+      user_email: requestingUser.email,
+      user_name: requestingUser.name,
+      user_id: requestingUser.id,
+      action: 'USER_DELETED',
+      plant_id: null,
+      details: {
+        target_user_id: userId,
+      },
+    });
     
     return c.json(result);
   } catch (error) {
@@ -596,8 +670,8 @@ app.get("/make-server/plants", async (c) => {
       .select('*')
       .order('name');
 
-    // plant_manager only sees their assigned plants; with no assignments, sees none.
-    if (user.role === 'plant_manager') {
+    // plant_manager only sees assigned plants; operations/admin/super_admin have global access.
+    if (!canAccessAllPlants(user)) {
       const assignedPlants = Array.isArray(user.assigned_plants) ? user.assigned_plants : [];
       if (assignedPlants.length === 0) {
         console.log(`✅ [GET /plants] Returned 0 plants for ${user.email} (${user.role}) - no assignments`);
@@ -1693,8 +1767,8 @@ app.post("/make-server/inventory/petty-cash", async (c) => {
 app.post("/make-server/inventory/save-draft", async (c) => {
   try {
     const user = c.get('user');
-    if (user.role !== 'plant_manager') {
-      return c.json({ success: false, error: 'Forbidden: Plant manager access required' }, 403);
+    if (!isPlantManagerLike(user)) {
+      return c.json({ success: false, error: 'Forbidden: Operational user access required' }, 403);
     }
 
     const supabase = db.getSupabaseClient();
@@ -1703,6 +1777,20 @@ app.post("/make-server/inventory/save-draft", async (c) => {
     
     if (!inventory_month_id) {
       return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
+    }
+
+    const { data: inventoryMonth, error: fetchError } = await supabase
+      .from('inventory_month')
+      .select('id, plant_id')
+      .eq('id', inventory_month_id)
+      .single();
+
+    if (fetchError || !inventoryMonth) {
+      return c.json({ success: false, error: 'Inventory month not found' }, 404);
+    }
+
+    if (!checkPlantAccess(user, inventoryMonth.plant_id)) {
+      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
     }
     
     // Just update the updated_at timestamp
@@ -1727,8 +1815,8 @@ app.post("/make-server/inventory/save-draft", async (c) => {
 app.post("/make-server/inventory/submit", async (c) => {
   try {
     const user = c.get('user');
-    if (user.role !== 'plant_manager') {
-      return c.json({ success: false, error: 'Forbidden: Plant manager access required' }, 403);
+    if (!isPlantManagerLike(user)) {
+      return c.json({ success: false, error: 'Forbidden: Operational user access required' }, 403);
     }
 
     const supabase = db.getSupabaseClient();
@@ -1747,6 +1835,10 @@ app.post("/make-server/inventory/submit", async (c) => {
       .single();
     
     if (fetchError) throw fetchError;
+
+    if (!checkPlantAccess(user, currentMonth.plant_id)) {
+      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
+    }
     
     // Validate current status
     if (currentMonth.status !== 'IN_PROGRESS') {

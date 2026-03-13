@@ -9,6 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { exportToExcel, exportToPDF } from '../utils/exportReports';
+import { canApproveInventory, isPlantManagerLike } from '../utils/permissions';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
@@ -354,8 +355,8 @@ export function Reports({ onNavigate }: ReportsProps) {
                   const completedDT = completedAt ? formatDateTime(completedAt, language) : null;
                   const createdDT   = formatDateTime(report.created_at, language);
                   const approvedDT  = report.approved_at ? formatDateTime(report.approved_at, language) : null;
-                  const isPlantManager = normalizedRole === 'plant_manager';
-                  const isAdminReviewer = normalizedRole === 'admin' || normalizedRole === 'super_admin';
+                  const isPlantManager = isPlantManagerLike(normalizedRole);
+                  const isAdminReviewer = canApproveInventory(normalizedRole);
                   const isResumeAction = report.status === 'IN_PROGRESS' && isPlantManager;
                   const isApproveAction = report.status === 'SUBMITTED' && isAdminReviewer;
                   const primaryActionLabel = isResumeAction

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { canAccessPhotosReport, canManageModules, isPlantManagerLike } from '../utils/permissions';
 
 interface SidebarProps {
   currentView: string;
@@ -10,7 +11,7 @@ interface SidebarProps {
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const isPlantManager = user?.role === 'plant_manager';
+  const isOperationalUser = isPlantManagerLike(user?.role);
   
   const mainMenuItems = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: '📊' },
@@ -19,17 +20,15 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   ];
   const toolsMenuItems: Array<{ id: string; label: string; icon: string }> = [];
 
-  if (isPlantManager) {
+  if (isOperationalUser) {
     mainMenuItems.splice(1, 0, { id: 'inventory', label: t('sidebar.inventory'), icon: '📝' });
   }
 
-  // Reporte de Fotos — admin + super_admin
-  if (user?.role === 'admin' || user?.role === 'super_admin') {
+  if (canAccessPhotosReport(user?.role)) {
     mainMenuItems.push({ id: 'photos-report', label: t('sidebar.photosReport'), icon: '🖼️' });
   }
 
-  // Herramientas solo para super_admin
-  if (user?.role === 'super_admin') {
+  if (canManageModules(user?.role)) {
     toolsMenuItems.push({ id: 'documentation', label: t('sidebar.documentation'), icon: '📄' });
     toolsMenuItems.push({ id: 'database-setup', label: t('sidebar.databaseSetup'), icon: '🔧' });
     toolsMenuItems.push({ id: 'connection-test', label: t('sidebar.connectionTest'), icon: '🔍' });

@@ -16,6 +16,7 @@ import {
   saveInventoryDraft,
 } from '../../utils/api';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
+import { canApproveInventory, isPlantManagerLike } from '../../utils/permissions';
 
 interface ReviewAndApproveSectionProps {
   reportContext?: { plantId: string; yearMonth: string } | null;
@@ -358,9 +359,9 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     'Sin planta';
 
   // Check user permissions
-  const canSubmit = isInProgress && normalizedRole === 'plant_manager';
-  const canApprove = isSubmitted && (normalizedRole === 'admin' || normalizedRole === 'super_admin');
-  const canReject = isSubmitted && (normalizedRole === 'admin' || normalizedRole === 'super_admin');
+  const canSubmit = isInProgress && isPlantManagerLike(normalizedRole);
+  const canApprove = isSubmitted && canApproveInventory(normalizedRole);
+  const canReject = isSubmitted && canApproveInventory(normalizedRole);
   const firstIncompleteSection = validation.allSections.find((section) => !section.isComplete) || null;
 
   // ============================================================================
@@ -450,7 +451,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
         </Card>
       )}
 
-      {isInProgress && (normalizedRole === 'admin' || normalizedRole === 'super_admin') && (
+      {isInProgress && canApproveInventory(normalizedRole) && (
         <Card className="bg-blue-50 border-blue-300">
           <div className="p-4">
             <div className="flex items-start gap-3">
@@ -568,7 +569,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                 </div>
               </div>
 
-              {isInProgress && normalizedRole === 'plant_manager' && !section.isComplete && (
+              {isInProgress && isPlantManagerLike(normalizedRole) && !section.isComplete && (
                 <div className="mt-4 flex justify-end">
                   <Button
                     size="sm"
@@ -645,7 +646,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
           {/* RIGHT SIDE: BUTTONS */}
           <div className="flex gap-3">
-            {isInProgress && normalizedRole === 'plant_manager' && firstIncompleteSection && (
+            {isInProgress && isPlantManagerLike(normalizedRole) && firstIncompleteSection && (
               <Button
                 onClick={() => handleContinueSection(firstIncompleteSection)}
                 variant="secondary"
