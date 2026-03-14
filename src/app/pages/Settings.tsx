@@ -1,4 +1,4 @@
-import { Users, Shield, Building2, Activity } from 'lucide-react';
+import { FileSpreadsheet } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -407,9 +407,9 @@ export function Settings() {
                 onClick={handleExportPlantsConfiguration}
                 loading={exportingPlantsConfig}
                 disabled={allPlants.length === 0}
-                className="min-w-[230px]"
+                className="min-w-[250px] border-[#1D6F42] bg-[#EAF7EF] text-[#1D6F42] hover:bg-[#D9F1E2]"
               >
-                <span className="text-lg leading-none" aria-hidden="true">📗</span>
+                <FileSpreadsheet size={18} aria-hidden="true" />
                 <span>Exportar configuración activa</span>
               </Button>
               {(user?.role === 'super_admin' || user?.role === 'admin') && (

@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import type { Plant } from '../contexts/AuthContext';
 import { getPlantConfig, type PlantConfigPackage } from './api';
 
@@ -10,52 +9,71 @@ interface SectionDefinition {
   rows: CellValue[][];
 }
 
+const SECTION_FILL = {
+  type: 'pattern',
+  pattern: 'solid',
+  fgColor: { argb: 'DCEBFA' },
+} as const;
+
+const HEADER_FILL = {
+  type: 'pattern',
+  pattern: 'solid',
+  fgColor: { argb: 'EEF4FB' },
+} as const;
+
+const THIN_BORDER = {
+  top: { style: 'thin' },
+  left: { style: 'thin' },
+  bottom: { style: 'thin' },
+  right: { style: 'thin' },
+} as const;
+
 function getAggregateInventoryBehavior(method: string | null | undefined) {
   return String(method || '').toUpperCase() === 'CONE'
-    ? 'En inventario captura 6 medidas M y 2 diametros D; el sistema calcula volumen.'
-    : 'En inventario captura largo variable; ancho y alto quedan fijos desde configuracion.';
+    ? 'Captura 6 medidas M y 2 diámetros D; el sistema calcula el volumen.'
+    : 'Captura largo variable; ancho y alto quedan fijos desde configuración.';
 }
 
 function getSiloInventoryBehavior(entry: any) {
   const allowedProducts = Array.isArray(entry?.allowed_products) && entry.allowed_products.length > 0
-    ? `Producto permitido: ${entry.allowed_products.join(', ')}.`
-    : 'Producto definido segun el silo/configuracion.';
+    ? `Productos permitidos: ${entry.allowed_products.join(', ')}.`
+    : 'Producto definido según silo/configuración.';
 
-  return `En inventario captura lectura del silo y el sistema calcula resultado. ${allowedProducts}`;
+  return `Captura lectura del silo y el sistema calcula resultado. ${allowedProducts}`;
 }
 
 function getAdditiveInventoryBehavior(entry: any) {
   const additiveType = String(entry?.additive_type || '').toUpperCase();
   if (additiveType === 'TANK') {
-    return 'En inventario captura lectura del tanque; usa curva/tabla de conversion para calcular cantidad.';
+    return 'Captura lectura del tanque; usa curva o tabla de conversión para calcular cantidad.';
   }
-  return 'En inventario captura cantidad manual directamente.';
+  return 'Captura cantidad manual directamente.';
 }
 
 function getDieselInventoryBehavior() {
-  return 'En inventario captura lectura del tanque, compras y calcula inventario final/consumo.';
+  return 'Captura lectura del tanque, compras y calcula inventario final y consumo.';
 }
 
 function getProductInventoryBehavior(entry: any) {
   const mode = String(entry?.measure_mode || '').toUpperCase();
   if (mode === 'TANK_READING') {
-    return 'En inventario captura lectura del tanque y calcula cantidad con tabla de calibracion.';
+    return 'Captura lectura del tanque y calcula cantidad con tabla de calibración.';
   }
   if (mode === 'DRUM') {
-    return 'En inventario captura numero de tambores y calcula volumen total por unidad.';
+    return 'Captura número de tambores y calcula volumen total por unidad.';
   }
   if (mode === 'PAIL') {
-    return 'En inventario captura numero de pailas y calcula volumen total por unidad.';
+    return 'Captura número de pailas y calcula volumen total por unidad.';
   }
-  return 'En inventario captura cantidad directamente.';
+  return 'Captura cantidad directamente.';
 }
 
 function getUtilitiesInventoryBehavior(entry: any) {
-  return `En inventario captura lectura actual del medidor${entry?.requires_photo ? ' con fotografia obligatoria' : ''} y calcula consumo contra lectura previa.`;
+  return `Captura lectura actual${entry?.requires_photo ? ' con fotografía obligatoria' : ''} y calcula consumo contra lectura previa.`;
 }
 
 function getPettyCashInventoryBehavior() {
-  return 'En inventario captura recibos y efectivo para cuadrar el balance final de caja menor.';
+  return 'Captura recibos y efectivo para cuadrar el balance final de caja menor.';
 }
 
 function sanitizeSheetName(input: string, used: Set<string>) {
@@ -82,20 +100,6 @@ function stringifyValue(value: unknown) {
     return JSON.stringify(value, null, 2);
   }
   return String(value);
-}
-
-function appendSection(rows: CellValue[][], section: SectionDefinition) {
-  rows.push([section.title]);
-
-  if (section.rows.length === 0) {
-    rows.push(['Sin configuración activa']);
-    rows.push([]);
-    return;
-  }
-
-  rows.push(section.headers);
-  section.rows.forEach((row) => rows.push(row.map(stringifyValue)));
-  rows.push([]);
 }
 
 function buildGeneralInfoSection(plant: Plant): SectionDefinition {
@@ -242,20 +246,40 @@ function buildPettyCashSection(config: PlantConfigPackage): SectionDefinition {
   };
 }
 
-function createSheetRows(plant: Plant, config: PlantConfigPackage) {
-  const rows: CellValue[][] = [];
-  appendSection(rows, buildGeneralInfoSection(plant));
-  appendSection(rows, buildSilosSection(config));
-  appendSection(rows, buildAggregatesSection(config));
-  appendSection(rows, buildAdditivesSection(config));
-  appendSection(rows, buildDieselSection(config));
-  appendSection(rows, buildProductsSection(config));
-  appendSection(rows, buildUtilitiesSection(config));
-  appendSection(rows, buildPettyCashSection(config));
-  return rows;
+function createSections(plant: Plant, config: PlantConfigPackage) {
+  return [
+    buildGeneralInfoSection(plant),
+    buildSilosSection(config),
+    buildAggregatesSection(config),
+    buildAdditivesSection(config),
+    buildDieselSection(config),
+    buildProductsSection(config),
+    buildUtilitiesSection(config),
+    buildPettyCashSection(config),
+  ];
+}
+
+function downloadBuffer(buffer: ArrayBuffer, fileName: string) {
+  const blob = new Blob(
+    [buffer],
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+  );
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function exportPlantConfigurations(plants: Plant[]) {
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'PROMIX Plant Inventory';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+  workbook.calcProperties.fullCalcOnLoad = true;
+
   const sortedPlants = [...plants].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   const configs = await Promise.all(
     sortedPlants.map(async (plant) => {
@@ -267,16 +291,85 @@ export async function exportPlantConfigurations(plants: Plant[]) {
     })
   );
 
-  const workbook = XLSX.utils.book_new();
   const usedSheetNames = new Set<string>();
 
   configs.forEach(({ plant, config }) => {
-    const sheetRows = createSheetRows(plant, config);
-    const sheet = XLSX.utils.aoa_to_sheet(sheetRows);
-    sheet['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 28 }, { wch: 34 }, { wch: 48 }];
-    XLSX.utils.book_append_sheet(workbook, sheet, sanitizeSheetName(plant.name, usedSheetNames));
+    const worksheet = workbook.addWorksheet(sanitizeSheetName(plant.name, usedSheetNames), {
+      views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }],
+    });
+
+    worksheet.properties.defaultRowHeight = 22;
+    worksheet.columns = [
+      { width: 24 },
+      { width: 22 },
+      { width: 22 },
+      { width: 18 },
+      { width: 18 },
+      { width: 18 },
+      { width: 18 },
+      { width: 18 },
+      { width: 24 },
+      { width: 28 },
+      { width: 48 },
+    ];
+
+    let currentRow = 1;
+
+    createSections(plant, config).forEach((section) => {
+      const titleRow = worksheet.getRow(currentRow);
+      titleRow.getCell(1).value = section.title;
+      titleRow.getCell(1).font = { bold: true, color: { argb: '1F2937' } };
+      titleRow.getCell(1).fill = SECTION_FILL;
+      titleRow.getCell(1).border = THIN_BORDER;
+      worksheet.mergeCells(currentRow, 1, currentRow, section.headers.length);
+      for (let column = 2; column <= section.headers.length; column += 1) {
+        const cell = titleRow.getCell(column);
+        cell.fill = SECTION_FILL;
+        cell.border = THIN_BORDER;
+      }
+      currentRow += 1;
+
+      if (section.rows.length === 0) {
+        const emptyRow = worksheet.getRow(currentRow);
+        emptyRow.getCell(1).value = 'Sin configuración activa';
+        emptyRow.getCell(1).font = { italic: true, color: { argb: '6B7280' } };
+        emptyRow.getCell(1).alignment = { vertical: 'middle' };
+        emptyRow.getCell(1).border = THIN_BORDER;
+        worksheet.mergeCells(currentRow, 1, currentRow, section.headers.length);
+        for (let column = 2; column <= section.headers.length; column += 1) {
+          emptyRow.getCell(column).border = THIN_BORDER;
+        }
+        currentRow += 2;
+        return;
+      }
+
+      const headerRow = worksheet.getRow(currentRow);
+      section.headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = header;
+        cell.font = { bold: true, color: { argb: '1F2937' } };
+        cell.fill = HEADER_FILL;
+        cell.border = THIN_BORDER;
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      });
+      currentRow += 1;
+
+      section.rows.forEach((rowValues) => {
+        const row = worksheet.getRow(currentRow);
+        rowValues.map(stringifyValue).forEach((value, index) => {
+          const cell = row.getCell(index + 1);
+          cell.value = value as ExcelJS.CellValue;
+          cell.border = THIN_BORDER;
+          cell.alignment = { vertical: 'top', wrapText: true };
+        });
+        currentRow += 1;
+      });
+
+      currentRow += 1;
+    });
   });
 
+  const buffer = await workbook.xlsx.writeBuffer();
   const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `PROMIX-Configuracion-Activa-V2-${date}.xlsx`);
+  downloadBuffer(buffer as ArrayBuffer, `PROMIX-Configuracion-Activa-Formato-${date}.xlsx`);
 }
