@@ -1821,6 +1821,12 @@ export async function previewAggregatesImport(plantId: string, input: Aggregates
     if (measurementMethod === 'BOX') {
       if (boxWidthFt === null) rowErrors.push({ column: 'Ancho (ft)', message: 'es requerido para BOX' });
       if (boxHeightFt === null) rowErrors.push({ column: 'Alto (ft)', message: 'es requerido para BOX' });
+      if (boxWidthFt !== null && boxWidthFt <= 0) {
+        rowErrors.push({ column: 'Ancho (ft)', message: 'debe ser mayor que cero para BOX' });
+      }
+      if (boxHeightFt !== null && boxHeightFt <= 0) {
+        rowErrors.push({ column: 'Alto (ft)', message: 'debe ser mayor que cero para BOX' });
+      }
     } else {
       if (rawRow.box_width_ft.trim()) {
         warnings.push(`Fila ${rowNumber}: se ignorara Ancho (ft) porque el metodo es CONE.`);

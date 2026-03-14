@@ -1340,6 +1340,23 @@ app.put("/make-server/plants/:plantId/aggregates", async (c) => {
       is_active?: boolean;
     }[] = body.aggregates ?? [];
 
+    for (const [index, aggregate] of aggregates.entries()) {
+      const measurementMethod = String(aggregate.measurement_method || 'BOX').toUpperCase();
+      if (measurementMethod !== 'BOX') continue;
+
+      const width = aggregate.box_width_ft;
+      const height = aggregate.box_height_ft;
+      const label = String(aggregate.aggregate_name || '').trim() || `Fila ${index + 1}`;
+
+      if (typeof width !== 'number' || Number.isNaN(width) || width <= 0) {
+        return c.json({ success: false, error: `${label}: el ancho del cajon debe ser mayor que cero.` }, 400);
+      }
+
+      if (typeof height !== 'number' || Number.isNaN(height) || height <= 0) {
+        return c.json({ success: false, error: `${label}: el alto del cajon debe ser mayor que cero.` }, 400);
+      }
+    }
+
     const supabase = db.getSupabaseClient();
 
     const { error: deleteError } = await supabase

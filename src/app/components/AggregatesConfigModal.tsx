@@ -256,12 +256,20 @@ export function AggregatesConfigModal({
       }
 
       if (row.measurement_method === 'BOX') {
-        if (row.box_width_ft.trim() === '' || Number.isNaN(Number(row.box_width_ft))) {
+        const width = Number(row.box_width_ft);
+        if (row.box_width_ft.trim() === '' || Number.isNaN(width)) {
           return `${label}: el ancho del cajon debe ser numerico`;
         }
+        if (width <= 0) {
+          return `${label}: el ancho del cajon debe ser mayor que cero`;
+        }
 
-        if (row.box_height_ft.trim() === '' || Number.isNaN(Number(row.box_height_ft))) {
+        const height = Number(row.box_height_ft);
+        if (row.box_height_ft.trim() === '' || Number.isNaN(height)) {
           return `${label}: el alto del cajon debe ser numerico`;
+        }
+        if (height <= 0) {
+          return `${label}: el alto del cajon debe ser mayor que cero`;
         }
       }
     }
@@ -287,8 +295,8 @@ export function AggregatesConfigModal({
         location_area: row.location_area.trim(),
         measurement_method: row.measurement_method,
         unit: row.unit || 'CUBIC_YARDS',
-        box_width_ft: row.measurement_method === 'BOX' ? Number(row.box_width_ft) || 0 : null,
-        box_height_ft: row.measurement_method === 'BOX' ? Number(row.box_height_ft) || 0 : null,
+        box_width_ft: row.measurement_method === 'BOX' ? Number(row.box_width_ft) : null,
+        box_height_ft: row.measurement_method === 'BOX' ? Number(row.box_height_ft) : null,
         sort_order: index,
         is_active: row.is_active,
       }));
