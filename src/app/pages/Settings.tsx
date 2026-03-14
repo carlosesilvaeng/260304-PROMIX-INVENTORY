@@ -19,6 +19,7 @@ import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
 import { DieselConfigModal } from '../components/DieselConfigModal';
 import { ProductsConfigModal } from '../components/ProductsConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
+import { exportPlantConfigurations } from '../utils/exportPlantConfigurations';
 import type { Plant } from '../contexts/AuthContext';
 import { canAccessAudit, canManageModules, canManagePlantConfiguration, canManagePlantManagers } from '../utils/permissions';
 
@@ -60,6 +61,8 @@ function getAggregateCountWithLegacyFallback(config: { aggregates?: any[]; cajon
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [plantsExportMessage, setPlantsExportMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [exportingPlantsConfig, setExportingPlantsConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'data-control' | 'account'>('plants');
   const [editingAggregates, setEditingAggregates] = useState<Plant | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
@@ -239,6 +242,27 @@ export function Settings() {
     handleSave();
   };
 
+  const handleExportPlantsConfiguration = async () => {
+    setExportingPlantsConfig(true);
+    setPlantsExportMessage(null);
+
+    try {
+      await exportPlantConfigurations(allPlants);
+      setPlantsExportMessage({
+        type: 'success',
+        message: 'Configuración activa exportada exitosamente a Excel.',
+      });
+    } catch (error: any) {
+      console.error('❌ Error exportando configuración de plantas:', error);
+      setPlantsExportMessage({
+        type: 'error',
+        message: error?.message || 'No se pudo exportar la configuración activa de plantas.',
+      });
+    } finally {
+      setExportingPlantsConfig(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Logo Header */}
@@ -256,6 +280,15 @@ export function Settings() {
           type="success" 
           message="Configuración guardada exitosamente" 
           autoClose 
+        />
+      )}
+
+      {plantsExportMessage && (
+        <Alert
+          type={plantsExportMessage.type}
+          message={plantsExportMessage.message}
+          onClose={() => setPlantsExportMessage(null)}
+          autoClose={plantsExportMessage.type === 'success'}
         />
       )}
 
@@ -368,11 +401,21 @@ export function Settings() {
         <div className="space-y-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
-            {(user?.role === 'super_admin' || user?.role === 'admin') && (
-              <Button variant="secondary" onClick={() => setShowCreatePlantModal(true)}>
-                + Agregar Planta
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                onClick={handleExportPlantsConfiguration}
+                loading={exportingPlantsConfig}
+                disabled={allPlants.length === 0}
+              >
+                Exportar configuración activa
               </Button>
-            )}
+              {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                <Button variant="secondary" onClick={() => setShowCreatePlantModal(true)}>
+                  + Agregar Planta
+                </Button>
+              )}
+            </div>
           </div>
 
           <Card noPadding>
