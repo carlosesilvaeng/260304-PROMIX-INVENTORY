@@ -37,6 +37,8 @@ interface AggregateConfigRow {
   is_active: boolean;
 }
 
+type AggregateDimensionField = 'box_width_ft' | 'box_height_ft';
+
 interface AggregatesImportPayload {
   module: 'aggregates';
   template_version: string;
@@ -133,6 +135,7 @@ export function AggregatesConfigModal({
   const [importReason, setImportReason] = useState('');
   const [selectedImportFileName, setSelectedImportFileName] = useState('');
   const [importPayload, setImportPayload] = useState<AggregatesImportPayload | null>(null);
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -165,6 +168,7 @@ export function AggregatesConfigModal({
 
         if (aggregateEntries.length === 0) {
           setRows(legacyCajones.map(mapCajonToAggregateRow));
+          setTouchedFields({});
           return;
         }
 
@@ -181,6 +185,7 @@ export function AggregatesConfigModal({
         })) as AggregateConfigRow[];
 
         setRows(loadedRows);
+        setTouchedFields({});
       })
       .catch(() => setError('Error de conexion cargando agregados'))
       .finally(() => setLoading(false));
@@ -190,6 +195,35 @@ export function AggregatesConfigModal({
     () => Boolean(importPreview && importPreview.errors.length > 0),
     [importPreview]
   );
+
+  const getFieldTouchKey = (index: number, field: AggregateDimensionField) => `${index}:${field}`;
+
+  const markFieldTouched = (index: number, field: AggregateDimensionField) => {
+    const key = getFieldTouchKey(index, field);
+    setTouchedFields((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  };
+
+  const getBoxDimensionError = (
+    row: AggregateConfigRow,
+    index: number,
+    field: AggregateDimensionField
+  ) => {
+    if (row.measurement_method !== 'BOX') return undefined;
+
+    const key = getFieldTouchKey(index, field);
+    if (!touchedFields[key]) return undefined;
+
+    const rawValue = row[field].trim();
+    const label = field === 'box_width_ft' ? 'ancho' : 'alto';
+
+    if (!rawValue) return `El ${label} es requerido.`;
+
+    const numericValue = Number(rawValue);
+    if (Number.isNaN(numericValue)) return `El ${label} debe ser numerico.`;
+    if (numericValue <= 0) return `El ${label} debe ser mayor que cero.`;
+
+    return undefined;
+  };
 
   const updateRow = (index: number, updates: Partial<AggregateConfigRow>) => {
     setRows((prev) => prev.map((row, rowIndex) => (rowIndex === index ? { ...row, ...updates } : row)));
@@ -212,14 +246,25 @@ export function AggregatesConfigModal({
   };
 
   const addRow = () => {
+    setTouchedFields({});
     setRows((prev) => [...prev, createEmptyRow()]);
   };
 
   const removeRow = (index: number) => {
+    setTouchedFields({});
     setRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
   };
 
   const handleMethodChange = (index: number, measurementMethod: AggregateMeasurementMethod) => {
+    if (measurementMethod !== 'BOX') {
+      setTouchedFields((prev) => {
+        const next = { ...prev };
+        delete next[getFieldTouchKey(index, 'box_width_ft')];
+        delete next[getFieldTouchKey(index, 'box_height_ft')];
+        return next;
+      });
+    }
+
     updateRow(index, {
       measurement_method: measurementMethod,
       box_width_ft: measurementMethod === 'BOX' ? rows[index].box_width_ft : '',
@@ -520,93 +565,108 @@ export function AggregatesConfigModal({
                     <p className="text-sm text-[#5F6773]">Agrega la primera fila para esta planta</p>
                   </div>
                 ) : (
-                  rows.map((row, index) => (
-                    <div key={row.id || `new-${index}`} className="rounded-lg border border-[#9D9B9A] p-4">
-                      <div className="mb-4 flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-[#3B3A36]">Agregado #{index + 1}</h4>
-                        <div className="flex items-center gap-3">
-                          <label className="flex items-center gap-2 text-sm text-[#5F6773]">
-                            Activo
-                            <input
-                              type="checkbox"
-                              checked={row.is_active}
-                              onChange={(e) => updateRow(index, { is_active: e.target.checked })}
-                            />
-                          </label>
-                          <Button variant="ghost" size="sm" onClick={() => removeRow(index)} disabled={saving || previewingImport || executingImport}>
-                            🗑️
-                          </Button>
-                        </div>
-                      </div>
+                  rows.map((row, index) => {
+                    const widthError = getBoxDimensionError(row, index, 'box_width_ft');
+                    const heightError = getBoxDimensionError(row, index, 'box_height_ft');
 
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                        <Input
-                          label="Nombre del agregado"
-                          value={row.aggregate_name}
-                          onChange={(e) => updateRow(index, { aggregate_name: e.target.value })}
-                          placeholder="Ej: Cajón 1 / Cono Arena"
-                          required
-                        />
-                        <Select
-                          label="Material"
-                          value={row.material_type}
-                          onChange={(e) => updateRow(index, { material_type: e.target.value })}
-                          options={buildSelectOptions(materialOptions, row.material_type, '— Seleccionar material —')}
-                          required
-                        />
-                        <Select
-                          label="Procedencia"
-                          value={row.location_area}
-                          onChange={(e) => updateRow(index, { location_area: e.target.value })}
-                          options={buildSelectOptions(procedenciaOptions, row.location_area, '— Seleccionar procedencia —')}
-                          required
-                        />
-                        <Select
-                          label="Metodo de medicion"
-                          value={row.measurement_method}
-                          onChange={(e) => handleMethodChange(index, e.target.value as AggregateMeasurementMethod)}
-                          options={[
-                            { value: 'BOX', label: 'Cajón' },
-                            { value: 'CONE', label: 'Cono' },
-                          ]}
-                          required
-                        />
-                      </div>
-
-                      {row.measurement_method === 'BOX' ? (
-                        <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
-                          <p className="mb-3 text-sm text-[#5F6773]">
-                            Para cajón, ancho y alto quedan fijos en configuración; el gerente solo capturará el largo.
-                          </p>
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <Input
-                              label="Ancho (ft)"
-                              type="number"
-                              value={row.box_width_ft}
-                              onChange={(e) => updateRow(index, { box_width_ft: e.target.value })}
-                              placeholder="30"
-                              required
-                            />
-                            <Input
-                              label="Alto (ft)"
-                              type="number"
-                              value={row.box_height_ft}
-                              onChange={(e) => updateRow(index, { box_height_ft: e.target.value })}
-                              placeholder="12"
-                              required
-                            />
+                    return (
+                      <div key={row.id || `new-${index}`} className="rounded-lg border border-[#9D9B9A] p-4">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h4 className="text-sm font-medium text-[#3B3A36]">Agregado #{index + 1}</h4>
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 text-sm text-[#5F6773]">
+                              Activo
+                              <input
+                                type="checkbox"
+                                checked={row.is_active}
+                                onChange={(e) => updateRow(index, { is_active: e.target.checked })}
+                              />
+                            </label>
+                            <Button variant="ghost" size="sm" onClick={() => removeRow(index)} disabled={saving || previewingImport || executingImport}>
+                              🗑️
+                            </Button>
                           </div>
                         </div>
-                      ) : (
-                        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                          <p className="font-semibold">Método Cono</p>
-                          <p className="mt-1 text-amber-800">
-                            En inventario, el gerente capturará las 6 medidas M y los 2 diámetros D. No se usan ancho ni alto fijos.
-                          </p>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                          <Input
+                            label="Nombre del agregado"
+                            value={row.aggregate_name}
+                            onChange={(e) => updateRow(index, { aggregate_name: e.target.value })}
+                            placeholder="Ej: Cajón 1 / Cono Arena"
+                            required
+                          />
+                          <Select
+                            label="Material"
+                            value={row.material_type}
+                            onChange={(e) => updateRow(index, { material_type: e.target.value })}
+                            options={buildSelectOptions(materialOptions, row.material_type, '— Seleccionar material —')}
+                            required
+                          />
+                          <Select
+                            label="Procedencia"
+                            value={row.location_area}
+                            onChange={(e) => updateRow(index, { location_area: e.target.value })}
+                            options={buildSelectOptions(procedenciaOptions, row.location_area, '— Seleccionar procedencia —')}
+                            required
+                          />
+                          <Select
+                            label="Metodo de medicion"
+                            value={row.measurement_method}
+                            onChange={(e) => handleMethodChange(index, e.target.value as AggregateMeasurementMethod)}
+                            options={[
+                              { value: 'BOX', label: 'Cajón' },
+                              { value: 'CONE', label: 'Cono' },
+                            ]}
+                            required
+                          />
                         </div>
-                      )}
-                    </div>
-                  ))
+
+                        {row.measurement_method === 'BOX' ? (
+                          <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                            <p className="mb-3 text-sm text-[#5F6773]">
+                              Para cajón, ancho y alto quedan fijos en configuración; el gerente solo capturará el largo.
+                            </p>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                              <Input
+                                label="Ancho (ft)"
+                                type="number"
+                                value={row.box_width_ft}
+                                onChange={(e) => {
+                                  markFieldTouched(index, 'box_width_ft');
+                                  updateRow(index, { box_width_ft: e.target.value });
+                                }}
+                                onBlur={() => markFieldTouched(index, 'box_width_ft')}
+                                placeholder="30"
+                                error={widthError}
+                                required
+                              />
+                              <Input
+                                label="Alto (ft)"
+                                type="number"
+                                value={row.box_height_ft}
+                                onChange={(e) => {
+                                  markFieldTouched(index, 'box_height_ft');
+                                  updateRow(index, { box_height_ft: e.target.value });
+                                }}
+                                onBlur={() => markFieldTouched(index, 'box_height_ft')}
+                                placeholder="12"
+                                error={heightError}
+                                required
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                            <p className="font-semibold">Método Cono</p>
+                            <p className="mt-1 text-amber-800">
+                              En inventario, el gerente capturará las 6 medidas M y los 2 diámetros D. No se usan ancho ni alto fijos.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
 
                 <Button variant="secondary" onClick={addRow} className="w-full" disabled={saving || previewingImport || executingImport}>
