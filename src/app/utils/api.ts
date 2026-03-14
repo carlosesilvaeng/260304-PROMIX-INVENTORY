@@ -671,6 +671,89 @@ export async function updatePlantAggregatesConfigEntries(
   return apiRequest(`/plants/${plantId}/aggregates`, 'PUT', { aggregates });
 }
 
+export interface AggregatesImportRowPayload {
+  row_number: number;
+  aggregate_name: string;
+  material_type: string;
+  location_area: string;
+  measurement_method: string;
+  unit: string;
+  box_width_ft: string;
+  box_height_ft: string;
+  is_active: string;
+}
+
+export interface AggregatesImportPreviewResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  module: 'aggregates';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+    legacy_cajones: number;
+  };
+  errors: Array<{
+    row: number;
+    column: string;
+    message: string;
+  }>;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface AggregatesImportExecuteResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+    legacy_cajones: number;
+  };
+  created: number;
+  updated: number;
+  legacy_cajones_cleared: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
+export async function previewPlantAggregatesImport(
+  plantId: string,
+  payload: {
+    module: 'aggregates';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AggregatesImportRowPayload[];
+  }
+): Promise<ApiResponse<AggregatesImportPreviewResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/aggregates/preview`, 'POST', payload);
+}
+
+export async function executePlantAggregatesImport(
+  plantId: string,
+  payload: {
+    module: 'aggregates';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AggregatesImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<AggregatesImportExecuteResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/aggregates/execute`, 'POST', payload);
+}
+
 // ============================================================================
 // SILO CONFIGURATION API
 // ============================================================================

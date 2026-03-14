@@ -27,6 +27,7 @@ const INVENTORY_STATUSES = ['IN_PROGRESS', 'SUBMITTED', 'APPROVED'] as const;
 const CLEANUP_PREVIEW_PREFIX = 'data_cleanup_preview:';
 const CONFIG_CLEANUP_PREVIEW_PREFIX = 'config_cleanup_preview:';
 const PRODUCTS_IMPORT_PREVIEW_PREFIX = 'products_import_preview:';
+const AGGREGATES_IMPORT_PREVIEW_PREFIX = 'aggregates_import_preview:';
 const CLEANUP_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const MAX_CLEANUP_INVENTORY_MONTHS = 200;
 const MAX_CLEANUP_DISTINCT_MONTHS = 24;
@@ -147,6 +148,51 @@ interface ProductsImportPreviewRecord {
 
 const PRODUCTS_IMPORT_ALLOWED_CATEGORIES = ['OIL', 'LUBRICANT', 'CONSUMABLE', 'EQUIPMENT', 'OTHER'] as const;
 const PRODUCTS_IMPORT_ALLOWED_MEASURE_MODES = ['COUNT', 'DRUM', 'PAIL', 'TANK_READING'] as const;
+const AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['BOX', 'CONE'] as const;
+
+interface AggregatesImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    aggregate_name?: string;
+    material_type?: string;
+    location_area?: string;
+    measurement_method?: string;
+    unit?: string;
+    box_width_ft?: string;
+    box_height_ft?: string;
+    is_active?: string;
+  }>;
+}
+
+export interface NormalizedAggregatesImportRow {
+  row_number: number;
+  aggregate_name: string;
+  material_type: string;
+  location_area: string;
+  measurement_method: 'BOX' | 'CONE';
+  unit: string;
+  box_width_ft: number | null;
+  box_height_ft: number | null;
+  is_active: boolean;
+  action: 'create' | 'update';
+  existing_id?: string;
+}
+
+interface AggregatesImportPreviewRecord {
+  token: string;
+  plant_id: string;
+  payload: {
+    module: 'aggregates';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AggregatesImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
 
 function isValidYearMonth(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value.trim());
@@ -199,6 +245,10 @@ function buildProductsImportPreviewKey(token: string) {
   return `${PRODUCTS_IMPORT_PREVIEW_PREFIX}${token}`;
 }
 
+function buildAggregatesImportPreviewKey(token: string) {
+  return `${AGGREGATES_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
 function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
   const yearMonthFrom = isValidYearMonth(input.year_month_from) ? input.year_month_from.trim() : null;
   const yearMonthTo = isValidYearMonth(input.year_month_to) ? input.year_month_to.trim() : null;
@@ -245,6 +295,27 @@ function normalizeProductsImportPayload(input: ProductsImportInput) {
   };
 }
 
+function normalizeAggregatesImportPayload(input: AggregatesImportInput) {
+  return {
+    module: input.module === 'aggregates' ? 'aggregates' as const : 'aggregates' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          aggregate_name: String(row?.aggregate_name || ''),
+          material_type: String(row?.material_type || ''),
+          location_area: String(row?.location_area || ''),
+          measurement_method: String(row?.measurement_method || ''),
+          unit: String(row?.unit || ''),
+          box_width_ft: String(row?.box_width_ft || ''),
+          box_height_ft: String(row?.box_height_ft || ''),
+          is_active: String(row?.is_active || ''),
+        }))
+      : [],
+  };
+}
+
 function validateCleanupFilters(filters: CleanupFilters) {
   if (filters.scope !== 'transactional') {
     throw new Error('Solo se admite scope transactional en esta version.');
@@ -276,6 +347,24 @@ function validateConfigCleanupFilters(filters: ConfigCleanupFilters) {
 function validateProductsImportPayload(input: ReturnType<typeof normalizeProductsImportPayload>) {
   if (input.module !== 'products') {
     throw new Error('Solo se admite el modulo products en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
+function validateAggregatesImportPayload(input: ReturnType<typeof normalizeAggregatesImportPayload>) {
+  if (input.module !== 'aggregates') {
+    throw new Error('Solo se admite el modulo aggregates en esta version.');
   }
 
   if (input.template_version !== '1.0') {
@@ -1653,6 +1742,278 @@ export async function executeProductsImport(plantId: string, input: ProductsImpo
     result: {
       created,
       updated,
+    },
+  };
+}
+
+export async function previewAggregatesImport(plantId: string, input: AggregatesImportInput) {
+  const payload = normalizeAggregatesImportPayload(input);
+  validateAggregatesImportPayload(payload);
+
+  const plant = await getPlantForConfigCleanup(plantId);
+  const supabase = getSupabaseClient();
+  const [{ data: aggregateRows, error: aggregateError }, { count: legacyCount, error: legacyError }] = await Promise.all([
+    supabase
+      .from('plant_aggregates_config')
+      .select('id, aggregate_name, sort_order')
+      .eq('plant_id', plantId),
+    supabase
+      .from('plant_cajones_config')
+      .select('id', { count: 'exact', head: true })
+      .eq('plant_id', plantId),
+  ]);
+
+  if (aggregateError) throw aggregateError;
+  if (legacyError) throw legacyError;
+
+  const existingByName = (aggregateRows || []).reduce((acc: Record<string, { id: string; sort_order?: number }>, row: any) => {
+    acc[String(row.aggregate_name || '').trim().toLowerCase()] = {
+      id: row.id,
+      sort_order: row.sort_order,
+    };
+    return acc;
+  }, {});
+
+  const seenNames = new Map<string, number>();
+  const normalizedRows: NormalizedAggregatesImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const aggregateName = rawRow.aggregate_name.trim();
+    const materialType = rawRow.material_type.trim();
+    const locationArea = rawRow.location_area.trim();
+    const measurementMethod = rawRow.measurement_method.trim().toUpperCase();
+    const unit = rawRow.unit.trim() || 'CUBIC_YARDS';
+
+    if (!aggregateName) rowErrors.push({ column: 'Nombre del agregado', message: 'es requerido' });
+    if (!materialType) rowErrors.push({ column: 'Material', message: 'es requerido' });
+    if (!locationArea) rowErrors.push({ column: 'Procedencia', message: 'es requerida' });
+    if (!measurementMethod) rowErrors.push({ column: 'Metodo de medicion', message: 'es requerido' });
+    if (measurementMethod && !AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
+      rowErrors.push({ column: 'Metodo de medicion', message: `valor invalido. Usa ${AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
+    }
+
+    let isActive = true;
+    let boxWidthFt: number | null = null;
+    let boxHeightFt: number | null = null;
+
+    try {
+      isActive = normalizeBooleanString(rawRow.is_active, true);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Activo', message: error.message });
+    }
+
+    try {
+      boxWidthFt = parseNullableNumberString(rawRow.box_width_ft);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Ancho (ft)', message: error.message });
+    }
+
+    try {
+      boxHeightFt = parseNullableNumberString(rawRow.box_height_ft);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Alto (ft)', message: error.message });
+    }
+
+    if (measurementMethod === 'BOX') {
+      if (boxWidthFt === null) rowErrors.push({ column: 'Ancho (ft)', message: 'es requerido para BOX' });
+      if (boxHeightFt === null) rowErrors.push({ column: 'Alto (ft)', message: 'es requerido para BOX' });
+    } else {
+      if (rawRow.box_width_ft.trim()) {
+        warnings.push(`Fila ${rowNumber}: se ignorara Ancho (ft) porque el metodo es CONE.`);
+      }
+      if (rawRow.box_height_ft.trim()) {
+        warnings.push(`Fila ${rowNumber}: se ignorara Alto (ft) porque el metodo es CONE.`);
+      }
+    }
+
+    if (aggregateName) {
+      const key = aggregateName.toLowerCase();
+      if (seenNames.has(key)) {
+        rowErrors.push({ column: 'Nombre del agregado', message: `duplicado dentro del archivo; tambien aparece en la fila ${seenNames.get(key)}` });
+      } else {
+        seenNames.set(key, rowNumber);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({
+          row: rowNumber,
+          column: rowError.column,
+          message: rowError.message,
+        });
+      });
+      return;
+    }
+
+    const existing = existingByName[aggregateName.toLowerCase()];
+    normalizedRows.push({
+      row_number: rowNumber,
+      aggregate_name: aggregateName,
+      material_type: materialType,
+      location_area: locationArea,
+      measurement_method: measurementMethod as NormalizedAggregatesImportRow['measurement_method'],
+      unit,
+      box_width_ft: measurementMethod === 'BOX' ? boxWidthFt : null,
+      box_height_ft: measurementMethod === 'BOX' ? boxHeightFt : null,
+      is_active: isActive,
+      action: existing ? 'update' : 'create',
+      existing_id: existing?.id,
+    });
+  });
+
+  if ((legacyCount || 0) > 0) {
+    warnings.push(`La planta tiene ${(legacyCount || 0)} cajones legacy. Se limpiaran al ejecutar esta importacion para dejar solo la configuracion nueva.`);
+  }
+
+  return {
+    plant: {
+      id: plant.id,
+      name: plant.name,
+    },
+    module: 'aggregates' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create').length,
+      updates: normalizedRows.filter((row) => row.action === 'update').length,
+      legacy_cajones: legacyCount || 0,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createAggregatesImportPreviewToken(plantId: string, previewPayload: AggregatesImportInput) {
+  const payload = normalizeAggregatesImportPayload(previewPayload);
+  validateAggregatesImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: AggregatesImportPreviewRecord = {
+    token,
+    plant_id: plantId,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildAggregatesImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateAggregatesImportPreviewToken(plantId: string, token: string, payload: AggregatesImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildAggregatesImportPreviewKey(token)) as AggregatesImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (stored.plant_id !== plantId) {
+    return { valid: false, error: 'La previsualizacion no corresponde a esta planta.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildAggregatesImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeAggregatesImportPayload(payload);
+  validateAggregatesImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualizacion aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeAggregatesImportPreviewToken(token: string) {
+  await kv.del(buildAggregatesImportPreviewKey(token));
+}
+
+export async function executeAggregatesImport(plantId: string, input: AggregatesImportInput) {
+  const preview = await previewAggregatesImport(plantId, input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas validas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('plant_aggregates_config')
+    .select('id, aggregate_name, sort_order')
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+
+  const existingById = (existingRows || []).reduce((acc: Record<string, { sort_order?: number }>, row: any) => {
+    acc[row.id] = { sort_order: row.sort_order };
+    return acc;
+  }, {});
+
+  const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
+  let nextSortOrder = maxSortOrder + 1;
+  let created = 0;
+  let updated = 0;
+
+  for (const row of preview.normalized_rows) {
+    const payload = {
+      plant_id: plantId,
+      aggregate_name: row.aggregate_name,
+      material_type: row.material_type,
+      location_area: row.location_area,
+      measurement_method: row.measurement_method,
+      unit: row.unit || 'CUBIC_YARDS',
+      box_width_ft: row.measurement_method === 'BOX' ? row.box_width_ft : null,
+      box_height_ft: row.measurement_method === 'BOX' ? row.box_height_ft : null,
+      is_active: row.is_active,
+      sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
+    };
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('plant_aggregates_config')
+        .update(payload)
+        .eq('id', row.existing_id);
+
+      if (updateError) throw updateError;
+      updated += 1;
+    } else {
+      const { error: insertError } = await supabase
+        .from('plant_aggregates_config')
+        .insert(payload);
+
+      if (insertError) throw insertError;
+      created += 1;
+    }
+  }
+
+  const { error: legacyDeleteError } = await supabase
+    .from('plant_cajones_config')
+    .delete()
+    .eq('plant_id', plantId);
+  if (legacyDeleteError) throw legacyDeleteError;
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
+      legacy_cajones_cleared: preview.summary.legacy_cajones,
     },
   };
 }

@@ -1813,6 +1813,120 @@ app.post("/make-server/plants/:plantId/config-import/products/execute", async (c
   }
 });
 
+app.post("/make-server/plants/:plantId/config-import/aggregates/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const preview = await db.previewAggregatesImport(plantId, body);
+    let previewToken: string | null = null;
+
+    if (preview.summary.valid_rows > 0 && preview.errors.length === 0) {
+      const record = await db.createAggregatesImportPreviewToken(plantId, body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'AGGREGATES_IMPORT_PREVIEWED',
+      plant_id: plantId,
+      details: {
+        import_mode: preview.import_mode,
+        template_version: preview.template_version,
+        summary: preview.summary,
+        warnings: preview.warnings,
+        error_count: preview.errors.length,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Error previewing aggregates import:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/plants/:plantId/config-import/aggregates/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const { plantId } = c.req.param();
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const {
+      preview_token,
+      reason,
+      ...payload
+    } = body || {};
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateAggregatesImportPreviewToken(plantId, preview_token, payload);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const result = await db.executeAggregatesImport(plantId, payload);
+    if (result.errors.length > 0) {
+      return c.json({ success: false, error: 'La importacion tiene errores y no puede ejecutarse.' }, 400);
+    }
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'AGGREGATES_IMPORTED_FROM_TEMPLATE',
+      plant_id: plantId,
+      details: {
+        import_mode: result.import_mode,
+        template_version: result.template_version,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        legacy_cajones_cleared: result.result.legacy_cajones_cleared,
+        warnings: result.warnings,
+        reason: reason.trim(),
+      },
+    });
+
+    await db.consumeAggregatesImportPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        plant: result.plant,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        legacy_cajones_cleared: result.result.legacy_cajones_cleared,
+        warnings: result.warnings,
+        audit_action_id: auditActionId,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Error executing aggregates import:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
 // PUT /plants/:plantId/silos — replace all silos for a plant (admin/super_admin only)
 app.put("/make-server/plants/:plantId/silos", async (c) => {
   try {
