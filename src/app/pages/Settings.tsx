@@ -1,4 +1,4 @@
-import { FileSpreadsheet } from 'lucide-react';
+import { AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +33,7 @@ interface PlantModuleCounts {
   additives: number;
   diesel: number;
   products: number;
+  hasInvalidAggregates: boolean;
 }
 
 const EMPTY_MODULE_COUNTS: PlantModuleCounts = {
@@ -41,6 +42,7 @@ const EMPTY_MODULE_COUNTS: PlantModuleCounts = {
   additives: 0,
   diesel: 0,
   products: 0,
+  hasInvalidAggregates: false,
 };
 
 function countActiveEntries(entries: any[] | undefined) {
@@ -56,6 +58,23 @@ function getAggregateCountWithLegacyFallback(config: { aggregates?: any[]; cajon
   const aggregateCount = countActiveEntries(config.aggregates);
   if (aggregateCount > 0) return aggregateCount;
   return countActiveEntries(config.cajones);
+}
+
+function hasInvalidAggregateDimensions(config: { aggregates?: any[]; cajones?: any[] }) {
+  const activeAggregates = (config.aggregates || []).filter((entry) => entry?.is_active !== false);
+  if (activeAggregates.length > 0) {
+    return activeAggregates.some((entry) => {
+      const measurementMethod = String(entry?.measurement_method || 'BOX').toUpperCase();
+      if (measurementMethod !== 'BOX') return false;
+      return Number(entry?.box_width_ft ?? 0) <= 0 || Number(entry?.box_height_ft ?? 0) <= 0;
+    });
+  }
+
+  return (config.cajones || []).some((entry) => {
+    const width = Number(entry?.ancho ?? entry?.box_width_ft ?? 0);
+    const height = Number(entry?.alto ?? entry?.box_height_ft ?? 0);
+    return width <= 0 || height <= 0;
+  });
 }
 
 export function Settings() {
@@ -140,6 +159,10 @@ export function Settings() {
               additives: countActiveEntries(response.data.additives),
               diesel: hasActiveDieselConfig(response.data.diesel) ? 1 : 0,
               products: countActiveEntries(response.data.products),
+              hasInvalidAggregates: hasInvalidAggregateDimensions({
+                aggregates: response.data.aggregates,
+                cajones: response.data.cajones ?? plant.cajones,
+              }),
             },
           ] as const;
         } catch (error) {
@@ -174,11 +197,13 @@ export function Settings() {
     icon,
     label,
     count,
+    hasWarning = false,
     onClick,
   }: {
     icon: string;
     label: string;
     count: number;
+    hasWarning?: boolean;
     onClick: () => void;
   }) => (
     <Button
@@ -188,9 +213,14 @@ export function Settings() {
       className="min-w-[92px] flex-col gap-0.5 px-2 py-2 leading-tight"
     >
       <span className="text-xl leading-none">{icon}</span>
-      <span className="text-xs font-medium text-center">{label}</span>
-      <span className={`text-lg font-semibold leading-none ${count > 0 ? 'text-[#C94A4A]' : 'text-[#9D9B9A]'}`}>
-        {count}
+      <span className="flex items-center justify-center gap-1 text-xs font-medium text-center">
+        <span>{label}</span>
+        {hasWarning && <AlertTriangle size={12} className="text-[#C97A1E]" aria-hidden="true" />}
+      </span>
+      <span className="flex items-center justify-center gap-1 leading-none">
+        <span className={`text-lg font-semibold ${count > 0 ? 'text-[#C94A4A]' : 'text-[#9D9B9A]'}`}>
+          {count}
+        </span>
       </span>
     </Button>
   );
@@ -463,6 +493,7 @@ export function Settings() {
                               icon: '📐',
                               label: 'Agregados',
                               count: counts.aggregates,
+                              hasWarning: counts.hasInvalidAggregates,
                               onClick: () => setEditingAggregates(plant),
                             })}
                             {renderConfigActionButton({

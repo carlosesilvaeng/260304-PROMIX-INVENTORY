@@ -196,6 +196,8 @@ export function AggregatesConfigModal({
     [importPreview]
   );
 
+  const saveValidationMessage = useMemo(() => validateRows(), [rows]);
+
   const getFieldTouchKey = (index: number, field: AggregateDimensionField) => `${index}:${field}`;
 
   const markFieldTouched = (index: number, field: AggregateDimensionField) => {
@@ -272,7 +274,7 @@ export function AggregatesConfigModal({
     });
   };
 
-  const validateRows = () => {
+  function validateRows() {
     const normalizedNames = new Set<string>();
 
     for (const [index, row] of rows.entries()) {
@@ -320,7 +322,7 @@ export function AggregatesConfigModal({
     }
 
     return null;
-  };
+  }
 
   const handleSave = async () => {
     const validationError = validateRows();
@@ -676,13 +678,24 @@ export function AggregatesConfigModal({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
+          <div className="border-t border-[#9D9B9A] p-6">
+            <div className="flex items-center justify-end gap-3">
             <Button variant="ghost" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={loading || previewingImport || executingImport}>
+            <Button
+              onClick={handleSave}
+              loading={saving}
+              disabled={loading || previewingImport || executingImport || Boolean(saveValidationMessage)}
+            >
               Guardar configuración
             </Button>
+            </div>
+            {saveValidationMessage && (
+              <p className="mt-2 text-right text-sm text-[#C94A4A]">
+                No puedes guardar: {saveValidationMessage}
+              </p>
+            )}
           </div>
         </div>
       </div>
