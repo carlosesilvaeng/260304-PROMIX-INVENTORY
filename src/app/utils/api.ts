@@ -181,6 +181,38 @@ export interface TransactionalCleanupExecuteResult {
   warnings: string[];
 }
 
+export type ConfigCleanupModule = 'silos' | 'aggregates' | 'additives' | 'diesel' | 'products' | 'utilities' | 'petty_cash';
+
+export interface ConfigCleanupFilters {
+  plant_id: string;
+  modules: ConfigCleanupModule[];
+  include_related_rows?: boolean;
+}
+
+export interface ConfigCleanupPreview {
+  plant: {
+    id: string;
+    name: string;
+    is_active: boolean;
+  };
+  modules: ConfigCleanupModule[];
+  include_related_rows: boolean;
+  counts_by_module: Record<ConfigCleanupModule, number>;
+  counts_by_table: Record<string, number>;
+  inventory_months_count: number;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface ConfigCleanupExecuteResult {
+  deleted_modules: ConfigCleanupModule[];
+  deleted_rows_by_table: Record<string, number>;
+  deleted_rows_by_module: Record<ConfigCleanupModule, number>;
+  inventory_months_count: number;
+  audit_action_id: string | null;
+  warnings: string[];
+}
+
 export async function getDataControlSummary(): Promise<ApiResponse<DataControlSummary>> {
   return apiRequest('/admin/data/summary', 'GET');
 }
@@ -218,6 +250,22 @@ export async function executeTransactionalCleanup(
   }
 ): Promise<ApiResponse<TransactionalCleanupExecuteResult>> {
   return apiRequest('/admin/data/cleanup/execute', 'POST', payload);
+}
+
+export async function previewPlantConfigurationCleanup(
+  payload: ConfigCleanupFilters
+): Promise<ApiResponse<ConfigCleanupPreview>> {
+  return apiRequest('/admin/data/config-cleanup/preview', 'POST', payload);
+}
+
+export async function executePlantConfigurationCleanup(
+  payload: ConfigCleanupFilters & {
+    preview_token: string;
+    confirmation_text: string;
+    reason: string;
+  }
+): Promise<ApiResponse<ConfigCleanupExecuteResult>> {
+  return apiRequest('/admin/data/config-cleanup/execute', 'POST', payload);
 }
 
 // ============================================================================

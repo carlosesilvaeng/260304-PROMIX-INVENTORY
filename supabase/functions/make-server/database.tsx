@@ -25,11 +25,14 @@ export const INVENTORY_CHILD_TABLES = [
 
 const INVENTORY_STATUSES = ['IN_PROGRESS', 'SUBMITTED', 'APPROVED'] as const;
 const CLEANUP_PREVIEW_PREFIX = 'data_cleanup_preview:';
+const CONFIG_CLEANUP_PREVIEW_PREFIX = 'config_cleanup_preview:';
 const CLEANUP_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const MAX_CLEANUP_INVENTORY_MONTHS = 200;
 const MAX_CLEANUP_DISTINCT_MONTHS = 24;
+const CONFIG_CLEANUP_MODULES = ['silos', 'aggregates', 'additives', 'diesel', 'products', 'utilities', 'petty_cash'] as const;
 
 type InventoryStatus = typeof INVENTORY_STATUSES[number];
+export type ConfigCleanupModule = typeof CONFIG_CLEANUP_MODULES[number];
 
 interface CleanupFiltersInput {
   scope?: string;
@@ -64,6 +67,31 @@ interface CleanupPreviewRecord {
   payload: CleanupFilters;
   created_at: string;
   expires_at: string;
+}
+
+interface ConfigCleanupInput {
+  plant_id?: string | null;
+  modules?: string[];
+  include_related_rows?: boolean;
+}
+
+export interface ConfigCleanupFilters {
+  plant_id: string;
+  modules: ConfigCleanupModule[];
+  include_related_rows: boolean;
+}
+
+interface ConfigCleanupPreviewRecord {
+  token: string;
+  payload: ConfigCleanupFilters;
+  created_at: string;
+  expires_at: string;
+}
+
+interface PlantSummaryRow {
+  id: string;
+  name: string;
+  is_active?: boolean;
 }
 
 function isValidYearMonth(value: string | null | undefined): value is string {
@@ -109,6 +137,10 @@ function buildCleanupPreviewKey(token: string) {
   return `${CLEANUP_PREVIEW_PREFIX}${token}`;
 }
 
+function buildConfigCleanupPreviewKey(token: string) {
+  return `${CONFIG_CLEANUP_PREVIEW_PREFIX}${token}`;
+}
+
 function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
   const yearMonthFrom = isValidYearMonth(input.year_month_from) ? input.year_month_from.trim() : null;
   const yearMonthTo = isValidYearMonth(input.year_month_to) ? input.year_month_to.trim() : null;
@@ -120,6 +152,14 @@ function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
     year_month_to: yearMonthTo,
     statuses: normalizeStringArray(input.statuses, INVENTORY_STATUSES) as InventoryStatus[],
     include_photos: input.include_photos !== false,
+  };
+}
+
+function normalizeConfigCleanupFilters(input: ConfigCleanupInput): ConfigCleanupFilters {
+  return {
+    plant_id: String(input.plant_id || '').trim(),
+    modules: normalizeStringArray(input.modules, CONFIG_CLEANUP_MODULES) as ConfigCleanupModule[],
+    include_related_rows: input.include_related_rows !== false,
   };
 }
 
@@ -141,6 +181,16 @@ function validateCleanupFilters(filters: CleanupFilters) {
   }
 }
 
+function validateConfigCleanupFilters(filters: ConfigCleanupFilters) {
+  if (!filters.plant_id) {
+    throw new Error('Debes seleccionar una planta.');
+  }
+
+  if (filters.modules.length === 0) {
+    throw new Error('Debes seleccionar al menos un modulo.');
+  }
+}
+
 function createEmptyChildCounts() {
   return INVENTORY_CHILD_TABLES.reduce((acc: Record<string, number>, { table }) => {
     acc[table] = 0;
@@ -153,6 +203,65 @@ function createEmptyStatusCounts() {
     acc[status] = 0;
     return acc;
   }, {} as Record<InventoryStatus, number>);
+}
+
+function createEmptyConfigModuleCounts() {
+  return CONFIG_CLEANUP_MODULES.reduce((acc: Record<ConfigCleanupModule, number>, module) => {
+    acc[module] = 0;
+    return acc;
+  }, {} as Record<ConfigCleanupModule, number>);
+}
+
+function sumModuleCounts(countsByTable: Record<string, number>, tables: string[]) {
+  return tables.reduce((sum, table) => sum + (countsByTable[table] || 0), 0);
+}
+
+async function countRowsByPlant(table: string, plantId: string) {
+  const supabase = getSupabaseClient();
+  const { count, error } = await supabase
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+  return count || 0;
+}
+
+async function getPlantForConfigCleanup(plantId: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('plants')
+    .select('id, name, is_active')
+    .eq('id', plantId)
+    .single();
+
+  if (error || !data) {
+    throw new Error('Planta no encontrada.');
+  }
+
+  return data as PlantSummaryRow;
+}
+
+async function getInventoryMonthCountForPlant(plantId: string) {
+  const supabase = getSupabaseClient();
+  const { count, error } = await supabase
+    .from('inventory_month')
+    .select('id', { count: 'exact', head: true })
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+  return count || 0;
+}
+
+async function getSiloConfigIdsForPlant(plantId: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('plant_silos_config')
+    .select('id')
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+  return (data || []).map((row: { id: string }) => row.id);
 }
 
 async function queryInventoryMonths(filters: CleanupFilters, options?: { page?: number; pageSize?: number; countExact?: boolean }) {
@@ -871,4 +980,251 @@ export async function validateCleanupPreviewToken(token: string, payload: Cleanu
 
 export async function consumeCleanupPreviewToken(token: string) {
   await kv.del(buildCleanupPreviewKey(token));
+}
+
+export async function previewPlantConfigurationCleanup(input: ConfigCleanupInput) {
+  const filters = normalizeConfigCleanupFilters(input);
+  validateConfigCleanupFilters(filters);
+
+  const plant = await getPlantForConfigCleanup(filters.plant_id);
+  const countsByTable: Record<string, number> = {};
+  const countsByModule = createEmptyConfigModuleCounts();
+
+  if (filters.modules.includes('aggregates')) {
+    countsByTable.plant_aggregates_config = await countRowsByPlant('plant_aggregates_config', filters.plant_id);
+    countsByTable.plant_cajones_config = await countRowsByPlant('plant_cajones_config', filters.plant_id);
+    countsByModule.aggregates = sumModuleCounts(countsByTable, ['plant_aggregates_config', 'plant_cajones_config']);
+  }
+
+  if (filters.modules.includes('silos')) {
+    const siloIds = await getSiloConfigIdsForPlant(filters.plant_id);
+    countsByTable.plant_silos_config = siloIds.length;
+
+    if (filters.include_related_rows && siloIds.length > 0) {
+      const supabase = getSupabaseClient();
+      const { count, error } = await supabase
+        .from('silo_allowed_products')
+        .select('id', { count: 'exact', head: true })
+        .in('silo_config_id', siloIds);
+
+      if (error) throw error;
+      countsByTable.silo_allowed_products = count || 0;
+    } else {
+      countsByTable.silo_allowed_products = 0;
+    }
+
+    countsByModule.silos = sumModuleCounts(countsByTable, ['plant_silos_config', 'silo_allowed_products']);
+  }
+
+  if (filters.modules.includes('additives')) {
+    countsByTable.plant_additives_config = await countRowsByPlant('plant_additives_config', filters.plant_id);
+    countsByModule.additives = countsByTable.plant_additives_config;
+  }
+
+  if (filters.modules.includes('diesel')) {
+    countsByTable.plant_diesel_config = await countRowsByPlant('plant_diesel_config', filters.plant_id);
+    countsByModule.diesel = countsByTable.plant_diesel_config;
+  }
+
+  if (filters.modules.includes('products')) {
+    countsByTable.plant_products_config = await countRowsByPlant('plant_products_config', filters.plant_id);
+    countsByModule.products = countsByTable.plant_products_config;
+  }
+
+  if (filters.modules.includes('utilities')) {
+    countsByTable.plant_utilities_meters_config = await countRowsByPlant('plant_utilities_meters_config', filters.plant_id);
+    countsByModule.utilities = countsByTable.plant_utilities_meters_config;
+  }
+
+  if (filters.modules.includes('petty_cash')) {
+    countsByTable.plant_petty_cash_config = await countRowsByPlant('plant_petty_cash_config', filters.plant_id);
+    countsByModule.petty_cash = countsByTable.plant_petty_cash_config;
+  }
+
+  const inventoryMonthsCount = await getInventoryMonthCountForPlant(filters.plant_id);
+  const warnings: string[] = [];
+
+  if (inventoryMonthsCount > 0) {
+    warnings.push(`La planta tiene ${inventoryMonthsCount} inventarios historicos. Reiniciar configuracion no los elimina.`);
+  }
+
+  if (Object.values(countsByTable).reduce((sum, count) => sum + count, 0) === 0) {
+    warnings.push('No se encontraron registros de configuracion para los modulos seleccionados.');
+  }
+
+  return {
+    plant: {
+      id: plant.id,
+      name: plant.name,
+      is_active: plant.is_active !== false,
+    },
+    modules: filters.modules,
+    include_related_rows: filters.include_related_rows,
+    counts_by_module: countsByModule,
+    counts_by_table: countsByTable,
+    inventory_months_count: inventoryMonthsCount,
+    warnings,
+  };
+}
+
+export async function createConfigCleanupPreviewToken(previewPayload: ConfigCleanupInput) {
+  const payload = normalizeConfigCleanupFilters(previewPayload);
+  validateConfigCleanupFilters(payload);
+
+  const token = crypto.randomUUID();
+  const record: ConfigCleanupPreviewRecord = {
+    token,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildConfigCleanupPreviewKey(token), record);
+  return record;
+}
+
+export async function validateConfigCleanupPreviewToken(token: string, payload: ConfigCleanupInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildConfigCleanupPreviewKey(token)) as ConfigCleanupPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildConfigCleanupPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeConfigCleanupFilters(payload);
+  validateConfigCleanupFilters(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualizacion aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeConfigCleanupPreviewToken(token: string) {
+  await kv.del(buildConfigCleanupPreviewKey(token));
+}
+
+export async function executePlantConfigurationCleanup(input: ConfigCleanupInput) {
+  const filters = normalizeConfigCleanupFilters(input);
+  validateConfigCleanupFilters(filters);
+
+  const preview = await previewPlantConfigurationCleanup(filters);
+  const supabase = getSupabaseClient();
+  const deletedRowsByTable = Object.keys(preview.counts_by_table).reduce((acc: Record<string, number>, table) => {
+    acc[table] = 0;
+    return acc;
+  }, {});
+  const deletedRowsByModule = createEmptyConfigModuleCounts();
+
+  if (filters.modules.includes('silos')) {
+    const siloIds = await getSiloConfigIdsForPlant(filters.plant_id);
+
+    if (filters.include_related_rows && siloIds.length > 0) {
+      const { error: allowedProductsError } = await supabase
+        .from('silo_allowed_products')
+        .delete()
+        .in('silo_config_id', siloIds);
+
+      if (allowedProductsError) throw allowedProductsError;
+      deletedRowsByTable.silo_allowed_products = preview.counts_by_table.silo_allowed_products || 0;
+    }
+
+    const { error: silosError } = await supabase
+      .from('plant_silos_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+
+    if (silosError) throw silosError;
+    deletedRowsByTable.plant_silos_config = preview.counts_by_table.plant_silos_config || 0;
+    deletedRowsByModule.silos = sumModuleCounts(deletedRowsByTable, ['plant_silos_config', 'silo_allowed_products']);
+  }
+
+  if (filters.modules.includes('aggregates')) {
+    const { error: aggregatesError } = await supabase
+      .from('plant_aggregates_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (aggregatesError) throw aggregatesError;
+
+    const { error: cajonesError } = await supabase
+      .from('plant_cajones_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (cajonesError) throw cajonesError;
+
+    deletedRowsByTable.plant_aggregates_config = preview.counts_by_table.plant_aggregates_config || 0;
+    deletedRowsByTable.plant_cajones_config = preview.counts_by_table.plant_cajones_config || 0;
+    deletedRowsByModule.aggregates = sumModuleCounts(deletedRowsByTable, ['plant_aggregates_config', 'plant_cajones_config']);
+  }
+
+  if (filters.modules.includes('additives')) {
+    const { error } = await supabase
+      .from('plant_additives_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (error) throw error;
+    deletedRowsByTable.plant_additives_config = preview.counts_by_table.plant_additives_config || 0;
+    deletedRowsByModule.additives = deletedRowsByTable.plant_additives_config;
+  }
+
+  if (filters.modules.includes('diesel')) {
+    const { error } = await supabase
+      .from('plant_diesel_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (error) throw error;
+    deletedRowsByTable.plant_diesel_config = preview.counts_by_table.plant_diesel_config || 0;
+    deletedRowsByModule.diesel = deletedRowsByTable.plant_diesel_config;
+  }
+
+  if (filters.modules.includes('products')) {
+    const { error } = await supabase
+      .from('plant_products_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (error) throw error;
+    deletedRowsByTable.plant_products_config = preview.counts_by_table.plant_products_config || 0;
+    deletedRowsByModule.products = deletedRowsByTable.plant_products_config;
+  }
+
+  if (filters.modules.includes('utilities')) {
+    const { error } = await supabase
+      .from('plant_utilities_meters_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (error) throw error;
+    deletedRowsByTable.plant_utilities_meters_config = preview.counts_by_table.plant_utilities_meters_config || 0;
+    deletedRowsByModule.utilities = deletedRowsByTable.plant_utilities_meters_config;
+  }
+
+  if (filters.modules.includes('petty_cash')) {
+    const { error } = await supabase
+      .from('plant_petty_cash_config')
+      .delete()
+      .eq('plant_id', filters.plant_id);
+    if (error) throw error;
+    deletedRowsByTable.plant_petty_cash_config = preview.counts_by_table.plant_petty_cash_config || 0;
+    deletedRowsByModule.petty_cash = deletedRowsByTable.plant_petty_cash_config;
+  }
+
+  return {
+    plant: preview.plant,
+    modules: filters.modules,
+    deleted_rows_by_table: deletedRowsByTable,
+    deleted_rows_by_module: deletedRowsByModule,
+    inventory_months_count: preview.inventory_months_count,
+    warnings: preview.warnings,
+  };
 }

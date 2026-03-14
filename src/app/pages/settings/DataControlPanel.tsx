@@ -5,10 +5,15 @@ import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  executePlantConfigurationCleanup,
   executeTransactionalCleanup,
   getDataControlInventories,
   getDataControlSummary,
+  previewPlantConfigurationCleanup,
   previewTransactionalCleanup,
+  type ConfigCleanupFilters,
+  type ConfigCleanupModule,
+  type ConfigCleanupPreview,
   type DataControlInventoryListItem,
   type DataControlSummary,
   type InventoryStatus,
@@ -41,6 +46,28 @@ const CHILD_TABLE_LABELS: Record<string, string> = {
   inventory_products_entries: 'Productos',
   inventory_utilities_entries: 'Utilidades',
   inventory_petty_cash_entries: 'Petty cash',
+};
+
+const CONFIG_MODULE_OPTIONS: Array<{ value: ConfigCleanupModule; label: string }> = [
+  { value: 'silos', label: 'Silos' },
+  { value: 'aggregates', label: 'Agregados' },
+  { value: 'additives', label: 'Aditivos' },
+  { value: 'diesel', label: 'Diesel' },
+  { value: 'products', label: 'Aceites y productos' },
+  { value: 'utilities', label: 'Utilidades' },
+  { value: 'petty_cash', label: 'Petty cash' },
+];
+
+const CONFIG_TABLE_LABELS: Record<string, string> = {
+  plant_silos_config: 'Silos',
+  silo_allowed_products: 'Productos permitidos de silos',
+  plant_aggregates_config: 'Agregados',
+  plant_cajones_config: 'Cajones legacy',
+  plant_additives_config: 'Aditivos',
+  plant_diesel_config: 'Diesel',
+  plant_products_config: 'Aceites y productos',
+  plant_utilities_meters_config: 'Utilidades',
+  plant_petty_cash_config: 'Petty cash',
 };
 
 function formatYearMonthLabel(yearMonth: string) {
@@ -114,6 +141,15 @@ export function DataControlPanel() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [reason, setReason] = useState('');
+  const [configCleanupPlantId, setConfigCleanupPlantId] = useState('');
+  const [configCleanupModules, setConfigCleanupModules] = useState<ConfigCleanupModule[]>([]);
+  const [configPreviewLoading, setConfigPreviewLoading] = useState(false);
+  const [executingConfigCleanup, setExecutingConfigCleanup] = useState(false);
+  const [configPreviewData, setConfigPreviewData] = useState<ConfigCleanupPreview | null>(null);
+  const [showConfigPreviewModal, setShowConfigPreviewModal] = useState(false);
+  const [showConfigConfirmModal, setShowConfigConfirmModal] = useState(false);
+  const [configConfirmationText, setConfigConfirmationText] = useState('');
+  const [configReason, setConfigReason] = useState('');
 
   const totalPages = Math.max(1, Math.ceil(totalItems / 25));
 
@@ -133,6 +169,14 @@ export function DataControlPanel() {
     setShowConfirmModal(false);
     setConfirmationText('');
     setReason('');
+  };
+
+  const resetConfigCleanupState = () => {
+    setConfigPreviewData(null);
+    setShowConfigPreviewModal(false);
+    setShowConfigConfirmModal(false);
+    setConfigConfirmationText('');
+    setConfigReason('');
   };
 
   const fetchSummary = async () => {
@@ -190,6 +234,14 @@ export function DataControlPanel() {
     );
   };
 
+  const toggleConfigModule = (module: ConfigCleanupModule) => {
+    setConfigCleanupModules((current) =>
+      current.includes(module)
+        ? current.filter((value) => value !== module)
+        : [...current, module]
+    );
+  };
+
   const buildBulkPayload = (): TransactionalCleanupFilters => ({
     scope: 'transactional',
     plant_ids: cleanupPlantIds.length > 0 ? cleanupPlantIds : undefined,
@@ -198,6 +250,16 @@ export function DataControlPanel() {
     statuses: cleanupStatuses.length > 0 ? cleanupStatuses : undefined,
     include_photos: true,
   });
+
+  const buildConfigCleanupPayload = (): ConfigCleanupFilters | null => {
+    if (!configCleanupPlantId) return null;
+
+    return {
+      plant_id: configCleanupPlantId,
+      modules: configCleanupModules,
+      include_related_rows: true,
+    };
+  };
 
   const openPreview = async (intent: CleanupIntent) => {
     setPreviewLoading(true);
@@ -258,6 +320,53 @@ export function DataControlPanel() {
     setAlertState({
       type: 'success',
       message: `Limpieza completada: ${response.data.deleted_inventory_months} inventarios y ${response.data.deleted_photos} fotos eliminadas.`,
+    });
+    await refreshAll();
+  };
+
+  const handleConfigCleanupPreview = async () => {
+    const payload = buildConfigCleanupPayload();
+    if (!payload) {
+      setAlertState({ type: 'error', message: 'Debes seleccionar una planta para reiniciar configuracion.' });
+      return;
+    }
+
+    setConfigPreviewLoading(true);
+    setAlertState(null);
+    const response = await previewPlantConfigurationCleanup(payload);
+    setConfigPreviewLoading(false);
+
+    if (!response.success || !response.data) {
+      setAlertState({ type: 'error', message: response.error || 'No se pudo previsualizar el reinicio de configuracion.' });
+      return;
+    }
+
+    setConfigPreviewData(response.data);
+    setShowConfigPreviewModal(true);
+  };
+
+  const handleExecuteConfigCleanup = async () => {
+    const payload = buildConfigCleanupPayload();
+    if (!payload || !configPreviewData?.preview_token) return;
+
+    setExecutingConfigCleanup(true);
+    const response = await executePlantConfigurationCleanup({
+      ...payload,
+      preview_token: configPreviewData.preview_token,
+      confirmation_text: configConfirmationText,
+      reason: configReason,
+    });
+    setExecutingConfigCleanup(false);
+
+    if (!response.success || !response.data) {
+      setAlertState({ type: 'error', message: response.error || 'No se pudo reiniciar la configuracion.' });
+      return;
+    }
+
+    resetConfigCleanupState();
+    setAlertState({
+      type: 'success',
+      message: `Configuracion reiniciada: ${response.data.deleted_modules.length} modulos limpiados en ${configPreviewData.plant.name}.`,
     });
     await refreshAll();
   };
@@ -557,6 +666,69 @@ export function DataControlPanel() {
         </div>
       </Card>
 
+      <Card className="space-y-4 border-[#D8E8FA] bg-[#F7FBFF]">
+        <div>
+          <h4 className="text-base font-semibold text-[#3B3A36]">Reinicio de configuracion por planta</h4>
+          <p className="text-sm text-[#5F6773]">
+            Limpia modulos operativos de una planta para arrancar desde cero sin borrar inventarios historicos.
+          </p>
+        </div>
+
+        <Alert
+          type="warning"
+          message="Esto reinicia configuracion operativa. Los inventarios ya capturados no se borraran y pueden quedar diferencias historicas."
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,260px)_1fr] gap-4">
+          <div>
+            <label className="block text-sm font-medium text-[#3B3A36] mb-2">Planta</label>
+            <select
+              value={configCleanupPlantId}
+              onChange={(event) => setConfigCleanupPlantId(event.target.value)}
+              className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md bg-white text-[#3B3A36]"
+            >
+              <option value="">Selecciona una planta</option>
+              {allPlants.map((plant) => (
+                <option key={plant.id} value={plant.id}>{plant.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-[#3B3A36] mb-2">Modulos a reiniciar</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {CONFIG_MODULE_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex items-center gap-2 rounded-md border border-[#D4D8DD] bg-white px-3 py-2 text-sm text-[#3B3A36]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={configCleanupModules.includes(option.value)}
+                    onChange={() => toggleConfigModule(option.value)}
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-[#5F6773]">
+            Se borraran los registros de configuracion seleccionados y sus relaciones hijas seguras.
+          </p>
+          <Button
+            variant="destructive"
+            loading={configPreviewLoading}
+            disabled={!configCleanupPlantId || configCleanupModules.length === 0}
+            onClick={handleConfigCleanupPreview}
+          >
+            Previsualizar reinicio
+          </Button>
+        </div>
+      </Card>
+
       <Modal
         isOpen={showPreviewModal}
         onClose={resetCleanupState}
@@ -629,6 +801,86 @@ export function DataControlPanel() {
       </Modal>
 
       <Modal
+        isOpen={showConfigPreviewModal}
+        onClose={resetConfigCleanupState}
+        title="Previsualizacion de reinicio de configuracion"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={resetConfigCleanupState}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!configPreviewData?.preview_token || Object.values(configPreviewData?.counts_by_table || {}).every((count) => count === 0)}
+              onClick={() => {
+                setShowConfigPreviewModal(false);
+                setShowConfigConfirmModal(true);
+              }}
+            >
+              Continuar
+            </Button>
+          </>
+        }
+      >
+        {!configPreviewData ? (
+          <p className="text-sm text-[#5F6773]">Cargando previsualizacion...</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <KpiCard title="Planta" value={1} subtitle={configPreviewData.plant.name} />
+              <KpiCard title="Modulos" value={configPreviewData.modules.length} />
+              <KpiCard
+                title="Registros a borrar"
+                value={Object.values(configPreviewData.counts_by_table).reduce((sum, count) => sum + count, 0)}
+              />
+            </div>
+
+            <Card className="space-y-3 bg-[#F9FAFB]">
+              <p className="text-sm font-medium text-[#3B3A36]">Conteos por modulo</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#5F6773]">
+                {CONFIG_MODULE_OPTIONS
+                  .filter((option) => configPreviewData.modules.includes(option.value))
+                  .map((option) => (
+                    <div key={option.value} className="flex justify-between gap-4">
+                      <span>{option.label}</span>
+                      <strong className="text-[#3B3A36]">{configPreviewData.counts_by_module[option.value] || 0}</strong>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+
+            <Card className="space-y-3 bg-[#F9FAFB]">
+              <p className="text-sm font-medium text-[#3B3A36]">Conteos por tabla</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#5F6773]">
+                {Object.entries(configPreviewData.counts_by_table).map(([key, count]) => (
+                  <div key={key} className="flex justify-between gap-4">
+                    <span>{CONFIG_TABLE_LABELS[key] || key}</span>
+                    <strong className="text-[#3B3A36]">{count}</strong>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {configPreviewData.inventory_months_count > 0 ? (
+              <Alert
+                type="warning"
+                message={`La planta tiene ${configPreviewData.inventory_months_count} inventarios historicos. Este reinicio no los borrara.`}
+              />
+            ) : null}
+
+            {configPreviewData.warnings.length > 0 ? (
+              <div className="space-y-2">
+                {configPreviewData.warnings.map((warning) => (
+                  <Alert key={warning} type="warning" message={warning} />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
         isOpen={showConfirmModal}
         onClose={resetCleanupState}
         title="Confirmar limpieza"
@@ -676,6 +928,59 @@ export function DataControlPanel() {
               onChange={(event) => setReason(event.target.value)}
               className="w-full min-h-[120px] px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
               placeholder="Ej: Reinicio de ambiente de pruebas para validacion del flujo de marzo."
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showConfigConfirmModal}
+        onClose={resetConfigCleanupState}
+        title="Confirmar reinicio de configuracion"
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={resetConfigCleanupState}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              loading={executingConfigCleanup}
+              disabled={configConfirmationText !== 'REINICIAR CONFIGURACION' || configReason.trim().length < 10}
+              onClick={handleExecuteConfigCleanup}
+            >
+              Ejecutar reinicio
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Alert
+            type="warning"
+            message="Esta accion es destructiva. El sistema eliminara configuraciones activas e inactivas de los modulos seleccionados."
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+              Escribe exactamente: REINICIAR CONFIGURACION
+            </label>
+            <input
+              value={configConfirmationText}
+              onChange={(event) => setConfigConfirmationText(event.target.value)}
+              className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              placeholder="REINICIAR CONFIGURACION"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+              Motivo
+            </label>
+            <textarea
+              value={configReason}
+              onChange={(event) => setConfigReason(event.target.value)}
+              className="w-full min-h-[120px] px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              placeholder="Ej: Reinicio de configuracion de Guaynabo para arrancar pruebas desde cero."
             />
           </div>
         </div>

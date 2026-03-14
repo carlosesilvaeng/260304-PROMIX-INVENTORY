@@ -547,6 +547,119 @@ app.post("/make-server/admin/data/cleanup/execute", async (c) => {
   }
 });
 
+app.post("/make-server/admin/data/config-cleanup/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const body = await c.req.json();
+
+    const preview = await db.previewPlantConfigurationCleanup(body);
+    let previewToken: string | null = null;
+
+    if (Object.values(preview.counts_by_table).some((count) => count > 0)) {
+      const record = await db.createConfigCleanupPreviewToken(body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'CONFIG_CLEANUP_PREVIEWED',
+      plant_id: preview.plant.id,
+      details: {
+        plant: preview.plant,
+        modules: preview.modules,
+        include_related_rows: preview.include_related_rows,
+        counts_by_module: preview.counts_by_module,
+        counts_by_table: preview.counts_by_table,
+        inventory_months_count: preview.inventory_months_count,
+        warnings: preview.warnings,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error('[DATA CONTROL] Config cleanup preview error:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/admin/data/config-cleanup/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const body = await c.req.json();
+    const {
+      preview_token,
+      confirmation_text,
+      reason,
+      ...filters
+    } = body || {};
+
+    if (confirmation_text !== 'REINICIAR CONFIGURACION') {
+      return c.json({ success: false, error: 'La frase de confirmacion es incorrecta.' }, 400);
+    }
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateConfigCleanupPreviewToken(preview_token, filters);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const preview = await db.previewPlantConfigurationCleanup(filters);
+    const totalRows = Object.values(preview.counts_by_table).reduce((sum, count) => sum + count, 0);
+    if (totalRows === 0) {
+      return c.json({ success: false, error: 'No hay configuracion para reiniciar con esos modulos.' }, 400);
+    }
+
+    const result = await db.executePlantConfigurationCleanup(filters);
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'CONFIG_CLEANUP_EXECUTED',
+      plant_id: result.plant.id,
+      details: {
+        plant: result.plant,
+        modules: result.modules,
+        deleted_rows_by_table: result.deleted_rows_by_table,
+        deleted_rows_by_module: result.deleted_rows_by_module,
+        inventory_months_count: result.inventory_months_count,
+        reason: reason.trim(),
+        warnings: result.warnings,
+      },
+    });
+
+    await db.consumeConfigCleanupPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        deleted_modules: result.modules,
+        deleted_rows_by_table: result.deleted_rows_by_table,
+        deleted_rows_by_module: result.deleted_rows_by_module,
+        inventory_months_count: result.inventory_months_count,
+        audit_action_id: auditActionId,
+        warnings: result.warnings,
+      },
+    });
+  } catch (error: any) {
+    console.error('[DATA CONTROL] Config cleanup execute error:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
 // ============================================================================
 // AUTHENTICATION ENDPOINTS
 // ============================================================================
