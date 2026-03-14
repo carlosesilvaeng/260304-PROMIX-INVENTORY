@@ -26,6 +26,7 @@ export const INVENTORY_CHILD_TABLES = [
 const INVENTORY_STATUSES = ['IN_PROGRESS', 'SUBMITTED', 'APPROVED'] as const;
 const CLEANUP_PREVIEW_PREFIX = 'data_cleanup_preview:';
 const CONFIG_CLEANUP_PREVIEW_PREFIX = 'config_cleanup_preview:';
+const PRODUCTS_IMPORT_PREVIEW_PREFIX = 'products_import_preview:';
 const CLEANUP_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const MAX_CLEANUP_INVENTORY_MONTHS = 200;
 const MAX_CLEANUP_DISTINCT_MONTHS = 24;
@@ -94,6 +95,59 @@ interface PlantSummaryRow {
   is_active?: boolean;
 }
 
+interface ProductsImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    product_name?: string;
+    category?: string;
+    measure_mode?: string;
+    uom?: string;
+    requires_photo?: string;
+    reading_uom?: string;
+    tank_capacity?: string;
+    unit_volume?: string;
+    calibration_table_json?: string;
+    notes?: string;
+    is_active?: string;
+  }>;
+}
+
+export interface NormalizedProductsImportRow {
+  row_number: number;
+  product_name: string;
+  category: 'OIL' | 'LUBRICANT' | 'CONSUMABLE' | 'EQUIPMENT' | 'OTHER';
+  measure_mode: 'COUNT' | 'DRUM' | 'PAIL' | 'TANK_READING';
+  uom: string;
+  requires_photo: boolean;
+  reading_uom: string | null;
+  tank_capacity: number | null;
+  unit_volume: number | null;
+  calibration_table: Record<string, number> | null;
+  notes: string;
+  is_active: boolean;
+  action: 'create' | 'update';
+  existing_id?: string;
+}
+
+interface ProductsImportPreviewRecord {
+  token: string;
+  plant_id: string;
+  payload: {
+    module: 'products';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProductsImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
+const PRODUCTS_IMPORT_ALLOWED_CATEGORIES = ['OIL', 'LUBRICANT', 'CONSUMABLE', 'EQUIPMENT', 'OTHER'] as const;
+const PRODUCTS_IMPORT_ALLOWED_MEASURE_MODES = ['COUNT', 'DRUM', 'PAIL', 'TANK_READING'] as const;
+
 function isValidYearMonth(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value.trim());
 }
@@ -141,6 +195,10 @@ function buildConfigCleanupPreviewKey(token: string) {
   return `${CONFIG_CLEANUP_PREVIEW_PREFIX}${token}`;
 }
 
+function buildProductsImportPreviewKey(token: string) {
+  return `${PRODUCTS_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
 function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
   const yearMonthFrom = isValidYearMonth(input.year_month_from) ? input.year_month_from.trim() : null;
   const yearMonthTo = isValidYearMonth(input.year_month_to) ? input.year_month_to.trim() : null;
@@ -160,6 +218,30 @@ function normalizeConfigCleanupFilters(input: ConfigCleanupInput): ConfigCleanup
     plant_id: String(input.plant_id || '').trim(),
     modules: normalizeStringArray(input.modules, CONFIG_CLEANUP_MODULES) as ConfigCleanupModule[],
     include_related_rows: input.include_related_rows !== false,
+  };
+}
+
+function normalizeProductsImportPayload(input: ProductsImportInput) {
+  return {
+    module: input.module === 'products' ? 'products' as const : 'products' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          product_name: String(row?.product_name || ''),
+          category: String(row?.category || ''),
+          measure_mode: String(row?.measure_mode || ''),
+          uom: String(row?.uom || ''),
+          requires_photo: String(row?.requires_photo || ''),
+          reading_uom: String(row?.reading_uom || ''),
+          tank_capacity: String(row?.tank_capacity || ''),
+          unit_volume: String(row?.unit_volume || ''),
+          calibration_table_json: String(row?.calibration_table_json || ''),
+          notes: String(row?.notes || ''),
+          is_active: String(row?.is_active || ''),
+        }))
+      : [],
   };
 }
 
@@ -188,6 +270,24 @@ function validateConfigCleanupFilters(filters: ConfigCleanupFilters) {
 
   if (filters.modules.length === 0) {
     throw new Error('Debes seleccionar al menos un modulo.');
+  }
+}
+
+function validateProductsImportPayload(input: ReturnType<typeof normalizeProductsImportPayload>) {
+  if (input.module !== 'products') {
+    throw new Error('Solo se admite el modulo products en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
   }
 }
 
@@ -262,6 +362,55 @@ async function getSiloConfigIdsForPlant(plantId: string) {
 
   if (error) throw error;
   return (data || []).map((row: { id: string }) => row.id);
+}
+
+function normalizeBooleanString(value: string, defaultsTo: boolean) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return defaultsTo;
+  if (['si', 'sí', 'true', '1', 'yes', 'y'].includes(normalized)) return true;
+  if (['no', 'false', '0', 'n'].includes(normalized)) return false;
+  throw new Error('debe ser Sí o No');
+}
+
+function parseNullableNumberString(value: string) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (Number.isNaN(parsed)) {
+    throw new Error('debe ser un numero valido');
+  }
+  return parsed;
+}
+
+function parseCalibrationTableJson(value: string) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch {
+    throw new Error('debe contener un JSON valido');
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('debe ser un objeto JSON con pares lectura:valor');
+  }
+
+  const result = Object.entries(parsed).reduce((acc: Record<string, number>, [key, rawValue]) => {
+    const numericValue = Number(rawValue);
+    if (Number.isNaN(numericValue)) {
+      throw new Error('debe contener solo valores numericos');
+    }
+    acc[String(key)] = numericValue;
+    return acc;
+  }, {});
+
+  if (Object.keys(result).length === 0) {
+    throw new Error('no puede estar vacia');
+  }
+
+  return result;
 }
 
 async function queryInventoryMonths(filters: CleanupFilters, options?: { page?: number; pageSize?: number; countExact?: boolean }) {
@@ -1226,5 +1375,284 @@ export async function executePlantConfigurationCleanup(input: ConfigCleanupInput
     deleted_rows_by_module: deletedRowsByModule,
     inventory_months_count: preview.inventory_months_count,
     warnings: preview.warnings,
+  };
+}
+
+export async function previewProductsImport(plantId: string, input: ProductsImportInput) {
+  const payload = normalizeProductsImportPayload(input);
+  validateProductsImportPayload(payload);
+
+  const plant = await getPlantForConfigCleanup(plantId);
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('plant_products_config')
+    .select('id, product_name, sort_order')
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+
+  const existingByName = (existingRows || []).reduce((acc: Record<string, { id: string; sort_order?: number }>, row: any) => {
+    acc[String(row.product_name || '').trim().toLowerCase()] = {
+      id: row.id,
+      sort_order: row.sort_order,
+    };
+    return acc;
+  }, {});
+
+  const seenNames = new Map<string, number>();
+  const normalizedRows: NormalizedProductsImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const productName = rawRow.product_name.trim();
+    const category = rawRow.category.trim().toUpperCase();
+    const measureMode = rawRow.measure_mode.trim().toUpperCase();
+    const uom = rawRow.uom.trim();
+    const readingUom = rawRow.reading_uom.trim();
+    const notes = rawRow.notes.trim();
+
+    if (!productName) rowErrors.push({ column: 'Nombre', message: 'es requerido' });
+    if (!category) rowErrors.push({ column: 'Categoria', message: 'es requerida' });
+    if (category && !PRODUCTS_IMPORT_ALLOWED_CATEGORIES.includes(category as any)) {
+      rowErrors.push({ column: 'Categoria', message: `valor invalido. Usa ${PRODUCTS_IMPORT_ALLOWED_CATEGORIES.join(', ')}` });
+    }
+    if (!measureMode) rowErrors.push({ column: 'Metodo', message: 'es requerido' });
+    if (measureMode && !PRODUCTS_IMPORT_ALLOWED_MEASURE_MODES.includes(measureMode as any)) {
+      rowErrors.push({ column: 'Metodo', message: `valor invalido. Usa ${PRODUCTS_IMPORT_ALLOWED_MEASURE_MODES.join(', ')}` });
+    }
+    if (!uom) rowErrors.push({ column: 'Unidad', message: 'es requerida' });
+
+    let requiresPhoto = false;
+    let isActive = true;
+    let tankCapacity: number | null = null;
+    let unitVolume: number | null = null;
+    let calibrationTable: Record<string, number> | null = null;
+
+    try {
+      requiresPhoto = normalizeBooleanString(rawRow.requires_photo, false);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Requiere foto', message: error.message });
+    }
+
+    try {
+      isActive = normalizeBooleanString(rawRow.is_active, true);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Activo', message: error.message });
+    }
+
+    try {
+      tankCapacity = parseNullableNumberString(rawRow.tank_capacity);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Capacidad tanque', message: error.message });
+    }
+
+    try {
+      unitVolume = parseNullableNumberString(rawRow.unit_volume);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Volumen por unidad', message: error.message });
+    }
+
+    if (measureMode === 'TANK_READING') {
+      if (!readingUom) rowErrors.push({ column: 'Unidad lectura', message: 'es requerida para TANK_READING' });
+      try {
+        calibrationTable = parseCalibrationTableJson(rawRow.calibration_table_json);
+      } catch (error: any) {
+        rowErrors.push({ column: 'Tabla calibracion JSON', message: error.message });
+      }
+    } else if (rawRow.calibration_table_json.trim()) {
+      warnings.push(`Fila ${rowNumber}: se ignorara Tabla calibracion JSON porque el metodo no es TANK_READING.`);
+    }
+
+    if (measureMode === 'DRUM' || measureMode === 'PAIL') {
+      if (unitVolume === null) {
+        rowErrors.push({ column: 'Volumen por unidad', message: `es requerido para ${measureMode}` });
+      }
+    } else if (rawRow.unit_volume.trim()) {
+      warnings.push(`Fila ${rowNumber}: se ignorara Volumen por unidad porque el metodo no es DRUM ni PAIL.`);
+    }
+
+    if (productName) {
+      const key = productName.toLowerCase();
+      if (seenNames.has(key)) {
+        rowErrors.push({ column: 'Nombre', message: `duplicado dentro del archivo; tambien aparece en la fila ${seenNames.get(key)}` });
+      } else {
+        seenNames.set(key, rowNumber);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({
+          row: rowNumber,
+          column: rowError.column,
+          message: rowError.message,
+        });
+      });
+      return;
+    }
+
+    const existing = existingByName[productName.toLowerCase()];
+    normalizedRows.push({
+      row_number: rowNumber,
+      product_name: productName,
+      category: category as NormalizedProductsImportRow['category'],
+      measure_mode: measureMode as NormalizedProductsImportRow['measure_mode'],
+      uom,
+      requires_photo: requiresPhoto,
+      reading_uom: measureMode === 'TANK_READING' ? readingUom || null : null,
+      tank_capacity: measureMode === 'TANK_READING' ? tankCapacity : null,
+      unit_volume: measureMode === 'DRUM' || measureMode === 'PAIL' ? unitVolume : null,
+      calibration_table: measureMode === 'TANK_READING' ? calibrationTable : null,
+      notes,
+      is_active: isActive,
+      action: existing ? 'update' : 'create',
+      existing_id: existing?.id,
+    });
+  });
+
+  return {
+    plant: {
+      id: plant.id,
+      name: plant.name,
+    },
+    module: 'products' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create').length,
+      updates: normalizedRows.filter((row) => row.action === 'update').length,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createProductsImportPreviewToken(plantId: string, previewPayload: ProductsImportInput) {
+  const payload = normalizeProductsImportPayload(previewPayload);
+  validateProductsImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: ProductsImportPreviewRecord = {
+    token,
+    plant_id: plantId,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildProductsImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateProductsImportPreviewToken(plantId: string, token: string, payload: ProductsImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildProductsImportPreviewKey(token)) as ProductsImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (stored.plant_id !== plantId) {
+    return { valid: false, error: 'La previsualizacion no corresponde a esta planta.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildProductsImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeProductsImportPayload(payload);
+  validateProductsImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualizacion aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeProductsImportPreviewToken(token: string) {
+  await kv.del(buildProductsImportPreviewKey(token));
+}
+
+export async function executeProductsImport(plantId: string, input: ProductsImportInput) {
+  const preview = await previewProductsImport(plantId, input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas validas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('plant_products_config')
+    .select('id, product_name, sort_order')
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+
+  const existingById = (existingRows || []).reduce((acc: Record<string, { sort_order?: number }>, row: any) => {
+    acc[row.id] = { sort_order: row.sort_order };
+    return acc;
+  }, {});
+
+  const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
+  let nextSortOrder = maxSortOrder + 1;
+
+  let created = 0;
+  let updated = 0;
+
+  for (const row of preview.normalized_rows) {
+    const payload = {
+      plant_id: plantId,
+      product_name: row.product_name,
+      unit: row.uom,
+      category: row.category,
+      measure_mode: row.measure_mode,
+      requires_photo: row.requires_photo,
+      reading_uom: row.reading_uom,
+      calibration_table: row.calibration_table,
+      tank_capacity: row.tank_capacity,
+      unit_volume: row.unit_volume,
+      notes: row.notes,
+      is_active: row.is_active,
+      sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
+    };
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('plant_products_config')
+        .update(payload)
+        .eq('id', row.existing_id);
+
+      if (updateError) throw updateError;
+      updated += 1;
+    } else {
+      const { error: insertError } = await supabase
+        .from('plant_products_config')
+        .insert(payload);
+
+      if (insertError) throw insertError;
+      created += 1;
+    }
+  }
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
+    },
   };
 }

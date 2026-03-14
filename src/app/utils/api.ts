@@ -776,3 +776,86 @@ export async function updatePlantProductsConfigEntries(
 ): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/products`, 'PUT', { products });
 }
+
+export interface ProductsImportRowPayload {
+  row_number: number;
+  product_name: string;
+  category: string;
+  measure_mode: string;
+  uom: string;
+  requires_photo: string;
+  reading_uom: string;
+  tank_capacity: string;
+  unit_volume: string;
+  calibration_table_json: string;
+  notes: string;
+  is_active: string;
+}
+
+export interface ProductsImportPreviewResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  module: 'products';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+  };
+  errors: Array<{
+    row: number;
+    column: string;
+    message: string;
+  }>;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface ProductsImportExecuteResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+  };
+  created: number;
+  updated: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
+export async function previewPlantProductsImport(
+  plantId: string,
+  payload: {
+    module: 'products';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProductsImportRowPayload[];
+  }
+): Promise<ApiResponse<ProductsImportPreviewResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/products/preview`, 'POST', payload);
+}
+
+export async function executePlantProductsImport(
+  plantId: string,
+  payload: {
+    module: 'products';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProductsImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<ProductsImportExecuteResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/products/execute`, 'POST', payload);
+}
