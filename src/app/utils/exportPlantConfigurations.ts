@@ -10,6 +10,54 @@ interface SectionDefinition {
   rows: CellValue[][];
 }
 
+function getAggregateInventoryBehavior(method: string | null | undefined) {
+  return String(method || '').toUpperCase() === 'CONE'
+    ? 'En inventario captura 6 medidas M y 2 diametros D; el sistema calcula volumen.'
+    : 'En inventario captura largo variable; ancho y alto quedan fijos desde configuracion.';
+}
+
+function getSiloInventoryBehavior(entry: any) {
+  const allowedProducts = Array.isArray(entry?.allowed_products) && entry.allowed_products.length > 0
+    ? `Producto permitido: ${entry.allowed_products.join(', ')}.`
+    : 'Producto definido segun el silo/configuracion.';
+
+  return `En inventario captura lectura del silo y el sistema calcula resultado. ${allowedProducts}`;
+}
+
+function getAdditiveInventoryBehavior(entry: any) {
+  const additiveType = String(entry?.additive_type || '').toUpperCase();
+  if (additiveType === 'TANK') {
+    return 'En inventario captura lectura del tanque; usa curva/tabla de conversion para calcular cantidad.';
+  }
+  return 'En inventario captura cantidad manual directamente.';
+}
+
+function getDieselInventoryBehavior() {
+  return 'En inventario captura lectura del tanque, compras y calcula inventario final/consumo.';
+}
+
+function getProductInventoryBehavior(entry: any) {
+  const mode = String(entry?.measure_mode || '').toUpperCase();
+  if (mode === 'TANK_READING') {
+    return 'En inventario captura lectura del tanque y calcula cantidad con tabla de calibracion.';
+  }
+  if (mode === 'DRUM') {
+    return 'En inventario captura numero de tambores y calcula volumen total por unidad.';
+  }
+  if (mode === 'PAIL') {
+    return 'En inventario captura numero de pailas y calcula volumen total por unidad.';
+  }
+  return 'En inventario captura cantidad directamente.';
+}
+
+function getUtilitiesInventoryBehavior(entry: any) {
+  return `En inventario captura lectura actual del medidor${entry?.requires_photo ? ' con fotografia obligatoria' : ''} y calcula consumo contra lectura previa.`;
+}
+
+function getPettyCashInventoryBehavior() {
+  return 'En inventario captura recibos y efectivo para cuadrar el balance final de caja menor.';
+}
+
 function sanitizeSheetName(input: string, used: Set<string>) {
   const base = input.replace(/[\\/*?:[\]]/g, ' ').trim() || 'Planta';
   let candidate = base.slice(0, 31);
@@ -72,7 +120,7 @@ function buildAggregatesSection(config: PlantConfigPackage): SectionDefinition {
   if ((config.aggregates?.length || 0) > 0) {
     return {
       title: 'Agregados',
-      headers: ['Nombre', 'Material', 'Procedencia/Área', 'Método', 'Unidad', 'Ancho', 'Alto'],
+      headers: ['Nombre', 'Material', 'Procedencia/Área', 'Método', 'Unidad', 'Ancho', 'Alto', 'Cómo se usa en inventario'],
       rows: (source || []).map((entry: any) => [
         entry.aggregate_name,
         entry.material_type,
@@ -81,19 +129,21 @@ function buildAggregatesSection(config: PlantConfigPackage): SectionDefinition {
         entry.unit,
         entry.box_width_ft,
         entry.box_height_ft,
+        getAggregateInventoryBehavior(entry.measurement_method),
       ]),
     };
   }
 
   return {
     title: 'Agregados',
-    headers: ['Nombre', 'Material', 'Procedencia', 'Ancho', 'Alto'],
+    headers: ['Nombre', 'Material', 'Procedencia', 'Ancho', 'Alto', 'Cómo se usa en inventario'],
     rows: (source || []).map((entry: any) => [
       entry.name,
       entry.material,
       entry.procedencia,
       entry.ancho,
       entry.alto,
+      getAggregateInventoryBehavior('BOX'),
     ]),
   };
 }
@@ -101,11 +151,12 @@ function buildAggregatesSection(config: PlantConfigPackage): SectionDefinition {
 function buildSilosSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Silos',
-    headers: ['Nombre', 'Método', 'Productos permitidos'],
+    headers: ['Nombre', 'Método', 'Productos permitidos', 'Cómo se usa en inventario'],
     rows: (config.silos || []).map((entry: any) => [
       entry.silo_name || entry.name,
       entry.measurement_method,
       entry.allowed_products,
+      getSiloInventoryBehavior(entry),
     ]),
   };
 }
@@ -113,7 +164,7 @@ function buildSilosSection(config: PlantConfigPackage): SectionDefinition {
 function buildAdditivesSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Aditivos',
-    headers: ['Nombre', 'Tipo', 'Marca', 'Unidad', 'Método', 'Tanque', 'Unidad lectura', 'Requiere foto', 'Curva/Tabla'],
+    headers: ['Nombre', 'Tipo', 'Marca', 'Unidad', 'Método', 'Tanque', 'Unidad lectura', 'Requiere foto', 'Curva/Tabla', 'Cómo se usa en inventario'],
     rows: (config.additives || []).map((entry: any) => [
       entry.additive_name || entry.product_name,
       entry.additive_type,
@@ -124,6 +175,7 @@ function buildAdditivesSection(config: PlantConfigPackage): SectionDefinition {
       entry.reading_uom,
       entry.requires_photo,
       entry.calibration_curve_name || entry.conversion_table,
+      getAdditiveInventoryBehavior(entry),
     ]),
   };
 }
@@ -132,7 +184,7 @@ function buildDieselSection(config: PlantConfigPackage): SectionDefinition {
   const diesel = config.diesel;
   return {
     title: 'Diesel',
-    headers: ['Método', 'Unidad lectura', 'Capacidad tanque', 'Inventario inicial', 'Curva', 'Tabla calibración'],
+    headers: ['Método', 'Unidad lectura', 'Capacidad tanque', 'Inventario inicial', 'Curva', 'Tabla calibración', 'Cómo se usa en inventario'],
     rows: diesel ? [[
       diesel.measurement_method,
       diesel.reading_uom,
@@ -140,6 +192,7 @@ function buildDieselSection(config: PlantConfigPackage): SectionDefinition {
       diesel.initial_inventory_gallons,
       diesel.calibration_curve_name,
       diesel.calibration_table,
+      getDieselInventoryBehavior(),
     ]] : [],
   };
 }
@@ -147,7 +200,7 @@ function buildDieselSection(config: PlantConfigPackage): SectionDefinition {
 function buildProductsSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Aceites y productos',
-    headers: ['Nombre', 'Categoría', 'Modo medición', 'Unidad', 'Unidad lectura', 'Capacidad tanque', 'Volumen unidad', 'Requiere foto', 'Notas', 'Tabla calibración'],
+    headers: ['Nombre', 'Categoría', 'Modo medición', 'Unidad', 'Unidad lectura', 'Capacidad tanque', 'Volumen unidad', 'Requiere foto', 'Notas', 'Tabla calibración', 'Cómo se usa en inventario'],
     rows: (config.products || []).map((entry: any) => [
       entry.product_name,
       entry.category,
@@ -159,6 +212,7 @@ function buildProductsSection(config: PlantConfigPackage): SectionDefinition {
       entry.requires_photo,
       entry.notes,
       entry.calibration_table,
+      getProductInventoryBehavior(entry),
     ]),
   };
 }
@@ -166,7 +220,7 @@ function buildProductsSection(config: PlantConfigPackage): SectionDefinition {
 function buildUtilitiesSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Utilidades',
-    headers: ['Medidor', 'Número', 'Tipo', 'Unidad', 'Proveedor', 'Requiere foto'],
+    headers: ['Medidor', 'Número', 'Tipo', 'Unidad', 'Proveedor', 'Requiere foto', 'Cómo se usa en inventario'],
     rows: (config.utilities_meters || []).map((entry: any) => [
       entry.meter_name,
       entry.meter_number,
@@ -174,6 +228,7 @@ function buildUtilitiesSection(config: PlantConfigPackage): SectionDefinition {
       entry.uom || entry.unit,
       entry.provider,
       entry.requires_photo,
+      getUtilitiesInventoryBehavior(entry),
     ]),
   };
 }
@@ -182,8 +237,8 @@ function buildPettyCashSection(config: PlantConfigPackage): SectionDefinition {
   const pettyCash = config.petty_cash;
   return {
     title: 'Petty cash',
-    headers: ['Monto mensual', 'Monto inicial'],
-    rows: pettyCash ? [[pettyCash.monthly_amount, pettyCash.initial_amount]] : [],
+    headers: ['Monto mensual', 'Monto inicial', 'Cómo se usa en inventario'],
+    rows: pettyCash ? [[pettyCash.monthly_amount, pettyCash.initial_amount, getPettyCashInventoryBehavior()]] : [],
   };
 }
 
@@ -218,10 +273,10 @@ export async function exportPlantConfigurations(plants: Plant[]) {
   configs.forEach(({ plant, config }) => {
     const sheetRows = createSheetRows(plant, config);
     const sheet = XLSX.utils.aoa_to_sheet(sheetRows);
-    sheet['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 28 }, { wch: 34 }];
+    sheet['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 28 }, { wch: 34 }, { wch: 48 }];
     XLSX.utils.book_append_sheet(workbook, sheet, sanitizeSheetName(plant.name, usedSheetNames));
   });
 
   const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `PROMIX-Configuracion-Activa-${date}.xlsx`);
+  XLSX.writeFile(workbook, `PROMIX-Configuracion-Activa-V2-${date}.xlsx`);
 }

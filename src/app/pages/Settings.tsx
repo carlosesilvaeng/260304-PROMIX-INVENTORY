@@ -403,12 +403,14 @@ export function Settings() {
             <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
             <div className="flex items-center gap-3">
               <Button
-                variant="ghost"
+                variant="secondary"
                 onClick={handleExportPlantsConfiguration}
                 loading={exportingPlantsConfig}
                 disabled={allPlants.length === 0}
+                className="min-w-[230px]"
               >
-                Exportar configuración activa
+                <span className="text-lg leading-none" aria-hidden="true">📗</span>
+                <span>Exportar configuración activa</span>
               </Button>
               {(user?.role === 'super_admin' || user?.role === 'admin') && (
                 <Button variant="secondary" onClick={() => setShowCreatePlantModal(true)}>
