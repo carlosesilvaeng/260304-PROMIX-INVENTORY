@@ -95,6 +95,23 @@ async function requireAdmin(c: any, next: any) {
   await next();
 }
 
+async function requireSuperAdmin(c: any, next: any) {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  const token = authHeader.slice(7);
+  const { user, error } = await auth.verifyToken(token);
+  if (!user || error) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  if (user.role !== 'super_admin') {
+    return c.json({ success: false, error: 'Forbidden: Super Admin access required' }, 403);
+  }
+  c.set('user', user);
+  await next();
+}
+
 async function requireUserManagement(c: any, next: any) {
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -148,6 +165,10 @@ app.use('/make-server/modules/*', requireAuth);
 // Debug endpoint requires admin role
 app.use('/make-server/debug/*', requireAdmin);
 
+// Data control endpoints require super_admin role
+app.use('/make-server/admin/data', requireSuperAdmin);
+app.use('/make-server/admin/data/*', requireSuperAdmin);
+
 // Audit endpoints require at minimum a valid login
 app.use('/make-server/audit/*', requireAuth);
 
@@ -180,6 +201,132 @@ function logAudit(supabase: any, entry: {
   }).then(() => {}).catch((e: any) => {
     console.error('[AUDIT] Failed to log:', e.message);
   });
+}
+
+async function createAuditEntry(supabase: any, entry: {
+  user_email: string;
+  user_name?: string;
+  user_id?: string;
+  action: string;
+  plant_id?: string | null;
+  inventory_month_id?: string | null;
+  details?: any;
+}) {
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .insert({
+      ...entry,
+      timestamp: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id ?? null;
+}
+
+async function deleteInventoryMonthCascade(
+  inventoryMonthId: string,
+  options?: {
+    supabase?: any;
+    actor?: { email: string; name?: string; id?: string };
+    auditAction?: string | null;
+    auditDetails?: Record<string, any>;
+  }
+) {
+  const supabase = options?.supabase || db.getSupabaseClient();
+  const childTables = db.INVENTORY_CHILD_TABLES.map(({ table }) => table);
+
+  const { data: report, error: reportError } = await supabase
+    .from('inventory_month')
+    .select('id, plant_id, year_month')
+    .eq('id', inventoryMonthId)
+    .single();
+
+  if (reportError || !report) {
+    throw new Error('Reporte no encontrado');
+  }
+
+  const photoUrls: string[] = [];
+  const deletedRowsByTable: Record<string, number> = {};
+  const warnings: string[] = [];
+
+  for (const table of childTables) {
+    const { data: rows, error: rowsError } = await supabase
+      .from(table)
+      .select('photo_url')
+      .eq('inventory_month_id', inventoryMonthId);
+
+    if (rowsError) throw rowsError;
+
+    deletedRowsByTable[table] = rows?.length || 0;
+    rows?.forEach((row: any) => {
+      if (row?.photo_url) photoUrls.push(row.photo_url);
+    });
+  }
+
+  let deletedPhotos = 0;
+  if (photoUrls.length > 0) {
+    const storagePaths = Array.from(new Set(
+      photoUrls
+        .filter((url: string) => url.includes('/inventory-photos/'))
+        .map((url: string) => url.split('/inventory-photos/')[1])
+        .filter(Boolean)
+    ));
+
+    if (storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from('inventory-photos')
+        .remove(storagePaths);
+
+      if (storageError) {
+        warnings.push(`No se pudieron eliminar algunas fotos del bucket: ${storageError.message}`);
+        console.warn('[DELETE INVENTORY] Storage removal warning:', storageError.message);
+      } else {
+        deletedPhotos = storagePaths.length;
+      }
+    }
+  }
+
+  for (const table of childTables) {
+    const { error } = await supabase.from(table).delete().eq('inventory_month_id', inventoryMonthId);
+    if (error) throw error;
+  }
+
+  const { error: deleteError } = await supabase
+    .from('inventory_month')
+    .delete()
+    .eq('id', inventoryMonthId);
+
+  if (deleteError) throw deleteError;
+
+  if (options?.auditAction && options.actor) {
+    logAudit(supabase, {
+      user_email: options.actor.email,
+      user_name: options.actor.name,
+      user_id: options.actor.id,
+      action: options.auditAction,
+      plant_id: report.plant_id,
+      inventory_month_id: inventoryMonthId,
+      details: {
+        year_month: report.year_month,
+        deleted_rows_by_table: deletedRowsByTable,
+        photos_deleted: deletedPhotos,
+        warnings,
+        ...options.auditDetails,
+      },
+    });
+  }
+
+  return {
+    report,
+    deletedRowsByTable,
+    deletedPhotos,
+    warnings,
+  };
 }
 
 // ============================================================================
@@ -235,6 +382,169 @@ app.get("/make-server/debug/env", (c) => {
     },
     timestamp: new Date().toISOString()
   });
+});
+
+// ============================================================================
+// DATA CONTROL ENDPOINTS
+// ============================================================================
+
+app.get("/make-server/admin/data/summary", async (c) => {
+  try {
+    const data = await db.getDataControlSummary();
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[DATA CONTROL] Summary error:', error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.get("/make-server/admin/data/inventories", async (c) => {
+  try {
+    const data = await db.listInventoryMonthsForControl({
+      plant_ids: c.req.query('plant_id') ? [c.req.query('plant_id')] : undefined,
+      year_month_from: c.req.query('year_month_from'),
+      year_month_to: c.req.query('year_month_to'),
+      status: c.req.query('status'),
+      page: c.req.query('page'),
+      page_size: c.req.query('page_size'),
+      include_photos: true,
+      scope: 'transactional',
+    });
+
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error('[DATA CONTROL] Inventory list error:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/admin/data/cleanup/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const body = await c.req.json();
+
+    const preview = await db.previewTransactionalCleanup(body);
+    let previewToken: string | null = null;
+
+    if (preview.inventory_month_ids.length > 0) {
+      const record = await db.createCleanupPreviewToken(body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'DATA_CLEANUP_PREVIEWED',
+      details: {
+        scope: preview.scope,
+        filters: preview.filters,
+        inventory_month_ids: preview.inventory_month_ids,
+        counts_by_table: preview.counts_by_table,
+        deleted_photos_count: preview.deleted_photos_count,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error('[DATA CONTROL] Cleanup preview error:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/admin/data/cleanup/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    const supabase = db.getSupabaseClient();
+    const body = await c.req.json();
+    const {
+      preview_token,
+      confirmation_text,
+      reason,
+      ...filters
+    } = body || {};
+
+    if (confirmation_text !== 'ELIMINAR DATOS DE PRUEBA') {
+      return c.json({ success: false, error: 'La frase de confirmacion es incorrecta.' }, 400);
+    }
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateCleanupPreviewToken(preview_token, filters);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const preview = await db.previewTransactionalCleanup(filters);
+    if (preview.inventory_month_ids.length === 0) {
+      return c.json({ success: false, error: 'No hay inventarios para eliminar con ese filtro.' }, 400);
+    }
+
+    const deletedRowsByTable = preview.counts_by_table
+      ? Object.keys(preview.counts_by_table).reduce((acc: Record<string, number>, key) => {
+          acc[key] = 0;
+          return acc;
+        }, {})
+      : { inventory_month: 0 };
+
+    let deletedPhotos = 0;
+    const warnings: string[] = [];
+
+    for (const inventoryMonthId of preview.inventory_month_ids) {
+      const result = await deleteInventoryMonthCascade(inventoryMonthId, {
+        supabase,
+      });
+
+      deletedRowsByTable.inventory_month = (deletedRowsByTable.inventory_month || 0) + 1;
+      deletedPhotos += result.deletedPhotos;
+      result.warnings.forEach((warning) => warnings.push(warning));
+      Object.entries(result.deletedRowsByTable).forEach(([table, count]) => {
+        deletedRowsByTable[table] = (deletedRowsByTable[table] || 0) + count;
+      });
+    }
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'DATA_CLEANUP_EXECUTED',
+      details: {
+        scope: preview.scope,
+        filters: preview.filters,
+        inventory_month_ids: preview.inventory_month_ids,
+        deleted_inventory_months: preview.inventory_month_ids.length,
+        deleted_rows_by_table: deletedRowsByTable,
+        deleted_photos: deletedPhotos,
+        reason: reason.trim(),
+        warnings,
+      },
+    });
+
+    await db.consumeCleanupPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        deleted_inventory_months: preview.inventory_month_ids.length,
+        deleted_rows_by_table: deletedRowsByTable,
+        deleted_photos: deletedPhotos,
+        audit_action_id: auditActionId,
+        warnings,
+      },
+    });
+  } catch (error: any) {
+    console.error('[DATA CONTROL] Cleanup execute error:', error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
 });
 
 // ============================================================================
@@ -2214,85 +2524,19 @@ app.get("/make-server/reports", async (c) => {
 app.delete("/make-server/reports/:id", requireAdmin, async (c) => {
   try {
     const reportId = c.req.param('id');
-    const supabase = db.getSupabaseClient();
-
-    // Verify the report exists
-    const { data: report, error: reportError } = await supabase
-      .from('inventory_month')
-      .select('id, plant_id, year_month')
-      .eq('id', reportId)
-      .single();
-
-    if (reportError || !report) {
-      return c.json({ success: false, error: 'Reporte no encontrado' }, 404);
-    }
-
-    // Collect photo_url values from all 7 child entry tables
-    const childTables = [
-      'inventory_aggregates_entries',
-      'inventory_silos_entries',
-      'inventory_additives_entries',
-      'inventory_diesel_entries',
-      'inventory_products_entries',
-      'inventory_utilities_entries',
-      'inventory_petty_cash_entries',
-    ];
-
-    const photoUrls: string[] = [];
-    for (const table of childTables) {
-      const { data: rows } = await supabase
-        .from(table)
-        .select('photo_url')
-        .eq('inventory_month_id', reportId);
-      rows?.forEach((row: any) => row.photo_url && photoUrls.push(row.photo_url));
-    }
-
-    // Delete photos from the 'inventory-photos' storage bucket
-    if (photoUrls.length > 0) {
-      const storagePaths = photoUrls
-        .filter((url: string) => url.includes('/inventory-photos/'))
-        .map((url: string) => url.split('/inventory-photos/')[1]);
-      if (storagePaths.length > 0) {
-        const { error: storageError } = await supabase.storage
-          .from('inventory-photos')
-          .remove(storagePaths);
-        if (storageError) {
-          console.warn('[DELETE REPORT] Storage removal warning:', storageError.message);
-        }
-      }
-    }
-
-    // Delete all child entry records
-    for (const table of childTables) {
-      await supabase.from(table).delete().eq('inventory_month_id', reportId);
-    }
-
-    // Delete the parent inventory_month record
-    const { error: deleteError } = await supabase
-      .from('inventory_month')
-      .delete()
-      .eq('id', reportId);
-
-    if (deleteError) throw deleteError;
-
-    // Audit log
     const user = c.get('user');
-    logAudit(supabase, {
-      user_email: user.email,
-      user_name: user.name,
-      user_id: user.id,
-      action: 'REPORT_DELETED',
-      plant_id: report.plant_id,
-      inventory_month_id: reportId,
-      details: { year_month: report.year_month, photos_deleted: photoUrls.length },
+    const result = await deleteInventoryMonthCascade(reportId, {
+      actor: { email: user.email, name: user.name, id: user.id },
+      auditAction: 'REPORT_DELETED',
     });
 
-    console.log(`[DELETE REPORT] Report ${reportId} deleted. Photos removed: ${photoUrls.length}`);
-    return c.json({ success: true, deleted_photos: photoUrls.length });
+    console.log(`[DELETE REPORT] Report ${reportId} deleted. Photos removed: ${result.deletedPhotos}`);
+    return c.json({ success: true, deleted_photos: result.deletedPhotos, warnings: result.warnings });
 
   } catch (error: any) {
     console.error('[DELETE REPORT] Error:', error);
-    return c.json({ success: false, error: error.message }, 500);
+    const status = error.message === 'Reporte no encontrado' ? 404 : 500;
+    return c.json({ success: false, error: error.message }, status);
   }
 });
 

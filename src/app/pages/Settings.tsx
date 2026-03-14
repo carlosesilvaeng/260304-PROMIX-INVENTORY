@@ -11,6 +11,7 @@ import { ModuleManagementPanel } from './settings/ModuleManagementPanel';
 import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
+import { DataControlPanel } from './settings/DataControlPanel';
 import { getPlantConfig } from '../utils/api';
 import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
@@ -59,7 +60,7 @@ function getAggregateCountWithLegacyFallback(config: { aggregates?: any[]; cajon
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'account'>('plants');
+  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'data-control' | 'account'>('plants');
   const [editingAggregates, setEditingAggregates] = useState<Plant | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
@@ -76,7 +77,8 @@ export function Settings() {
   const canManagePlants = canManagePlantConfiguration(user?.role);
   const canViewAudit = canAccessAudit(user?.role);
   const canManageSystemModules = canManageModules(user?.role);
-  const hasManagementTabs = canManageUsers || canManagePlants || canViewAudit || canManageSystemModules;
+  const canAccessDataControl = user?.role === 'super_admin';
+  const hasManagementTabs = canManageUsers || canManagePlants || canViewAudit || canManageSystemModules || canAccessDataControl;
 
   useEffect(() => {
     if (!user) return;
@@ -90,13 +92,14 @@ export function Settings() {
     }
     if (canViewAudit) allowedTabs.add('audit');
     if (canManageSystemModules) allowedTabs.add('modules');
+    if (canAccessDataControl) allowedTabs.add('data-control');
 
     if (!allowedTabs.has(activeTab)) {
       setActiveTab(canManageUsers ? 'users' : 'account');
     } else if (!hasManagementTabs) {
       setActiveTab('account');
     }
-  }, [user, activeTab, canManageUsers, canManagePlants, canViewAudit, canManageSystemModules, hasManagementTabs]);
+  }, [user, activeTab, canManageUsers, canManagePlants, canViewAudit, canManageSystemModules, canAccessDataControl, hasManagementTabs]);
 
   const handleSave = () => {
     setShowSaveSuccess(true);
@@ -327,6 +330,18 @@ export function Settings() {
               Módulos
             </button>
           )}
+          {canAccessDataControl && (
+            <button
+              onClick={() => setActiveTab('data-control')}
+              className={`px-4 py-2 border-b-2 transition-colors ${
+                activeTab === 'data-control'
+                  ? 'border-[#2475C7] text-[#2475C7]'
+                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+              }`}
+            >
+              Control de Datos
+            </button>
+          )}
           {/* Todos los usuarios pueden ver Mi Cuenta y cambiar contraseña */}
           <button
             onClick={() => setActiveTab('account')}
@@ -465,6 +480,10 @@ export function Settings() {
         <div className="space-y-4">
           <ModuleManagementPanel />
         </div>
+      )}
+
+      {canAccessDataControl && activeTab === 'data-control' && (
+        <DataControlPanel />
       )}
       
       {/* Account Tab */}

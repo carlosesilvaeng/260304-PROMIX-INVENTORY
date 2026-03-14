@@ -83,6 +83,144 @@ export async function clearAllConfigurations(): Promise<ApiResponse> {
 }
 
 // ============================================================================
+// DATA CONTROL API
+// ============================================================================
+
+export type InventoryStatus = 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED';
+
+export interface DataControlPlantSummary {
+  plant_id: string;
+  plant_name: string;
+}
+
+export interface ConfigurationCoverageRow extends DataControlPlantSummary {
+  aggregates: number;
+  silos: number;
+  additives: number;
+  diesel: number;
+  products: number;
+  utilities: number;
+  petty_cash: number;
+}
+
+export interface InventoryByPlantRow extends DataControlPlantSummary {
+  total_months: number;
+  by_status: Record<InventoryStatus, number>;
+  photos: number;
+}
+
+export interface PhotoByPlantRow extends DataControlPlantSummary {
+  photos: number;
+}
+
+export interface DataControlSummary {
+  plants: {
+    total: number;
+    active: number;
+    inactive: number;
+  };
+  configurationCoverage: ConfigurationCoverageRow[];
+  inventorySummary: {
+    total_months: number;
+    by_status: Record<InventoryStatus, number>;
+    by_plant: InventoryByPlantRow[];
+  };
+  photoSummary: {
+    total_photos: number;
+    by_plant: PhotoByPlantRow[];
+  };
+}
+
+export interface DataControlInventoryListItem {
+  id: string;
+  plant_id: string;
+  year_month: string;
+  status: InventoryStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  photo_count: number;
+  child_counts: Record<string, number>;
+}
+
+export interface DataControlInventoryListResponse {
+  items: DataControlInventoryListItem[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total: number;
+  };
+}
+
+export interface TransactionalCleanupFilters {
+  scope: 'transactional';
+  plant_ids?: string[];
+  year_month_from?: string;
+  year_month_to?: string;
+  statuses?: InventoryStatus[];
+  include_photos: true;
+}
+
+export interface TransactionalCleanupPreview {
+  scope: 'transactional';
+  filters: TransactionalCleanupFilters;
+  inventory_month_ids: string[];
+  plants: string[];
+  year_months: string[];
+  counts_by_table: Record<string, number>;
+  deleted_photos_count: number;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface TransactionalCleanupExecuteResult {
+  deleted_inventory_months: number;
+  deleted_rows_by_table: Record<string, number>;
+  deleted_photos: number;
+  audit_action_id: string | null;
+  warnings: string[];
+}
+
+export async function getDataControlSummary(): Promise<ApiResponse<DataControlSummary>> {
+  return apiRequest('/admin/data/summary', 'GET');
+}
+
+export async function getDataControlInventories(params?: {
+  plantId?: string;
+  yearMonthFrom?: string;
+  yearMonthTo?: string;
+  status?: InventoryStatus | 'ALL';
+  page?: number;
+  pageSize?: number;
+}): Promise<ApiResponse<DataControlInventoryListResponse>> {
+  const searchParams = new URLSearchParams();
+  if (params?.plantId) searchParams.set('plant_id', params.plantId);
+  if (params?.yearMonthFrom) searchParams.set('year_month_from', params.yearMonthFrom);
+  if (params?.yearMonthTo) searchParams.set('year_month_to', params.yearMonthTo);
+  if (params?.status && params.status !== 'ALL') searchParams.set('status', params.status);
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.pageSize) searchParams.set('page_size', String(params.pageSize));
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+  return apiRequest(`/admin/data/inventories${suffix}`, 'GET');
+}
+
+export async function previewTransactionalCleanup(
+  payload: TransactionalCleanupFilters
+): Promise<ApiResponse<TransactionalCleanupPreview>> {
+  return apiRequest('/admin/data/cleanup/preview', 'POST', payload);
+}
+
+export async function executeTransactionalCleanup(
+  payload: TransactionalCleanupFilters & {
+    preview_token: string;
+    confirmation_text: string;
+    reason: string;
+  }
+): Promise<ApiResponse<TransactionalCleanupExecuteResult>> {
+  return apiRequest('/admin/data/cleanup/execute', 'POST', payload);
+}
+
+// ============================================================================
 // PLANT CONFIGURATION API
 // ============================================================================
 
