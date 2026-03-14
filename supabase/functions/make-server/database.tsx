@@ -643,6 +643,7 @@ export async function getDataControlSummary() {
     plantsRes,
     inventoryMonthsRes,
     aggregatesRes,
+    cajonesRes,
     silosRes,
     additivesRes,
     dieselRes,
@@ -653,6 +654,7 @@ export async function getDataControlSummary() {
     supabase.from('plants').select('id, name, is_active').order('name'),
     supabase.from('inventory_month').select('id, plant_id, status, year_month'),
     supabase.from('plant_aggregates_config').select('plant_id').neq('is_active', false),
+    supabase.from('plant_cajones_config').select('plant_id').neq('is_active', false),
     supabase.from('plant_silos_config').select('plant_id').neq('is_active', false),
     supabase.from('plant_additives_config').select('plant_id').neq('is_active', false),
     supabase.from('plant_diesel_config').select('plant_id').neq('is_active', false),
@@ -665,6 +667,7 @@ export async function getDataControlSummary() {
     plantsRes,
     inventoryMonthsRes,
     aggregatesRes,
+    cajonesRes,
     silosRes,
     additivesRes,
     dieselRes,
@@ -696,6 +699,7 @@ export async function getDataControlSummary() {
 
   const configCoverageMaps = {
     aggregates: countByPlant(aggregatesRes.data),
+    cajones: countByPlant(cajonesRes.data),
     silos: countByPlant(silosRes.data),
     additives: countByPlant(additivesRes.data),
     diesel: countByPlant(dieselRes.data),
@@ -737,7 +741,9 @@ export async function getDataControlSummary() {
     },
     configurationCoverage: basePlantRows.map((plant) => ({
       ...plant,
-      aggregates: configCoverageMaps.aggregates[plant.plant_id] || 0,
+      aggregates: (configCoverageMaps.aggregates[plant.plant_id] || 0) > 0
+        ? (configCoverageMaps.aggregates[plant.plant_id] || 0)
+        : (configCoverageMaps.cajones[plant.plant_id] || 0),
       silos: configCoverageMaps.silos[plant.plant_id] || 0,
       additives: configCoverageMaps.additives[plant.plant_id] || 0,
       diesel: configCoverageMaps.diesel[plant.plant_id] || 0,
