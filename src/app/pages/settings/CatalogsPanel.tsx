@@ -7,9 +7,11 @@
  * - Curvas de conversion por planta
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
+import { Modal } from '../../components/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   createAdditiveCatalogItem,
@@ -20,38 +22,283 @@ import {
   deleteCalibrationCurveCatalogItem,
   deleteMaterial,
   deleteProcedencia,
+  executeAdditivesCatalogImport,
+  executeMaterialsImport,
+  executeProcedenciasImport,
   getAdditivesCatalog,
   getCalibrationCurvesCatalog,
   getMateriales,
   getProcedencias,
+  previewAdditivesCatalogImport,
+  previewMaterialsImport,
+  previewProcedenciasImport,
   updateAdditiveCatalogItem,
   updateCalibrationCurveCatalogItem,
   updateMaterial,
   updateProcedencia,
+  type AdditiveCatalogItem,
+  type AdditivesCatalogImportExecuteResponse,
+  type AdditivesCatalogImportPreviewResponse,
+  type AdditivesCatalogImportRowPayload,
+  type CalibrationCurveCatalogItem,
+  type MaterialCatalogItem,
+  type MaterialsImportExecuteResponse,
+  type MaterialsImportPreviewResponse,
+  type MaterialsImportRowPayload,
+  type ProcedenciaCatalogItem,
+  type ProcedenciasImportExecuteResponse,
+  type ProcedenciasImportPreviewResponse,
+  type ProcedenciasImportRowPayload,
 } from '../../utils/api';
+import { parseAdditivesCatalogImportFile } from '../../utils/additivesCatalogImportParser';
+import {
+  ADDITIVES_CATALOG_IMPORT_MODULE,
+  ADDITIVES_CATALOG_IMPORT_TEMPLATE_VERSION,
+  downloadAdditivesCatalogImportWorkbook,
+  type AdditivesCatalogImportWorkbookRow,
+} from '../../utils/additivesCatalogImportWorkbook';
+import { parseMaterialsImportFile } from '../../utils/materialsImportParser';
+import {
+  downloadMaterialsImportWorkbook,
+  MATERIALS_IMPORT_MODULE,
+  MATERIALS_IMPORT_TEMPLATE_VERSION,
+  type MaterialsImportWorkbookRow,
+} from '../../utils/materialsImportWorkbook';
+import { parseProcedenciasImportFile } from '../../utils/procedenciasImportParser';
+import {
+  downloadProcedenciasImportWorkbook,
+  PROCEDENCIAS_IMPORT_MODULE,
+  PROCEDENCIAS_IMPORT_TEMPLATE_VERSION,
+  type ProcedenciasImportWorkbookRow,
+} from '../../utils/procedenciasImportWorkbook';
 
 interface CatalogItem {
   id: string;
   nombre: string;
-  clase?: string;
+  clase?: string | null;
   sort_order: number;
 }
 
-interface AdditiveCatalogItem {
-  id: string;
-  nombre: string;
-  marca?: string | null;
-  uom: string;
-  sort_order: number;
+interface ImportSummary {
+  total_rows: number;
+  valid_rows: number;
+  error_rows: number;
+  creates: number;
+  updates: number;
 }
 
-interface CalibrationCurveItem {
-  id: string;
-  plant_id: string;
-  curve_name: string;
-  measurement_type: string;
-  reading_uom?: string | null;
-  data_points: Record<string, number>;
+interface ImportErrorRow {
+  row: number;
+  column: string;
+  message: string;
+}
+
+interface CatalogImportPreviewBase {
+  template_version: string;
+  import_mode: 'upsert';
+  summary: ImportSummary;
+  errors: ImportErrorRow[];
+  warnings: string[];
+  preview_token: string | null;
+}
+
+interface CatalogImportActionProps {
+  exportingTemplate: boolean;
+  exportingCurrent: boolean;
+  previewingImport: boolean;
+  onDownloadBlankTemplate: () => void;
+  onDownloadCurrentConfiguration: () => void;
+  onOpenFilePicker: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onImportFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function ImportActions({
+  exportingTemplate,
+  exportingCurrent,
+  previewingImport,
+  onDownloadBlankTemplate,
+  onDownloadCurrentConfiguration,
+  onOpenFilePicker,
+  fileInputRef,
+  onImportFileSelected,
+}: CatalogImportActionProps) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onDownloadBlankTemplate}
+        loading={exportingTemplate}
+        className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
+      >
+        <FileSpreadsheet size={16} aria-hidden="true" />
+        Descargar plantilla
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onDownloadCurrentConfiguration}
+        loading={exportingCurrent}
+        className="border-[#1D6F42] bg-[#EAF7EF] text-[#1D6F42] hover:bg-[#D9F1E2]"
+      >
+        <Download size={16} aria-hidden="true" />
+        Exportar actual
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={onOpenFilePicker}
+        loading={previewingImport}
+        className="border-[#C97A1E] bg-[#FFF4E8] text-[#9A5A12] hover:bg-[#FDE7CF]"
+      >
+        <Upload size={16} aria-hidden="true" />
+        Importar plantilla
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        onChange={onImportFileSelected}
+      />
+    </div>
+  );
+}
+
+function CatalogImportPreviewModal({
+  isOpen,
+  onClose,
+  title,
+  label,
+  preview,
+  fileName,
+  reason,
+  onReasonChange,
+  onConfirm,
+  executing,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  label: string;
+  preview: CatalogImportPreviewBase | null;
+  fileName: string;
+  reason: string;
+  onReasonChange: (value: string) => void;
+  onConfirm: () => void;
+  executing: boolean;
+}) {
+  const hasBlockingErrors = Boolean(preview && preview.errors.length > 0);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="xl"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            loading={executing}
+            disabled={!preview?.preview_token || hasBlockingErrors || reason.trim().length < 10}
+            onClick={onConfirm}
+          >
+            Importar catálogo
+          </Button>
+        </>
+      }
+    >
+      {!preview ? (
+        <p className="text-sm text-[#5F6773]">Preparando previsualización...</p>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
+              <p className="text-xs text-[#5F6773]">Archivo</p>
+              <p className="mt-1 text-sm font-medium text-[#3B3A36]">{fileName || 'Plantilla'}</p>
+            </div>
+            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
+              <p className="text-xs text-[#5F6773]">Filas</p>
+              <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{preview.summary.total_rows}</p>
+            </div>
+            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
+              <p className="text-xs text-[#5F6773]">Válidas</p>
+              <p className="mt-1 text-2xl font-semibold text-[#1D6F42]">{preview.summary.valid_rows}</p>
+            </div>
+            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
+              <p className="text-xs text-[#5F6773]">Crear</p>
+              <p className="mt-1 text-2xl font-semibold text-[#2475C7]">{preview.summary.creates}</p>
+            </div>
+            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
+              <p className="text-xs text-[#5F6773]">Actualizar</p>
+              <p className="mt-1 text-2xl font-semibold text-[#9A5A12]">{preview.summary.updates}</p>
+            </div>
+          </div>
+
+          {preview.warnings.length > 0 && (
+            <div className="space-y-2">
+              {preview.warnings.map((warning) => (
+                <div
+                  key={warning}
+                  className="rounded border border-[#F0C36D] bg-[#FFF8E7] px-4 py-3 text-sm text-[#9A5A12]"
+                >
+                  {warning}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {preview.errors.length > 0 ? (
+            <div className="space-y-3">
+              <div className="rounded border border-[#C94A4A]/30 bg-[#C94A4A]/10 px-4 py-3 text-sm text-[#C94A4A]">
+                Se encontraron {preview.errors.length} errores. Corrige el archivo y vuelve a importarlo.
+              </div>
+              <div className="max-h-[320px] overflow-auto rounded border border-[#E4E4E4]">
+                <table className="w-full min-w-[680px]">
+                  <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Fila</th>
+                      <th className="px-4 py-3 text-left">Columna</th>
+                      <th className="px-4 py-3 text-left">Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.errors.map((item, index) => (
+                      <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[#E4E4E4]">
+                        <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.row}</td>
+                        <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.column}</td>
+                        <td className="px-4 py-3 text-sm text-[#C94A4A]">{item.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded border border-[#B7DFC2] bg-[#EAF7EF] px-4 py-3 text-sm text-[#1D6F42]">
+              La plantilla es válida. Puedes confirmar la importación para aplicar las filas a {label}.
+            </div>
+          )}
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-[#3B3A36]">
+              Motivo de la importación
+            </label>
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              className="min-h-[110px] w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+              placeholder={`Ej: actualización masiva del catálogo de ${label.toLowerCase()}.`}
+            />
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 interface CatalogTableProps {
@@ -60,6 +307,7 @@ interface CatalogTableProps {
   items: CatalogItem[];
   loading: boolean;
   hasClase?: boolean;
+  importControls?: CatalogImportActionProps;
   onAdd: (nombre: string, clase?: string) => Promise<void>;
   onUpdate: (id: string, nombre: string, clase?: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -71,6 +319,7 @@ function CatalogTable({
   items,
   loading,
   hasClase = false,
+  importControls,
   onAdd,
   onUpdate,
   onDelete,
@@ -131,9 +380,10 @@ function CatalogTable({
 
   return (
     <Card noPadding>
-      <div className="p-4 border-b border-[#9D9B9A]">
+      <div className="border-b border-[#9D9B9A] p-4">
         <h4 className="text-base font-medium text-[#3B3A36]">{title}</h4>
-        <p className="text-sm text-[#5F6773] mt-0.5">{description}</p>
+        <p className="mt-0.5 text-sm text-[#5F6773]">{description}</p>
+        {importControls && <ImportActions {...importControls} />}
       </div>
 
       {loading ? (
@@ -143,17 +393,17 @@ function CatalogTable({
           <table className="w-full">
             <thead className="bg-[#F2F3F5]">
               <tr>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Nombre</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Nombre</th>
                 {hasClase && (
-                  <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Clase</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Clase</th>
                 )}
-                <th className="px-4 py-2 text-center text-sm text-[#5F6773] font-medium w-28">Acciones</th>
+                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[#5F6773]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={hasClase ? 3 : 2} className="px-4 py-6 text-center text-[#5F6773] text-sm">
+                  <td colSpan={hasClase ? 3 : 2} className="px-4 py-6 text-center text-sm text-[#5F6773]">
                     No hay entradas. Agrega la primera abajo.
                   </td>
                 </tr>
@@ -170,7 +420,7 @@ function CatalogTable({
                             if (e.key === 'Enter') handleSaveEdit();
                             if (e.key === 'Escape') cancelEdit();
                           }}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                           autoFocus
                         />
                       ) : (
@@ -189,7 +439,7 @@ function CatalogTable({
                               if (e.key === 'Escape') cancelEdit();
                             }}
                             placeholder="Clase..."
-                            className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                            className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                           />
                         ) : (
                           <span className="text-sm text-[#5F6773]">{item.clase ?? '—'}</span>
@@ -211,7 +461,7 @@ function CatalogTable({
                           <button
                             onClick={() => handleDelete(item.id)}
                             disabled={saving}
-                            className="px-2 py-1 text-xs bg-[#C94A4A]/10 text-[#C94A4A] hover:bg-[#C94A4A]/20 rounded transition-colors"
+                            className="rounded px-2 py-1 text-xs text-[#C94A4A] transition-colors hover:bg-[#C94A4A]/20 bg-[#C94A4A]/10"
                           >
                             Eliminar
                           </button>
@@ -236,23 +486,27 @@ function CatalogTable({
             </tbody>
           </table>
 
-          <div className="p-3 border-t border-[#9D9B9A] bg-[#F2F3F5] flex gap-2">
+          <div className="flex gap-2 border-t border-[#9D9B9A] bg-[#F2F3F5] p-3">
             <input
               type="text"
               value={newValue}
               onChange={(e) => setNewValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAdd();
+              }}
               placeholder="Nombre..."
-              className="flex-1 px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+              className="flex-1 rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             />
             {hasClase && (
               <input
                 type="text"
                 value={newClase}
                 onChange={(e) => setNewClase(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAdd();
+                }}
                 placeholder="Clase..."
-                className="w-32 px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+                className="w-32 rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
               />
             )}
             <Button variant="secondary" size="sm" onClick={handleAdd} disabled={saving || !newValue.trim()}>
@@ -268,12 +522,14 @@ function CatalogTable({
 function AdditiveCatalogTable({
   items,
   loading,
+  importControls,
   onAdd,
   onUpdate,
   onDelete,
 }: {
   items: AdditiveCatalogItem[];
   loading: boolean;
+  importControls?: CatalogImportActionProps;
   onAdd: (nombre: string, marca: string, uom: string) => Promise<void>;
   onUpdate: (id: string, nombre: string, marca: string, uom: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -339,11 +595,12 @@ function AdditiveCatalogTable({
 
   return (
     <Card noPadding>
-      <div className="p-4 border-b border-[#9D9B9A]">
+      <div className="border-b border-[#9D9B9A] p-4">
         <h4 className="text-base font-medium text-[#3B3A36]">Aditivos</h4>
-        <p className="text-sm text-[#5F6773] mt-0.5">
+        <p className="mt-0.5 text-sm text-[#5F6773]">
           Catálogo maestro para nombre, marca y unidad. La configuración de aditivos por planta selecciona desde aquí.
         </p>
+        {importControls && <ImportActions {...importControls} />}
       </div>
 
       {loading ? (
@@ -353,16 +610,16 @@ function AdditiveCatalogTable({
           <table className="w-full">
             <thead className="bg-[#F2F3F5]">
               <tr>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Nombre</th>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Marca</th>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Unidad</th>
-                <th className="px-4 py-2 text-center text-sm text-[#5F6773] font-medium w-28">Acciones</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Nombre</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Marca</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Unidad</th>
+                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[#5F6773]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-[#5F6773] text-sm">
+                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-[#5F6773]">
                     No hay aditivos en catálogo todavía.
                   </td>
                 </tr>
@@ -375,7 +632,7 @@ function AdditiveCatalogTable({
                           type="text"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                           autoFocus
                         />
                       ) : (
@@ -388,7 +645,7 @@ function AdditiveCatalogTable({
                           type="text"
                           value={editBrand}
                           onChange={(e) => setEditBrand(e.target.value)}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                         />
                       ) : (
                         <span className="text-sm text-[#5F6773]">{item.marca || '—'}</span>
@@ -400,7 +657,7 @@ function AdditiveCatalogTable({
                           type="text"
                           value={editUom}
                           onChange={(e) => setEditUom(e.target.value)}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                         />
                       ) : (
                         <span className="text-sm text-[#3B3A36]">{item.uom}</span>
@@ -421,7 +678,7 @@ function AdditiveCatalogTable({
                           <button
                             onClick={() => handleDelete(item.id)}
                             disabled={saving}
-                            className="px-2 py-1 text-xs bg-[#C94A4A]/10 text-[#C94A4A] hover:bg-[#C94A4A]/20 rounded transition-colors"
+                            className="rounded bg-[#C94A4A]/10 px-2 py-1 text-xs text-[#C94A4A] transition-colors hover:bg-[#C94A4A]/20"
                           >
                             Eliminar
                           </button>
@@ -452,21 +709,21 @@ function AdditiveCatalogTable({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Nombre..."
-              className="px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+              className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             />
             <input
               type="text"
               value={newBrand}
               onChange={(e) => setNewBrand(e.target.value)}
               placeholder="Marca..."
-              className="px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+              className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             />
             <input
               type="text"
               value={newUom}
               onChange={(e) => setNewUom(e.target.value)}
               placeholder="Unidad..."
-              className="px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+              className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             />
             <Button variant="secondary" size="sm" onClick={handleAdd} disabled={saving || !newName.trim() || !newUom.trim()}>
               + Agregar
@@ -499,7 +756,7 @@ function CalibrationCurvesTable({
   plantOptions: Array<{ value: string; label: string }>;
   selectedPlantId: string;
   onPlantChange: (plantId: string) => void;
-  items: CalibrationCurveItem[];
+  items: CalibrationCurveCatalogItem[];
   loading: boolean;
   onAdd: (payload: {
     plant_id: string;
@@ -528,7 +785,7 @@ function CalibrationCurvesTable({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const startEdit = (item: CalibrationCurveItem) => {
+  const startEdit = (item: CalibrationCurveCatalogItem) => {
     setEditingId(item.id);
     setEditCurveName(item.curve_name);
     setEditMeasurementType(item.measurement_type);
@@ -597,23 +854,25 @@ function CalibrationCurvesTable({
 
   return (
     <Card noPadding>
-      <div className="p-4 border-b border-[#9D9B9A] space-y-3">
+      <div className="space-y-3 border-b border-[#9D9B9A] p-4">
         <div>
           <h4 className="text-base font-medium text-[#3B3A36]">Curvas de conversión</h4>
-          <p className="text-sm text-[#5F6773] mt-0.5">
-            Catálogo por planta para reutilizar tablas de conversión. La configuración de aditivos toma estos valores para tanques.
+          <p className="mt-0.5 text-sm text-[#5F6773]">
+            Catálogo por planta para reutilizar tablas de conversión. La importación masiva de curvas queda para la fase 2.
           </p>
         </div>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          <label className="text-sm text-[#5F6773] min-w-[120px]">Planta</label>
+          <label className="min-w-[120px] text-sm text-[#5F6773]">Planta</label>
           <select
             value={selectedPlantId}
             onChange={(e) => onPlantChange(e.target.value)}
-            className="w-full md:max-w-sm px-3 py-2 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+            className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none md:max-w-sm"
           >
             <option value="">Selecciona una planta</option>
             {plantOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </select>
         </div>
@@ -628,17 +887,17 @@ function CalibrationCurvesTable({
           <table className="w-full">
             <thead className="bg-[#F2F3F5]">
               <tr>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Nombre</th>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Método</th>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Unidad lectura</th>
-                <th className="px-4 py-2 text-left text-sm text-[#5F6773] font-medium">Puntos</th>
-                <th className="px-4 py-2 text-center text-sm text-[#5F6773] font-medium w-28">Acciones</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Nombre</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Método</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Unidad lectura</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Puntos</th>
+                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[#5F6773]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-[#5F6773] text-sm">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-[#5F6773]">
                     No hay curvas configuradas para esta planta.
                   </td>
                 </tr>
@@ -651,7 +910,7 @@ function CalibrationCurvesTable({
                           type="text"
                           value={editCurveName}
                           onChange={(e) => setEditCurveName(e.target.value)}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                           autoFocus
                         />
                       ) : (
@@ -664,7 +923,7 @@ function CalibrationCurvesTable({
                           type="text"
                           value={editMeasurementType}
                           onChange={(e) => setEditMeasurementType(e.target.value)}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                         />
                       ) : (
                         <span className="text-sm text-[#5F6773]">{item.measurement_type}</span>
@@ -676,7 +935,7 @@ function CalibrationCurvesTable({
                           type="text"
                           value={editReadingUom}
                           onChange={(e) => setEditReadingUom(e.target.value)}
-                          className="w-full px-2 py-1 border border-[#2475C7] rounded text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
                         />
                       ) : (
                         <span className="text-sm text-[#5F6773]">{item.reading_uom || '—'}</span>
@@ -691,7 +950,7 @@ function CalibrationCurvesTable({
                           className="w-full rounded border border-[#2475C7] bg-white px-2 py-1 font-mono text-xs text-[#3B3A36] focus:outline-none"
                         />
                       ) : (
-                        <div className="max-w-[260px] rounded bg-[#F2F3F5] px-2 py-1 font-mono text-xs text-[#5F6773] whitespace-pre-wrap break-all">
+                        <div className="max-w-[260px] break-all whitespace-pre-wrap rounded bg-[#F2F3F5] px-2 py-1 font-mono text-xs text-[#5F6773]">
                           {JSON.stringify(item.data_points || {})}
                         </div>
                       )}
@@ -711,7 +970,7 @@ function CalibrationCurvesTable({
                           <button
                             onClick={() => handleDelete(item.id)}
                             disabled={saving}
-                            className="px-2 py-1 text-xs bg-[#C94A4A]/10 text-[#C94A4A] hover:bg-[#C94A4A]/20 rounded transition-colors"
+                            className="rounded bg-[#C94A4A]/10 px-2 py-1 text-xs text-[#C94A4A] transition-colors hover:bg-[#C94A4A]/20"
                           >
                             Eliminar
                           </button>
@@ -736,28 +995,28 @@ function CalibrationCurvesTable({
             </tbody>
           </table>
 
-          <div className="border-t border-[#9D9B9A] bg-[#F2F3F5] p-3 space-y-2">
+          <div className="space-y-2 border-t border-[#9D9B9A] bg-[#F2F3F5] p-3">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               <input
                 type="text"
                 value={newCurveName}
                 onChange={(e) => setNewCurveName(e.target.value)}
                 placeholder="Nombre de curva..."
-                className="px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+                className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
               />
               <input
                 type="text"
                 value={newMeasurementType}
                 onChange={(e) => setNewMeasurementType(e.target.value)}
                 placeholder="Método..."
-                className="px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+                className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
               />
               <input
                 type="text"
                 value={newReadingUom}
                 onChange={(e) => setNewReadingUom(e.target.value)}
                 placeholder="Unidad de lectura..."
-                className="px-3 py-1.5 border border-[#9D9B9A] rounded text-sm text-[#3B3A36] bg-white focus:outline-none focus:border-[#2475C7]"
+                className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
               />
             </div>
             <textarea
@@ -781,16 +1040,64 @@ function CalibrationCurvesTable({
 
 export function CatalogsPanel() {
   const { allPlants } = useAuth();
-  const [materiales, setMateriales] = useState<CatalogItem[]>([]);
-  const [procedencias, setProcedencias] = useState<CatalogItem[]>([]);
+  const [materiales, setMateriales] = useState<MaterialCatalogItem[]>([]);
+  const [procedencias, setProcedencias] = useState<ProcedenciaCatalogItem[]>([]);
   const [aditivos, setAditivos] = useState<AdditiveCatalogItem[]>([]);
-  const [curvas, setCurvas] = useState<CalibrationCurveItem[]>([]);
+  const [curvas, setCurvas] = useState<CalibrationCurveCatalogItem[]>([]);
   const [selectedCurvePlantId, setSelectedCurvePlantId] = useState('');
   const [loadingMat, setLoadingMat] = useState(true);
   const [loadingProc, setLoadingProc] = useState(true);
   const [loadingAditivos, setLoadingAditivos] = useState(true);
   const [loadingCurvas, setLoadingCurvas] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [exportingMaterialsTemplate, setExportingMaterialsTemplate] = useState(false);
+  const [exportingMaterialsCurrent, setExportingMaterialsCurrent] = useState(false);
+  const [previewingMaterialsImport, setPreviewingMaterialsImport] = useState(false);
+  const [executingMaterialsImport, setExecutingMaterialsImport] = useState(false);
+  const [showMaterialsImportPreview, setShowMaterialsImportPreview] = useState(false);
+  const [materialsImportPreview, setMaterialsImportPreview] = useState<MaterialsImportPreviewResponse | null>(null);
+  const [materialsImportReason, setMaterialsImportReason] = useState('');
+  const [materialsImportFileName, setMaterialsImportFileName] = useState('');
+  const [materialsImportPayload, setMaterialsImportPayload] = useState<{
+    module: 'materiales';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: MaterialsImportRowPayload[];
+  } | null>(null);
+  const materialsFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [exportingProcedenciasTemplate, setExportingProcedenciasTemplate] = useState(false);
+  const [exportingProcedenciasCurrent, setExportingProcedenciasCurrent] = useState(false);
+  const [previewingProcedenciasImport, setPreviewingProcedenciasImport] = useState(false);
+  const [executingProcedenciasImport, setExecutingProcedenciasImport] = useState(false);
+  const [showProcedenciasImportPreview, setShowProcedenciasImportPreview] = useState(false);
+  const [procedenciasImportPreview, setProcedenciasImportPreview] = useState<ProcedenciasImportPreviewResponse | null>(null);
+  const [procedenciasImportReason, setProcedenciasImportReason] = useState('');
+  const [procedenciasImportFileName, setProcedenciasImportFileName] = useState('');
+  const [procedenciasImportPayload, setProcedenciasImportPayload] = useState<{
+    module: 'procedencias';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProcedenciasImportRowPayload[];
+  } | null>(null);
+  const procedenciasFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [exportingAditivosTemplate, setExportingAditivosTemplate] = useState(false);
+  const [exportingAditivosCurrent, setExportingAditivosCurrent] = useState(false);
+  const [previewingAditivosImport, setPreviewingAditivosImport] = useState(false);
+  const [executingAditivosImport, setExecutingAditivosImport] = useState(false);
+  const [showAditivosImportPreview, setShowAditivosImportPreview] = useState(false);
+  const [aditivosImportPreview, setAditivosImportPreview] = useState<AdditivesCatalogImportPreviewResponse | null>(null);
+  const [aditivosImportReason, setAditivosImportReason] = useState('');
+  const [aditivosImportFileName, setAditivosImportFileName] = useState('');
+  const [aditivosImportPayload, setAditivosImportPayload] = useState<{
+    module: 'additivos_catalogo';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AdditivesCatalogImportRowPayload[];
+  } | null>(null);
+  const aditivosFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const plantOptions = useMemo(
     () => allPlants.map((plant) => ({ value: plant.id, label: plant.name })),
@@ -851,6 +1158,312 @@ export function CatalogsPanel() {
       loadCurves(selectedCurvePlantId);
     }
   }, [selectedCurvePlantId]);
+
+  const resetMaterialsImportFlow = () => {
+    setShowMaterialsImportPreview(false);
+    setMaterialsImportPreview(null);
+    setMaterialsImportReason('');
+    setMaterialsImportFileName('');
+    setMaterialsImportPayload(null);
+    if (materialsFileInputRef.current) {
+      materialsFileInputRef.current.value = '';
+    }
+  };
+
+  const resetProcedenciasImportFlow = () => {
+    setShowProcedenciasImportPreview(false);
+    setProcedenciasImportPreview(null);
+    setProcedenciasImportReason('');
+    setProcedenciasImportFileName('');
+    setProcedenciasImportPayload(null);
+    if (procedenciasFileInputRef.current) {
+      procedenciasFileInputRef.current.value = '';
+    }
+  };
+
+  const resetAditivosImportFlow = () => {
+    setShowAditivosImportPreview(false);
+    setAditivosImportPreview(null);
+    setAditivosImportReason('');
+    setAditivosImportFileName('');
+    setAditivosImportPayload(null);
+    if (aditivosFileInputRef.current) {
+      aditivosFileInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadMaterialsBlankTemplate = async () => {
+    setExportingMaterialsTemplate(true);
+    setError(null);
+    try {
+      await downloadMaterialsImportWorkbook({ rows: [], templateType: 'blank' });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo generar la plantilla de materiales.');
+    } finally {
+      setExportingMaterialsTemplate(false);
+    }
+  };
+
+  const handleDownloadMaterialsCurrent = async () => {
+    setExportingMaterialsCurrent(true);
+    setError(null);
+    try {
+      const rows: MaterialsImportWorkbookRow[] = materiales.map((item) => ({
+        nombre: item.nombre,
+        clase: item.clase || null,
+      }));
+      await downloadMaterialsImportWorkbook({ rows, templateType: 'current_config' });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo exportar el catálogo actual de materiales.');
+    } finally {
+      setExportingMaterialsCurrent(false);
+    }
+  };
+
+  const handleMaterialsFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPreviewingMaterialsImport(true);
+    setError(null);
+
+    try {
+      const parsed = await parseMaterialsImportFile(file);
+      const payload = {
+        module: MATERIALS_IMPORT_MODULE,
+        template_version: MATERIALS_IMPORT_TEMPLATE_VERSION,
+        import_mode: 'upsert' as const,
+        rows: parsed.rows.map((row) => ({
+          row_number: row.row_number,
+          nombre: row.nombre,
+          clase: row.clase,
+        })),
+      };
+
+      const response = await previewMaterialsImport(payload);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo validar el archivo.');
+      }
+
+      setMaterialsImportFileName(file.name);
+      setMaterialsImportPayload(payload);
+      setMaterialsImportPreview(response.data);
+      setShowMaterialsImportPreview(true);
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo procesar el archivo seleccionado.');
+    } finally {
+      setPreviewingMaterialsImport(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleExecuteMaterialsImport = async () => {
+    if (!materialsImportPayload || !materialsImportPreview?.preview_token) return;
+
+    setExecutingMaterialsImport(true);
+    setError(null);
+
+    try {
+      const response = await executeMaterialsImport({
+        ...materialsImportPayload,
+        preview_token: materialsImportPreview.preview_token,
+        reason: materialsImportReason,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo importar el catálogo.');
+      }
+
+      resetMaterialsImportFlow();
+      await loadMateriales();
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo importar el catálogo.');
+    } finally {
+      setExecutingMaterialsImport(false);
+    }
+  };
+
+  const handleDownloadProcedenciasBlankTemplate = async () => {
+    setExportingProcedenciasTemplate(true);
+    setError(null);
+    try {
+      await downloadProcedenciasImportWorkbook({ rows: [], templateType: 'blank' });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo generar la plantilla de procedencias.');
+    } finally {
+      setExportingProcedenciasTemplate(false);
+    }
+  };
+
+  const handleDownloadProcedenciasCurrent = async () => {
+    setExportingProcedenciasCurrent(true);
+    setError(null);
+    try {
+      const rows: ProcedenciasImportWorkbookRow[] = procedencias.map((item) => ({
+        nombre: item.nombre,
+      }));
+      await downloadProcedenciasImportWorkbook({ rows, templateType: 'current_config' });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo exportar el catálogo actual de procedencias.');
+    } finally {
+      setExportingProcedenciasCurrent(false);
+    }
+  };
+
+  const handleProcedenciasFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPreviewingProcedenciasImport(true);
+    setError(null);
+
+    try {
+      const parsed = await parseProcedenciasImportFile(file);
+      const payload = {
+        module: PROCEDENCIAS_IMPORT_MODULE,
+        template_version: PROCEDENCIAS_IMPORT_TEMPLATE_VERSION,
+        import_mode: 'upsert' as const,
+        rows: parsed.rows.map((row) => ({
+          row_number: row.row_number,
+          nombre: row.nombre,
+        })),
+      };
+
+      const response = await previewProcedenciasImport(payload);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo validar el archivo.');
+      }
+
+      setProcedenciasImportFileName(file.name);
+      setProcedenciasImportPayload(payload);
+      setProcedenciasImportPreview(response.data);
+      setShowProcedenciasImportPreview(true);
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo procesar el archivo seleccionado.');
+    } finally {
+      setPreviewingProcedenciasImport(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleExecuteProcedenciasImport = async () => {
+    if (!procedenciasImportPayload || !procedenciasImportPreview?.preview_token) return;
+
+    setExecutingProcedenciasImport(true);
+    setError(null);
+
+    try {
+      const response = await executeProcedenciasImport({
+        ...procedenciasImportPayload,
+        preview_token: procedenciasImportPreview.preview_token,
+        reason: procedenciasImportReason,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo importar el catálogo.');
+      }
+
+      resetProcedenciasImportFlow();
+      await loadProcedencias();
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo importar el catálogo.');
+    } finally {
+      setExecutingProcedenciasImport(false);
+    }
+  };
+
+  const handleDownloadAditivosBlankTemplate = async () => {
+    setExportingAditivosTemplate(true);
+    setError(null);
+    try {
+      await downloadAdditivesCatalogImportWorkbook({ rows: [], templateType: 'blank' });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo generar la plantilla de aditivos.');
+    } finally {
+      setExportingAditivosTemplate(false);
+    }
+  };
+
+  const handleDownloadAditivosCurrent = async () => {
+    setExportingAditivosCurrent(true);
+    setError(null);
+    try {
+      const rows: AdditivesCatalogImportWorkbookRow[] = aditivos.map((item) => ({
+        nombre: item.nombre,
+        marca: item.marca || null,
+        uom: item.uom,
+      }));
+      await downloadAdditivesCatalogImportWorkbook({ rows, templateType: 'current_config' });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo exportar el catálogo actual de aditivos.');
+    } finally {
+      setExportingAditivosCurrent(false);
+    }
+  };
+
+  const handleAditivosFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPreviewingAditivosImport(true);
+    setError(null);
+
+    try {
+      const parsed = await parseAdditivesCatalogImportFile(file);
+      const payload = {
+        module: ADDITIVES_CATALOG_IMPORT_MODULE,
+        template_version: ADDITIVES_CATALOG_IMPORT_TEMPLATE_VERSION,
+        import_mode: 'upsert' as const,
+        rows: parsed.rows.map((row) => ({
+          row_number: row.row_number,
+          nombre: row.nombre,
+          marca: row.marca,
+          uom: row.uom,
+        })),
+      };
+
+      const response = await previewAdditivesCatalogImport(payload);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo validar el archivo.');
+      }
+
+      setAditivosImportFileName(file.name);
+      setAditivosImportPayload(payload);
+      setAditivosImportPreview(response.data);
+      setShowAditivosImportPreview(true);
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo procesar el archivo seleccionado.');
+    } finally {
+      setPreviewingAditivosImport(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleExecuteAditivosImport = async () => {
+    if (!aditivosImportPayload || !aditivosImportPreview?.preview_token) return;
+
+    setExecutingAditivosImport(true);
+    setError(null);
+
+    try {
+      const response = await executeAdditivesCatalogImport({
+        ...aditivosImportPayload,
+        preview_token: aditivosImportPreview.preview_token,
+        reason: aditivosImportReason,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo importar el catálogo.');
+      }
+
+      resetAditivosImportFlow();
+      await loadAdditives();
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo importar el catálogo.');
+    } finally {
+      setExecutingAditivosImport(false);
+    }
+  };
 
   const handleAddMaterial = async (nombre: string, clase?: string) => {
     const res = await createMaterial(nombre, clase);
@@ -942,25 +1555,37 @@ export function CatalogsPanel() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg text-[#3B3A36]">Catálogos</h3>
-        <p className="text-[#5F6773] text-sm mt-1">
-          Administra los valores estandarizados que usan las configuraciones por planta. Aquí ya puedes controlar materiales,
-          procedencias, aditivos y curvas de conversión.
+        <p className="mt-1 text-sm text-[#5F6773]">
+          Administra los valores estandarizados que usan las configuraciones por planta. Materiales, procedencias y aditivos ya soportan importación masiva con plantilla Excel y previsualización.
         </p>
       </div>
 
       {error && (
-        <div className="p-3 bg-[#C94A4A]/10 border border-[#C94A4A]/30 rounded text-sm text-[#C94A4A]">
+        <div className="rounded border border-[#C94A4A]/30 bg-[#C94A4A]/10 p-3 text-sm text-[#C94A4A]">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <CatalogTable
           title="Materiales"
           description="Tipos de material que pueden asignarse a un cajón."
           items={materiales}
           loading={loadingMat}
           hasClase={true}
+          importControls={{
+            exportingTemplate: exportingMaterialsTemplate,
+            exportingCurrent: exportingMaterialsCurrent,
+            previewingImport: previewingMaterialsImport,
+            onDownloadBlankTemplate: handleDownloadMaterialsBlankTemplate,
+            onDownloadCurrentConfiguration: handleDownloadMaterialsCurrent,
+            onOpenFilePicker: () => {
+              setError(null);
+              materialsFileInputRef.current?.click();
+            },
+            fileInputRef: materialsFileInputRef,
+            onImportFileSelected: handleMaterialsFileSelected,
+          }}
           onAdd={handleAddMaterial}
           onUpdate={handleUpdateMaterial}
           onDelete={handleDeleteMaterial}
@@ -971,6 +1596,19 @@ export function CatalogsPanel() {
           description="Nombre del suplidor o procedencia del material."
           items={procedencias}
           loading={loadingProc}
+          importControls={{
+            exportingTemplate: exportingProcedenciasTemplate,
+            exportingCurrent: exportingProcedenciasCurrent,
+            previewingImport: previewingProcedenciasImport,
+            onDownloadBlankTemplate: handleDownloadProcedenciasBlankTemplate,
+            onDownloadCurrentConfiguration: handleDownloadProcedenciasCurrent,
+            onOpenFilePicker: () => {
+              setError(null);
+              procedenciasFileInputRef.current?.click();
+            },
+            fileInputRef: procedenciasFileInputRef,
+            onImportFileSelected: handleProcedenciasFileSelected,
+          }}
           onAdd={handleAddProcedencia}
           onUpdate={handleUpdateProcedencia}
           onDelete={handleDeleteProcedencia}
@@ -979,6 +1617,19 @@ export function CatalogsPanel() {
         <AdditiveCatalogTable
           items={aditivos}
           loading={loadingAditivos}
+          importControls={{
+            exportingTemplate: exportingAditivosTemplate,
+            exportingCurrent: exportingAditivosCurrent,
+            previewingImport: previewingAditivosImport,
+            onDownloadBlankTemplate: handleDownloadAditivosBlankTemplate,
+            onDownloadCurrentConfiguration: handleDownloadAditivosCurrent,
+            onOpenFilePicker: () => {
+              setError(null);
+              aditivosFileInputRef.current?.click();
+            },
+            fileInputRef: aditivosFileInputRef,
+            onImportFileSelected: handleAditivosFileSelected,
+          }}
           onAdd={handleAddAditivo}
           onUpdate={handleUpdateAditivo}
           onDelete={handleDeleteAditivo}
@@ -995,6 +1646,45 @@ export function CatalogsPanel() {
           onDelete={handleDeleteCurve}
         />
       </div>
+
+      <CatalogImportPreviewModal
+        isOpen={showMaterialsImportPreview}
+        onClose={resetMaterialsImportFlow}
+        title="Previsualización de importación de materiales"
+        label="Materiales"
+        preview={materialsImportPreview}
+        fileName={materialsImportFileName}
+        reason={materialsImportReason}
+        onReasonChange={setMaterialsImportReason}
+        onConfirm={handleExecuteMaterialsImport}
+        executing={executingMaterialsImport}
+      />
+
+      <CatalogImportPreviewModal
+        isOpen={showProcedenciasImportPreview}
+        onClose={resetProcedenciasImportFlow}
+        title="Previsualización de importación de procedencias"
+        label="Procedencias"
+        preview={procedenciasImportPreview}
+        fileName={procedenciasImportFileName}
+        reason={procedenciasImportReason}
+        onReasonChange={setProcedenciasImportReason}
+        onConfirm={handleExecuteProcedenciasImport}
+        executing={executingProcedenciasImport}
+      />
+
+      <CatalogImportPreviewModal
+        isOpen={showAditivosImportPreview}
+        onClose={resetAditivosImportFlow}
+        title="Previsualización de importación de aditivos"
+        label="Aditivos"
+        preview={aditivosImportPreview}
+        fileName={aditivosImportFileName}
+        reason={aditivosImportReason}
+        onReasonChange={setAditivosImportReason}
+        onConfirm={handleExecuteAditivosImport}
+        executing={executingAditivosImport}
+      />
     </div>
   );
 }

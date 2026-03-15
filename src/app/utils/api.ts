@@ -527,6 +527,21 @@ export interface AdditiveCatalogItem {
   sort_order: number;
 }
 
+export interface MaterialCatalogItem {
+  id: string;
+  nombre: string;
+  clase?: string | null;
+  sort_order: number;
+  is_active?: boolean;
+}
+
+export interface ProcedenciaCatalogItem {
+  id: string;
+  nombre: string;
+  sort_order: number;
+  is_active?: boolean;
+}
+
 export interface CalibrationCurveCatalogItem {
   id: string;
   plant_id: string;
@@ -537,7 +552,7 @@ export interface CalibrationCurveCatalogItem {
 }
 
 /** Obtiene la lista de materiales activos */
-export async function getMateriales(): Promise<ApiResponse> {
+export async function getMateriales(): Promise<ApiResponse<MaterialCatalogItem[]>> {
   return apiRequest('/catalogs/materiales', 'GET');
 }
 
@@ -560,7 +575,7 @@ export async function deleteMaterial(id: string): Promise<ApiResponse> {
 }
 
 /** Obtiene la lista de procedencias activas */
-export async function getProcedencias(): Promise<ApiResponse> {
+export async function getProcedencias(): Promise<ApiResponse<ProcedenciaCatalogItem[]>> {
   return apiRequest('/catalogs/procedencias', 'GET');
 }
 
@@ -607,6 +622,164 @@ export async function updateAdditiveCatalogItem(
 /** Elimina (soft delete) un aditivo del catálogo (admin only) */
 export async function deleteAdditiveCatalogItem(id: string): Promise<ApiResponse> {
   return apiRequest(`/catalogs/additivos/${id}`, 'DELETE');
+}
+
+export interface MaterialsImportRowPayload {
+  row_number: number;
+  nombre: string;
+  clase: string;
+}
+
+export interface ProcedenciasImportRowPayload {
+  row_number: number;
+  nombre: string;
+}
+
+export interface AdditivesCatalogImportRowPayload {
+  row_number: number;
+  nombre: string;
+  marca: string;
+  uom: string;
+}
+
+interface CatalogImportError {
+  row: number;
+  column: string;
+  message: string;
+}
+
+interface CatalogImportSummary {
+  total_rows: number;
+  valid_rows: number;
+  error_rows: number;
+  creates: number;
+  updates: number;
+}
+
+export interface MaterialsImportPreviewResponse {
+  module: 'materiales';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: CatalogImportSummary;
+  errors: CatalogImportError[];
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface MaterialsImportExecuteResponse {
+  summary: CatalogImportSummary;
+  created: number;
+  updated: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
+export interface ProcedenciasImportPreviewResponse {
+  module: 'procedencias';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: CatalogImportSummary;
+  errors: CatalogImportError[];
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface ProcedenciasImportExecuteResponse {
+  summary: CatalogImportSummary;
+  created: number;
+  updated: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
+export interface AdditivesCatalogImportPreviewResponse {
+  module: 'additivos_catalogo';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: CatalogImportSummary;
+  errors: CatalogImportError[];
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface AdditivesCatalogImportExecuteResponse {
+  summary: CatalogImportSummary;
+  created: number;
+  updated: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
+export async function previewMaterialsImport(
+  payload: {
+    module: 'materiales';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: MaterialsImportRowPayload[];
+  }
+): Promise<ApiResponse<MaterialsImportPreviewResponse>> {
+  return apiRequest('/catalogs/materiales/import/preview', 'POST', payload);
+}
+
+export async function executeMaterialsImport(
+  payload: {
+    module: 'materiales';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: MaterialsImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<MaterialsImportExecuteResponse>> {
+  return apiRequest('/catalogs/materiales/import/execute', 'POST', payload);
+}
+
+export async function previewProcedenciasImport(
+  payload: {
+    module: 'procedencias';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProcedenciasImportRowPayload[];
+  }
+): Promise<ApiResponse<ProcedenciasImportPreviewResponse>> {
+  return apiRequest('/catalogs/procedencias/import/preview', 'POST', payload);
+}
+
+export async function executeProcedenciasImport(
+  payload: {
+    module: 'procedencias';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProcedenciasImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<ProcedenciasImportExecuteResponse>> {
+  return apiRequest('/catalogs/procedencias/import/execute', 'POST', payload);
+}
+
+export async function previewAdditivesCatalogImport(
+  payload: {
+    module: 'additivos_catalogo';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AdditivesCatalogImportRowPayload[];
+  }
+): Promise<ApiResponse<AdditivesCatalogImportPreviewResponse>> {
+  return apiRequest('/catalogs/additivos/import/preview', 'POST', payload);
+}
+
+export async function executeAdditivesCatalogImport(
+  payload: {
+    module: 'additivos_catalogo';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AdditivesCatalogImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<AdditivesCatalogImportExecuteResponse>> {
+  return apiRequest('/catalogs/additivos/import/execute', 'POST', payload);
 }
 
 /** Obtiene las curvas configuradas para una planta */

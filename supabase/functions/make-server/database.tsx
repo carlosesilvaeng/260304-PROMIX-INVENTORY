@@ -30,6 +30,9 @@ const PRODUCTS_IMPORT_PREVIEW_PREFIX = 'products_import_preview:';
 const AGGREGATES_IMPORT_PREVIEW_PREFIX = 'aggregates_import_preview:';
 const SILOS_IMPORT_PREVIEW_PREFIX = 'silos_import_preview:';
 const DIESEL_IMPORT_PREVIEW_PREFIX = 'diesel_import_preview:';
+const MATERIALS_IMPORT_PREVIEW_PREFIX = 'materials_import_preview:';
+const PROCEDENCIAS_IMPORT_PREVIEW_PREFIX = 'procedencias_import_preview:';
+const ADDITIVES_CATALOG_IMPORT_PREVIEW_PREFIX = 'additives_catalog_import_preview:';
 const CLEANUP_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const MAX_CLEANUP_INVENTORY_MONTHS = 200;
 const MAX_CLEANUP_DISTINCT_MONTHS = 24;
@@ -276,6 +279,102 @@ interface DieselImportPreviewRecord {
   expires_at: string;
 }
 
+interface MaterialsImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    nombre?: string;
+    clase?: string;
+  }>;
+}
+
+export interface NormalizedMaterialsImportRow {
+  row_number: number;
+  nombre: string;
+  clase: string | null;
+  action: 'create' | 'update';
+  unchanged: boolean;
+  existing_id?: string;
+}
+
+interface MaterialsImportPreviewRecord {
+  token: string;
+  payload: {
+    module: 'materiales';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: MaterialsImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
+interface ProcedenciasImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    nombre?: string;
+  }>;
+}
+
+export interface NormalizedProcedenciasImportRow {
+  row_number: number;
+  nombre: string;
+  action: 'create' | 'update';
+  unchanged: boolean;
+  existing_id?: string;
+}
+
+interface ProcedenciasImportPreviewRecord {
+  token: string;
+  payload: {
+    module: 'procedencias';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: ProcedenciasImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
+interface AdditivesCatalogImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    nombre?: string;
+    marca?: string;
+    uom?: string;
+  }>;
+}
+
+export interface NormalizedAdditivesCatalogImportRow {
+  row_number: number;
+  nombre: string;
+  marca: string | null;
+  uom: string;
+  action: 'create' | 'update';
+  unchanged: boolean;
+  existing_id?: string;
+}
+
+interface AdditivesCatalogImportPreviewRecord {
+  token: string;
+  payload: {
+    module: 'additivos_catalogo';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: AdditivesCatalogImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
 function isValidYearMonth(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value.trim());
 }
@@ -337,6 +436,18 @@ function buildSilosImportPreviewKey(token: string) {
 
 function buildDieselImportPreviewKey(token: string) {
   return `${DIESEL_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
+function buildMaterialsImportPreviewKey(token: string) {
+  return `${MATERIALS_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
+function buildProcedenciasImportPreviewKey(token: string) {
+  return `${PROCEDENCIAS_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
+function buildAdditivesCatalogImportPreviewKey(token: string) {
+  return `${ADDITIVES_CATALOG_IMPORT_PREVIEW_PREFIX}${token}`;
 }
 
 function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
@@ -443,6 +554,51 @@ function normalizeDieselImportPayload(input: DieselImportInput) {
   };
 }
 
+function normalizeMaterialsImportPayload(input: MaterialsImportInput) {
+  return {
+    module: input.module === 'materiales' ? 'materiales' as const : 'materiales' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          nombre: String(row?.nombre || ''),
+          clase: String(row?.clase || ''),
+        }))
+      : [],
+  };
+}
+
+function normalizeProcedenciasImportPayload(input: ProcedenciasImportInput) {
+  return {
+    module: input.module === 'procedencias' ? 'procedencias' as const : 'procedencias' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          nombre: String(row?.nombre || ''),
+        }))
+      : [],
+  };
+}
+
+function normalizeAdditivesCatalogImportPayload(input: AdditivesCatalogImportInput) {
+  return {
+    module: input.module === 'additivos_catalogo' ? 'additivos_catalogo' as const : 'additivos_catalogo' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          nombre: String(row?.nombre || ''),
+          marca: String(row?.marca || ''),
+          uom: String(row?.uom || ''),
+        }))
+      : [],
+  };
+}
+
 function validateCleanupFilters(filters: CleanupFilters) {
   if (filters.scope !== 'transactional') {
     throw new Error('Solo se admite scope transactional en esta version.');
@@ -528,6 +684,60 @@ function validateSilosImportPayload(input: ReturnType<typeof normalizeSilosImpor
 function validateDieselImportPayload(input: ReturnType<typeof normalizeDieselImportPayload>) {
   if (input.module !== 'diesel') {
     throw new Error('Solo se admite el modulo diesel en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
+function validateMaterialsImportPayload(input: ReturnType<typeof normalizeMaterialsImportPayload>) {
+  if (input.module !== 'materiales') {
+    throw new Error('Solo se admite el modulo materiales en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
+function validateProcedenciasImportPayload(input: ReturnType<typeof normalizeProcedenciasImportPayload>) {
+  if (input.module !== 'procedencias') {
+    throw new Error('Solo se admite el modulo procedencias en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
+function validateAdditivesCatalogImportPayload(input: ReturnType<typeof normalizeAdditivesCatalogImportPayload>) {
+  if (input.module !== 'additivos_catalogo') {
+    throw new Error('Solo se admite el modulo additivos_catalogo en esta version.');
   }
 
   if (input.template_version !== '1.0') {
@@ -677,6 +887,11 @@ function parsePipeSeparatedValues(value: string) {
         .filter(Boolean)
     )
   );
+}
+
+function normalizeCatalogOptionalText(value: string | null | undefined) {
+  const normalized = String(value || '').trim();
+  return normalized || null;
 }
 
 async function queryInventoryMonths(filters: CleanupFilters, options?: { page?: number; pageSize?: number; countExact?: boolean }) {
@@ -2719,6 +2934,587 @@ export async function executeDieselImport(plantId: string, input: DieselImportIn
 
     if (error) throw error;
     created = 1;
+  }
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
+    },
+  };
+}
+
+export async function previewMaterialsImport(input: MaterialsImportInput) {
+  const payload = normalizeMaterialsImportPayload(input);
+  validateMaterialsImportPayload(payload);
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('materiales_catalog')
+    .select('id, nombre, clase, sort_order, is_active');
+
+  if (error) throw error;
+
+  const existingByKey = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    const key = `${String(row.nombre || '').trim().toLowerCase()}::${(normalizeCatalogOptionalText(row.clase) || '').toLowerCase()}`;
+    acc[key] = row;
+    return acc;
+  }, {});
+
+  const seenKeys = new Map<string, number>();
+  const normalizedRows: NormalizedMaterialsImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const nombre = rawRow.nombre.trim();
+    const clase = normalizeCatalogOptionalText(rawRow.clase);
+    const key = `${nombre.toLowerCase()}::${(clase || '').toLowerCase()}`;
+
+    if (!nombre) {
+      rowErrors.push({ column: 'Nombre', message: 'es requerido' });
+    }
+
+    if (nombre) {
+      if (seenKeys.has(key)) {
+        rowErrors.push({ column: 'Nombre/Clase', message: `duplicado dentro del archivo; también aparece en la fila ${seenKeys.get(key)}` });
+      } else {
+        seenKeys.set(key, rowNumber);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({ row: rowNumber, column: rowError.column, message: rowError.message });
+      });
+      return;
+    }
+
+    const existing = existingByKey[key];
+    const unchanged = Boolean(
+      existing &&
+      String(existing.nombre || '').trim() === nombre &&
+      normalizeCatalogOptionalText(existing.clase) === clase &&
+      existing.is_active !== false
+    );
+
+    if (unchanged) {
+      warnings.push(`Fila ${rowNumber}: "${nombre}" no tiene cambios y se omitirá al ejecutar.`);
+    }
+
+    normalizedRows.push({
+      row_number: rowNumber,
+      nombre,
+      clase,
+      action: existing ? 'update' : 'create',
+      unchanged,
+      existing_id: existing?.id,
+    });
+  });
+
+  return {
+    module: 'materiales' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create' && !row.unchanged).length,
+      updates: normalizedRows.filter((row) => row.action === 'update' && !row.unchanged).length,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createMaterialsImportPreviewToken(previewPayload: MaterialsImportInput) {
+  const payload = normalizeMaterialsImportPayload(previewPayload);
+  validateMaterialsImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: MaterialsImportPreviewRecord = {
+    token,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildMaterialsImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateMaterialsImportPreviewToken(token: string, payload: MaterialsImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildMaterialsImportPreviewKey(token)) as MaterialsImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildMaterialsImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeMaterialsImportPayload(payload);
+  validateMaterialsImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualización aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeMaterialsImportPreviewToken(token: string) {
+  await kv.del(buildMaterialsImportPreviewKey(token));
+}
+
+export async function executeMaterialsImport(input: MaterialsImportInput) {
+  const preview = await previewMaterialsImport(input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas válidas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('materiales_catalog')
+    .select('id, sort_order');
+
+  if (error) throw error;
+
+  const existingById = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    acc[row.id] = row;
+    return acc;
+  }, {});
+
+  const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
+  let nextSortOrder = maxSortOrder + 1;
+  let created = 0;
+  let updated = 0;
+
+  for (const row of preview.normalized_rows) {
+    if (row.unchanged) continue;
+
+    const sortOrder = row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++;
+    const payloadRow = {
+      nombre: row.nombre,
+      clase: row.clase,
+      sort_order: sortOrder,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('materiales_catalog')
+        .update(payloadRow)
+        .eq('id', row.existing_id);
+      if (updateError) throw updateError;
+      updated += 1;
+    } else {
+      const { error: insertError } = await supabase
+        .from('materiales_catalog')
+        .insert(payloadRow);
+      if (insertError) throw insertError;
+      created += 1;
+    }
+  }
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
+    },
+  };
+}
+
+export async function previewProcedenciasImport(input: ProcedenciasImportInput) {
+  const payload = normalizeProcedenciasImportPayload(input);
+  validateProcedenciasImportPayload(payload);
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('procedencias_catalog')
+    .select('id, nombre, sort_order, is_active');
+
+  if (error) throw error;
+
+  const existingByName = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    acc[String(row.nombre || '').trim().toLowerCase()] = row;
+    return acc;
+  }, {});
+
+  const seenNames = new Map<string, number>();
+  const normalizedRows: NormalizedProcedenciasImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const nombre = rawRow.nombre.trim();
+    const key = nombre.toLowerCase();
+
+    if (!nombre) {
+      rowErrors.push({ column: 'Nombre', message: 'es requerido' });
+    }
+
+    if (nombre) {
+      if (seenNames.has(key)) {
+        rowErrors.push({ column: 'Nombre', message: `duplicado dentro del archivo; también aparece en la fila ${seenNames.get(key)}` });
+      } else {
+        seenNames.set(key, rowNumber);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({ row: rowNumber, column: rowError.column, message: rowError.message });
+      });
+      return;
+    }
+
+    const existing = existingByName[key];
+    const unchanged = Boolean(existing && String(existing.nombre || '').trim() === nombre && existing.is_active !== false);
+
+    if (unchanged) {
+      warnings.push(`Fila ${rowNumber}: "${nombre}" no tiene cambios y se omitirá al ejecutar.`);
+    }
+
+    normalizedRows.push({
+      row_number: rowNumber,
+      nombre,
+      action: existing ? 'update' : 'create',
+      unchanged,
+      existing_id: existing?.id,
+    });
+  });
+
+  return {
+    module: 'procedencias' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create' && !row.unchanged).length,
+      updates: normalizedRows.filter((row) => row.action === 'update' && !row.unchanged).length,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createProcedenciasImportPreviewToken(previewPayload: ProcedenciasImportInput) {
+  const payload = normalizeProcedenciasImportPayload(previewPayload);
+  validateProcedenciasImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: ProcedenciasImportPreviewRecord = {
+    token,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildProcedenciasImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateProcedenciasImportPreviewToken(token: string, payload: ProcedenciasImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildProcedenciasImportPreviewKey(token)) as ProcedenciasImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildProcedenciasImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeProcedenciasImportPayload(payload);
+  validateProcedenciasImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualización aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeProcedenciasImportPreviewToken(token: string) {
+  await kv.del(buildProcedenciasImportPreviewKey(token));
+}
+
+export async function executeProcedenciasImport(input: ProcedenciasImportInput) {
+  const preview = await previewProcedenciasImport(input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas válidas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('procedencias_catalog')
+    .select('id, sort_order');
+
+  if (error) throw error;
+
+  const existingById = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    acc[row.id] = row;
+    return acc;
+  }, {});
+
+  const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
+  let nextSortOrder = maxSortOrder + 1;
+  let created = 0;
+  let updated = 0;
+
+  for (const row of preview.normalized_rows) {
+    if (row.unchanged) continue;
+
+    const sortOrder = row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++;
+    const payloadRow = {
+      nombre: row.nombre,
+      sort_order: sortOrder,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('procedencias_catalog')
+        .update(payloadRow)
+        .eq('id', row.existing_id);
+      if (updateError) throw updateError;
+      updated += 1;
+    } else {
+      const { error: insertError } = await supabase
+        .from('procedencias_catalog')
+        .insert(payloadRow);
+      if (insertError) throw insertError;
+      created += 1;
+    }
+  }
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
+    },
+  };
+}
+
+export async function previewAdditivesCatalogImport(input: AdditivesCatalogImportInput) {
+  const payload = normalizeAdditivesCatalogImportPayload(input);
+  validateAdditivesCatalogImportPayload(payload);
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('additives_catalog')
+    .select('id, nombre, marca, uom, sort_order, is_active');
+
+  if (error) throw error;
+
+  const existingByName = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    acc[String(row.nombre || '').trim().toLowerCase()] = row;
+    return acc;
+  }, {});
+
+  const seenNames = new Map<string, number>();
+  const normalizedRows: NormalizedAdditivesCatalogImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const nombre = rawRow.nombre.trim();
+    const marca = normalizeCatalogOptionalText(rawRow.marca);
+    const uom = rawRow.uom.trim();
+    const key = nombre.toLowerCase();
+
+    if (!nombre) rowErrors.push({ column: 'Nombre', message: 'es requerido' });
+    if (!uom) rowErrors.push({ column: 'Unidad', message: 'es requerida' });
+
+    if (nombre) {
+      if (seenNames.has(key)) {
+        rowErrors.push({ column: 'Nombre', message: `duplicado dentro del archivo; también aparece en la fila ${seenNames.get(key)}` });
+      } else {
+        seenNames.set(key, rowNumber);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({ row: rowNumber, column: rowError.column, message: rowError.message });
+      });
+      return;
+    }
+
+    const existing = existingByName[key];
+    const unchanged = Boolean(
+      existing &&
+      String(existing.nombre || '').trim() === nombre &&
+      normalizeCatalogOptionalText(existing.marca) === marca &&
+      String(existing.uom || '').trim() === uom &&
+      existing.is_active !== false
+    );
+
+    if (unchanged) {
+      warnings.push(`Fila ${rowNumber}: "${nombre}" no tiene cambios y se omitirá al ejecutar.`);
+    }
+
+    normalizedRows.push({
+      row_number: rowNumber,
+      nombre,
+      marca,
+      uom,
+      action: existing ? 'update' : 'create',
+      unchanged,
+      existing_id: existing?.id,
+    });
+  });
+
+  return {
+    module: 'additivos_catalogo' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create' && !row.unchanged).length,
+      updates: normalizedRows.filter((row) => row.action === 'update' && !row.unchanged).length,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createAdditivesCatalogImportPreviewToken(previewPayload: AdditivesCatalogImportInput) {
+  const payload = normalizeAdditivesCatalogImportPayload(previewPayload);
+  validateAdditivesCatalogImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: AdditivesCatalogImportPreviewRecord = {
+    token,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildAdditivesCatalogImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateAdditivesCatalogImportPreviewToken(token: string, payload: AdditivesCatalogImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildAdditivesCatalogImportPreviewKey(token)) as AdditivesCatalogImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildAdditivesCatalogImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeAdditivesCatalogImportPayload(payload);
+  validateAdditivesCatalogImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualización aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeAdditivesCatalogImportPreviewToken(token: string) {
+  await kv.del(buildAdditivesCatalogImportPreviewKey(token));
+}
+
+export async function executeAdditivesCatalogImport(input: AdditivesCatalogImportInput) {
+  const preview = await previewAdditivesCatalogImport(input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas válidas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('additives_catalog')
+    .select('id, sort_order');
+
+  if (error) throw error;
+
+  const existingById = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    acc[row.id] = row;
+    return acc;
+  }, {});
+
+  const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
+  let nextSortOrder = maxSortOrder + 1;
+  let created = 0;
+  let updated = 0;
+
+  for (const row of preview.normalized_rows) {
+    if (row.unchanged) continue;
+
+    const sortOrder = row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++;
+    const payloadRow = {
+      nombre: row.nombre,
+      marca: row.marca,
+      uom: row.uom,
+      sort_order: sortOrder,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('additives_catalog')
+        .update(payloadRow)
+        .eq('id', row.existing_id);
+      if (updateError) throw updateError;
+      updated += 1;
+    } else {
+      const { error: insertError } = await supabase
+        .from('additives_catalog')
+        .insert(payloadRow);
+      if (insertError) throw insertError;
+      created += 1;
+    }
   }
 
   return {

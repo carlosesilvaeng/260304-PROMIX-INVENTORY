@@ -3257,6 +3257,101 @@ app.delete("/make-server/catalogs/materiales/:id", async (c) => {
   }
 });
 
+app.post("/make-server/catalogs/materiales/import/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const preview = await db.previewMaterialsImport(body);
+    let previewToken: string | null = null;
+
+    if (preview.summary.valid_rows > 0 && preview.errors.length === 0) {
+      const record = await db.createMaterialsImportPreviewToken(body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'MATERIALS_IMPORT_PREVIEWED',
+      details: {
+        import_mode: preview.import_mode,
+        template_version: preview.template_version,
+        summary: preview.summary,
+        warnings: preview.warnings,
+        error_count: preview.errors.length,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error previewing materials import:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/catalogs/materiales/import/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const { preview_token, reason, ...payload } = body || {};
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateMaterialsImportPreviewToken(preview_token, payload);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const result = await db.executeMaterialsImport(payload);
+    if (result.errors.length > 0) {
+      return c.json({ success: false, error: 'La importación tiene errores y no puede ejecutarse.' }, 400);
+    }
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'MATERIALS_IMPORTED_FROM_TEMPLATE',
+      details: {
+        import_mode: result.import_mode,
+        template_version: result.template_version,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        reason: reason.trim(),
+      },
+    });
+
+    await db.consumeMaterialsImportPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        audit_action_id: auditActionId,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error executing materials import:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
 // ── PROCEDENCIAS ──
 
 app.get("/make-server/catalogs/procedencias", async (c) => {
@@ -3328,6 +3423,101 @@ app.delete("/make-server/catalogs/procedencias/:id", async (c) => {
   } catch (error) {
     console.error("❌ Error deleting procedencia:", error);
     return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/procedencias/import/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const preview = await db.previewProcedenciasImport(body);
+    let previewToken: string | null = null;
+
+    if (preview.summary.valid_rows > 0 && preview.errors.length === 0) {
+      const record = await db.createProcedenciasImportPreviewToken(body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'PROCEDENCIAS_IMPORT_PREVIEWED',
+      details: {
+        import_mode: preview.import_mode,
+        template_version: preview.template_version,
+        summary: preview.summary,
+        warnings: preview.warnings,
+        error_count: preview.errors.length,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error previewing procedencias import:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/catalogs/procedencias/import/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const { preview_token, reason, ...payload } = body || {};
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateProcedenciasImportPreviewToken(preview_token, payload);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const result = await db.executeProcedenciasImport(payload);
+    if (result.errors.length > 0) {
+      return c.json({ success: false, error: 'La importación tiene errores y no puede ejecutarse.' }, 400);
+    }
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'PROCEDENCIAS_IMPORTED_FROM_TEMPLATE',
+      details: {
+        import_mode: result.import_mode,
+        template_version: result.template_version,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        reason: reason.trim(),
+      },
+    });
+
+    await db.consumeProcedenciasImportPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        audit_action_id: auditActionId,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error executing procedencias import:", error);
+    return c.json({ success: false, error: error.message }, 400);
   }
 });
 
@@ -3411,6 +3601,101 @@ app.delete("/make-server/catalogs/additivos/:id", async (c) => {
   } catch (error) {
     console.error("❌ Error deleting additive catalog item:", error);
     return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/additivos/import/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const preview = await db.previewAdditivesCatalogImport(body);
+    let previewToken: string | null = null;
+
+    if (preview.summary.valid_rows > 0 && preview.errors.length === 0) {
+      const record = await db.createAdditivesCatalogImportPreviewToken(body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'ADDITIVES_CATALOG_IMPORT_PREVIEWED',
+      details: {
+        import_mode: preview.import_mode,
+        template_version: preview.template_version,
+        summary: preview.summary,
+        warnings: preview.warnings,
+        error_count: preview.errors.length,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error previewing additives catalog import:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/catalogs/additivos/import/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const { preview_token, reason, ...payload } = body || {};
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateAdditivesCatalogImportPreviewToken(preview_token, payload);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const result = await db.executeAdditivesCatalogImport(payload);
+    if (result.errors.length > 0) {
+      return c.json({ success: false, error: 'La importación tiene errores y no puede ejecutarse.' }, 400);
+    }
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'ADDITIVES_CATALOG_IMPORTED_FROM_TEMPLATE',
+      details: {
+        import_mode: result.import_mode,
+        template_version: result.template_version,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        reason: reason.trim(),
+      },
+    });
+
+    await db.consumeAdditivesCatalogImportPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        audit_action_id: auditActionId,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error executing additives catalog import:", error);
+    return c.json({ success: false, error: error.message }, 400);
   }
 });
 
