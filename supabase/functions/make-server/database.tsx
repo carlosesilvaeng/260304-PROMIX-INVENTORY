@@ -28,6 +28,8 @@ const CLEANUP_PREVIEW_PREFIX = 'data_cleanup_preview:';
 const CONFIG_CLEANUP_PREVIEW_PREFIX = 'config_cleanup_preview:';
 const PRODUCTS_IMPORT_PREVIEW_PREFIX = 'products_import_preview:';
 const AGGREGATES_IMPORT_PREVIEW_PREFIX = 'aggregates_import_preview:';
+const SILOS_IMPORT_PREVIEW_PREFIX = 'silos_import_preview:';
+const DIESEL_IMPORT_PREVIEW_PREFIX = 'diesel_import_preview:';
 const CLEANUP_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const MAX_CLEANUP_INVENTORY_MONTHS = 200;
 const MAX_CLEANUP_DISTINCT_MONTHS = 24;
@@ -149,6 +151,8 @@ interface ProductsImportPreviewRecord {
 const PRODUCTS_IMPORT_ALLOWED_CATEGORIES = ['OIL', 'LUBRICANT', 'CONSUMABLE', 'EQUIPMENT', 'OTHER'] as const;
 const PRODUCTS_IMPORT_ALLOWED_MEASURE_MODES = ['COUNT', 'DRUM', 'PAIL', 'TANK_READING'] as const;
 const AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['BOX', 'CONE'] as const;
+const SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['FEET_TO_CUBIC_YARDS'] as const;
+const DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['TANK_LEVEL'] as const;
 
 interface AggregatesImportInput {
   module?: string;
@@ -189,6 +193,84 @@ interface AggregatesImportPreviewRecord {
     template_version: string;
     import_mode: 'upsert';
     rows: AggregatesImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
+interface SilosImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    silo_name?: string;
+    measurement_method?: string;
+    allowed_products?: string;
+    is_active?: string;
+  }>;
+}
+
+export interface NormalizedSilosImportRow {
+  row_number: number;
+  silo_name: string;
+  measurement_method: 'FEET_TO_CUBIC_YARDS';
+  allowed_products: string[];
+  is_active: boolean;
+  action: 'create' | 'update';
+  existing_id?: string;
+}
+
+interface SilosImportPreviewRecord {
+  token: string;
+  plant_id: string;
+  payload: {
+    module: 'silos';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: SilosImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
+interface DieselImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    measurement_method?: string;
+    calibration_curve_name?: string;
+    reading_uom?: string;
+    tank_capacity_gallons?: string;
+    initial_inventory_gallons?: string;
+    calibration_table_json?: string;
+    is_active?: string;
+  }>;
+}
+
+export interface NormalizedDieselImportRow {
+  row_number: number;
+  measurement_method: 'TANK_LEVEL';
+  calibration_curve_name: string | null;
+  reading_uom: string;
+  tank_capacity_gallons: number;
+  initial_inventory_gallons: number | null;
+  calibration_table: Record<string, number>;
+  is_active: boolean;
+  action: 'create' | 'update';
+  existing_id?: string;
+}
+
+interface DieselImportPreviewRecord {
+  token: string;
+  plant_id: string;
+  payload: {
+    module: 'diesel';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: DieselImportInput['rows'];
   };
   created_at: string;
   expires_at: string;
@@ -247,6 +329,14 @@ function buildProductsImportPreviewKey(token: string) {
 
 function buildAggregatesImportPreviewKey(token: string) {
   return `${AGGREGATES_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
+function buildSilosImportPreviewKey(token: string) {
+  return `${SILOS_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
+function buildDieselImportPreviewKey(token: string) {
+  return `${DIESEL_IMPORT_PREVIEW_PREFIX}${token}`;
 }
 
 function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
@@ -316,6 +406,43 @@ function normalizeAggregatesImportPayload(input: AggregatesImportInput) {
   };
 }
 
+function normalizeSilosImportPayload(input: SilosImportInput) {
+  return {
+    module: input.module === 'silos' ? 'silos' as const : 'silos' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          silo_name: String(row?.silo_name || ''),
+          measurement_method: String(row?.measurement_method || ''),
+          allowed_products: String(row?.allowed_products || ''),
+          is_active: String(row?.is_active || ''),
+        }))
+      : [],
+  };
+}
+
+function normalizeDieselImportPayload(input: DieselImportInput) {
+  return {
+    module: input.module === 'diesel' ? 'diesel' as const : 'diesel' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          measurement_method: String(row?.measurement_method || ''),
+          calibration_curve_name: String(row?.calibration_curve_name || ''),
+          reading_uom: String(row?.reading_uom || ''),
+          tank_capacity_gallons: String(row?.tank_capacity_gallons || ''),
+          initial_inventory_gallons: String(row?.initial_inventory_gallons || ''),
+          calibration_table_json: String(row?.calibration_table_json || ''),
+          is_active: String(row?.is_active || ''),
+        }))
+      : [],
+  };
+}
+
 function validateCleanupFilters(filters: CleanupFilters) {
   if (filters.scope !== 'transactional') {
     throw new Error('Solo se admite scope transactional en esta version.');
@@ -365,6 +492,42 @@ function validateProductsImportPayload(input: ReturnType<typeof normalizeProduct
 function validateAggregatesImportPayload(input: ReturnType<typeof normalizeAggregatesImportPayload>) {
   if (input.module !== 'aggregates') {
     throw new Error('Solo se admite el modulo aggregates en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
+function validateSilosImportPayload(input: ReturnType<typeof normalizeSilosImportPayload>) {
+  if (input.module !== 'silos') {
+    throw new Error('Solo se admite el modulo silos en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
+function validateDieselImportPayload(input: ReturnType<typeof normalizeDieselImportPayload>) {
+  if (input.module !== 'diesel') {
+    throw new Error('Solo se admite el modulo diesel en esta version.');
   }
 
   if (input.template_version !== '1.0') {
@@ -500,6 +663,20 @@ function parseCalibrationTableJson(value: string) {
   }
 
   return result;
+}
+
+function parsePipeSeparatedValues(value: string) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return [];
+
+  return Array.from(
+    new Set(
+      normalized
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 async function queryInventoryMonths(filters: CleanupFilters, options?: { page?: number; pageSize?: number; countExact?: boolean }) {
@@ -2020,6 +2197,535 @@ export async function executeAggregatesImport(plantId: string, input: Aggregates
       created,
       updated,
       legacy_cajones_cleared: preview.summary.legacy_cajones,
+    },
+  };
+}
+
+export async function previewSilosImport(plantId: string, input: SilosImportInput) {
+  const payload = normalizeSilosImportPayload(input);
+  validateSilosImportPayload(payload);
+
+  const plant = await getPlantForConfigCleanup(plantId);
+  const supabase = getSupabaseClient();
+  const [{ data: siloRows, error: siloError }, { data: productRows, error: productError }] = await Promise.all([
+    supabase
+      .from('plant_silos_config')
+      .select('id, silo_name, sort_order')
+      .eq('plant_id', plantId),
+    supabase
+      .from('plant_products_config')
+      .select('product_name')
+      .eq('plant_id', plantId)
+      .neq('is_active', false),
+  ]);
+
+  if (siloError) throw siloError;
+  if (productError) throw productError;
+
+  const existingByName = (siloRows || []).reduce((acc: Record<string, { id: string; sort_order?: number }>, row: any) => {
+    acc[String(row.silo_name || '').trim().toLowerCase()] = {
+      id: row.id,
+      sort_order: row.sort_order,
+    };
+    return acc;
+  }, {});
+
+  const availableProducts = new Set(
+    (productRows || [])
+      .map((row: any) => String(row.product_name || '').trim())
+      .filter(Boolean)
+  );
+
+  const seenNames = new Map<string, number>();
+  const normalizedRows: NormalizedSilosImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const siloName = rawRow.silo_name.trim();
+    const measurementMethod = rawRow.measurement_method.trim().toUpperCase() || 'FEET_TO_CUBIC_YARDS';
+    const allowedProducts = parsePipeSeparatedValues(rawRow.allowed_products);
+
+    if (!siloName) rowErrors.push({ column: 'Nombre del silo', message: 'es requerido' });
+    if (measurementMethod && !SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
+      rowErrors.push({ column: 'Metodo de medicion', message: `valor invalido. Usa ${SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
+    }
+
+    let isActive = true;
+    try {
+      isActive = normalizeBooleanString(rawRow.is_active, true);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Activo', message: error.message });
+    }
+
+    if (siloName) {
+      const key = siloName.toLowerCase();
+      if (seenNames.has(key)) {
+        rowErrors.push({ column: 'Nombre del silo', message: `duplicado dentro del archivo; tambien aparece en la fila ${seenNames.get(key)}` });
+      } else {
+        seenNames.set(key, rowNumber);
+      }
+    }
+
+    if (allowedProducts.length > 0 && availableProducts.size === 0) {
+      rowErrors.push({ column: 'Productos permitidos', message: 'la planta no tiene aceites y productos activos para asignar' });
+    }
+
+    allowedProducts.forEach((productName) => {
+      if (!availableProducts.has(productName)) {
+        rowErrors.push({
+          column: 'Productos permitidos',
+          message: `"${productName}" no existe como aceite/producto activo en esta planta`,
+        });
+      }
+    });
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({
+          row: rowNumber,
+          column: rowError.column,
+          message: rowError.message,
+        });
+      });
+      return;
+    }
+
+    const existing = existingByName[siloName.toLowerCase()];
+    normalizedRows.push({
+      row_number: rowNumber,
+      silo_name: siloName,
+      measurement_method: 'FEET_TO_CUBIC_YARDS',
+      allowed_products: allowedProducts,
+      is_active: isActive,
+      action: existing ? 'update' : 'create',
+      existing_id: existing?.id,
+    });
+  });
+
+  if (availableProducts.size === 0) {
+    warnings.push('La planta no tiene aceites y productos activos. Solo podras importar silos sin productos permitidos.');
+  }
+
+  return {
+    plant: {
+      id: plant.id,
+      name: plant.name,
+    },
+    module: 'silos' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create').length,
+      updates: normalizedRows.filter((row) => row.action === 'update').length,
+      linked_products: normalizedRows.reduce((sum, row) => sum + row.allowed_products.length, 0),
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createSilosImportPreviewToken(plantId: string, previewPayload: SilosImportInput) {
+  const payload = normalizeSilosImportPayload(previewPayload);
+  validateSilosImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: SilosImportPreviewRecord = {
+    token,
+    plant_id: plantId,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildSilosImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateSilosImportPreviewToken(plantId: string, token: string, payload: SilosImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildSilosImportPreviewKey(token)) as SilosImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (stored.plant_id !== plantId) {
+    return { valid: false, error: 'La previsualizacion no corresponde a esta planta.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildSilosImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeSilosImportPayload(payload);
+  validateSilosImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualizacion aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeSilosImportPreviewToken(token: string) {
+  await kv.del(buildSilosImportPreviewKey(token));
+}
+
+export async function executeSilosImport(plantId: string, input: SilosImportInput) {
+  const preview = await previewSilosImport(plantId, input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas validas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const { data: existingRows, error } = await supabase
+    .from('plant_silos_config')
+    .select('id, silo_name, sort_order')
+    .eq('plant_id', plantId);
+
+  if (error) throw error;
+
+  const existingById = (existingRows || []).reduce((acc: Record<string, { sort_order?: number }>, row: any) => {
+    acc[row.id] = { sort_order: row.sort_order };
+    return acc;
+  }, {});
+
+  const { data: curves } = await supabase
+    .from('calibration_curves')
+    .select('curve_name')
+    .eq('plant_id', plantId)
+    .ilike('curve_name', 'SILO%')
+    .limit(1);
+  const defaultCurve = curves?.[0]?.curve_name ?? null;
+
+  const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
+  let nextSortOrder = maxSortOrder + 1;
+  let created = 0;
+  let updated = 0;
+  const affectedSiloIds: string[] = [];
+  const allowedProductsRows: Array<{ silo_config_id: string; product_name: string }> = [];
+
+  for (const row of preview.normalized_rows) {
+    const payload = {
+      plant_id: plantId,
+      silo_name: row.silo_name,
+      measurement_method: row.measurement_method,
+      calibration_curve_name: defaultCurve,
+      is_active: row.is_active,
+      sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
+    };
+
+    let siloId = row.existing_id;
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('plant_silos_config')
+        .update(payload)
+        .eq('id', row.existing_id);
+
+      if (updateError) throw updateError;
+      updated += 1;
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from('plant_silos_config')
+        .insert(payload)
+        .select('id')
+        .single();
+
+      if (insertError) throw insertError;
+      siloId = inserted?.id;
+      created += 1;
+    }
+
+    if (!siloId) continue;
+    affectedSiloIds.push(siloId);
+    row.allowed_products.forEach((product_name) => {
+      allowedProductsRows.push({ silo_config_id: siloId!, product_name });
+    });
+  }
+
+  if (affectedSiloIds.length > 0) {
+    const { error: deleteAllowedProductsError } = await supabase
+      .from('silo_allowed_products')
+      .delete()
+      .in('silo_config_id', affectedSiloIds);
+    if (deleteAllowedProductsError) throw deleteAllowedProductsError;
+  }
+
+  if (allowedProductsRows.length > 0) {
+    const { error: insertAllowedProductsError } = await supabase
+      .from('silo_allowed_products')
+      .insert(allowedProductsRows);
+    if (insertAllowedProductsError) throw insertAllowedProductsError;
+  }
+
+  const warnings = [...preview.warnings];
+  if (!defaultCurve) {
+    warnings.push('La planta no tiene una curva SILO* configurada; los silos quedaron sin calibration_curve_name por defecto.');
+  }
+
+  return {
+    ...preview,
+    warnings: Array.from(new Set(warnings)),
+    result: {
+      created,
+      updated,
+      linked_products: allowedProductsRows.length,
+    },
+  };
+}
+
+export async function previewDieselImport(plantId: string, input: DieselImportInput) {
+  const payload = normalizeDieselImportPayload(input);
+  validateDieselImportPayload(payload);
+
+  const plant = await getPlantForConfigCleanup(plantId);
+  const supabase = getSupabaseClient();
+  const { data: existingRow, error } = await supabase
+    .from('plant_diesel_config')
+    .select('id')
+    .eq('plant_id', plantId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+  const normalizedRows: NormalizedDieselImportRow[] = [];
+
+  if (payload.rows.length > 1) {
+    payload.rows.slice(1).forEach((row, index) => {
+      errors.push({
+        row: row.row_number || index + 3,
+        column: 'Fila',
+        message: 'la plantilla de diesel solo admite una fila por planta',
+      });
+    });
+  }
+
+  const rawRow = payload.rows[0];
+  if (rawRow) {
+    const rowNumber = rawRow.row_number || 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const measurementMethod = rawRow.measurement_method.trim().toUpperCase() || 'TANK_LEVEL';
+    const readingUom = rawRow.reading_uom.trim();
+    const calibrationCurveName = rawRow.calibration_curve_name.trim() || null;
+
+    if (measurementMethod && !DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
+      rowErrors.push({ column: 'Metodo', message: `valor invalido. Usa ${DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
+    }
+    if (!readingUom) rowErrors.push({ column: 'Unidad de lectura', message: 'es requerida' });
+
+    let tankCapacity: number | null = null;
+    let initialInventory: number | null = null;
+    let isActive = true;
+    let calibrationTable: Record<string, number> | null = null;
+
+    try {
+      tankCapacity = parseNullableNumberString(rawRow.tank_capacity_gallons);
+    } catch (previewError: any) {
+      rowErrors.push({ column: 'Capacidad del tanque', message: previewError.message });
+    }
+
+    try {
+      initialInventory = parseNullableNumberString(rawRow.initial_inventory_gallons);
+    } catch (previewError: any) {
+      rowErrors.push({ column: 'Inventario inicial', message: previewError.message });
+    }
+
+    try {
+      isActive = normalizeBooleanString(rawRow.is_active, true);
+    } catch (previewError: any) {
+      rowErrors.push({ column: 'Activo', message: previewError.message });
+    }
+
+    try {
+      calibrationTable = parseCalibrationTableJson(rawRow.calibration_table_json);
+    } catch (previewError: any) {
+      rowErrors.push({ column: 'Tabla calibracion JSON', message: previewError.message });
+    }
+
+    if (tankCapacity === null) {
+      rowErrors.push({ column: 'Capacidad del tanque', message: 'es requerida' });
+    } else if (tankCapacity <= 0) {
+      rowErrors.push({ column: 'Capacidad del tanque', message: 'debe ser mayor que cero' });
+    }
+
+    if (initialInventory !== null && initialInventory < 0) {
+      rowErrors.push({ column: 'Inventario inicial', message: 'no puede ser negativo' });
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({
+          row: rowNumber,
+          column: rowError.column,
+          message: rowError.message,
+        });
+      });
+    } else {
+      normalizedRows.push({
+        row_number: rowNumber,
+        measurement_method: 'TANK_LEVEL',
+        calibration_curve_name: calibrationCurveName,
+        reading_uom: readingUom,
+        tank_capacity_gallons: tankCapacity!,
+        initial_inventory_gallons: initialInventory,
+        calibration_table: calibrationTable!,
+        is_active: isActive,
+        action: existingRow?.id ? 'update' : 'create',
+        existing_id: existingRow?.id,
+      });
+    }
+  }
+
+  return {
+    plant: {
+      id: plant.id,
+      name: plant.name,
+    },
+    module: 'diesel' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create').length,
+      updates: normalizedRows.filter((row) => row.action === 'update').length,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createDieselImportPreviewToken(plantId: string, previewPayload: DieselImportInput) {
+  const payload = normalizeDieselImportPayload(previewPayload);
+  validateDieselImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: DieselImportPreviewRecord = {
+    token,
+    plant_id: plantId,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildDieselImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateDieselImportPreviewToken(plantId: string, token: string, payload: DieselImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildDieselImportPreviewKey(token)) as DieselImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (stored.plant_id !== plantId) {
+    return { valid: false, error: 'La previsualizacion no corresponde a esta planta.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildDieselImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeDieselImportPayload(payload);
+  validateDieselImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualizacion aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeDieselImportPreviewToken(token: string) {
+  await kv.del(buildDieselImportPreviewKey(token));
+}
+
+export async function executeDieselImport(plantId: string, input: DieselImportInput) {
+  const preview = await previewDieselImport(plantId, input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas validas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  const row = preview.normalized_rows[0];
+  let created = 0;
+  let updated = 0;
+
+  const payload = {
+    plant_id: plantId,
+    measurement_method: row.measurement_method,
+    calibration_curve_name: row.calibration_curve_name,
+    reading_uom: row.reading_uom,
+    tank_capacity_gallons: row.tank_capacity_gallons,
+    initial_inventory_gallons: row.initial_inventory_gallons ?? 0,
+    calibration_table: row.calibration_table,
+    is_active: row.is_active,
+  };
+
+  if (row.action === 'update' && row.existing_id) {
+    const { error } = await supabase
+      .from('plant_diesel_config')
+      .update(payload)
+      .eq('id', row.existing_id);
+
+    if (error) throw error;
+    updated = 1;
+  } else {
+    const { data: existingRows, error: existingError } = await supabase
+      .from('plant_diesel_config')
+      .select('id')
+      .eq('plant_id', plantId);
+    if (existingError) throw existingError;
+
+    if ((existingRows || []).length > 0) {
+      const { error: deleteError } = await supabase
+        .from('plant_diesel_config')
+        .delete()
+        .eq('plant_id', plantId);
+      if (deleteError) throw deleteError;
+    }
+
+    const { error } = await supabase
+      .from('plant_diesel_config')
+      .insert(payload);
+
+    if (error) throw error;
+    created = 1;
+  }
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
     },
   };
 }

@@ -758,6 +758,59 @@ export async function executePlantAggregatesImport(
 // SILO CONFIGURATION API
 // ============================================================================
 
+export interface SilosImportRowPayload {
+  row_number: number;
+  silo_name: string;
+  measurement_method: string;
+  allowed_products: string;
+  is_active: string;
+}
+
+export interface SilosImportPreviewResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  module: 'silos';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+    linked_products: number;
+  };
+  errors: Array<{
+    row: number;
+    column: string;
+    message: string;
+  }>;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface SilosImportExecuteResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+    linked_products: number;
+  };
+  created: number;
+  updated: number;
+  linked_products: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
 /** Obtiene los silos configurados para una planta (admin/super_admin only) */
 export async function getPlantSilos(plantId: string): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/silos`, 'GET');
@@ -775,6 +828,32 @@ export async function updatePlantSilos(
   }[]
 ): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/silos`, 'PUT', { silos });
+}
+
+export async function previewPlantSilosImport(
+  plantId: string,
+  payload: {
+    module: 'silos';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: SilosImportRowPayload[];
+  }
+): Promise<ApiResponse<SilosImportPreviewResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/silos/preview`, 'POST', payload);
+}
+
+export async function executePlantSilosImport(
+  plantId: string,
+  payload: {
+    module: 'silos';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: SilosImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<SilosImportExecuteResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/silos/execute`, 'POST', payload);
 }
 
 // ============================================================================
@@ -811,6 +890,59 @@ export async function updatePlantAdditivesConfigEntries(
 // DIESEL CONFIGURATION API
 // ============================================================================
 
+export interface DieselImportRowPayload {
+  row_number: number;
+  measurement_method: string;
+  calibration_curve_name: string;
+  reading_uom: string;
+  tank_capacity_gallons: string;
+  initial_inventory_gallons: string;
+  calibration_table_json: string;
+  is_active: string;
+}
+
+export interface DieselImportPreviewResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  module: 'diesel';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+  };
+  errors: Array<{
+    row: number;
+    column: string;
+    message: string;
+  }>;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface DieselImportExecuteResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+  };
+  created: number;
+  updated: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
 export async function getPlantDieselConfigEntry(plantId: string): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/diesel`, 'GET');
 }
@@ -829,6 +961,32 @@ export async function updatePlantDieselConfigEntry(
   } | null
 ): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/diesel`, 'PUT', { diesel });
+}
+
+export async function previewPlantDieselImport(
+  plantId: string,
+  payload: {
+    module: 'diesel';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: DieselImportRowPayload[];
+  }
+): Promise<ApiResponse<DieselImportPreviewResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/diesel/preview`, 'POST', payload);
+}
+
+export async function executePlantDieselImport(
+  plantId: string,
+  payload: {
+    module: 'diesel';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: DieselImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<DieselImportExecuteResponse>> {
+  return apiRequest(`/plants/${plantId}/config-import/diesel/execute`, 'POST', payload);
 }
 
 // ============================================================================
