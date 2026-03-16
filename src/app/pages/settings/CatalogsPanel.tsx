@@ -307,6 +307,7 @@ interface CatalogTableProps {
   title: string;
   description: string;
   items: CatalogItem[];
+  itemCountLabel?: string;
   loading: boolean;
   hasClase?: boolean;
   importControls?: CatalogImportActionProps;
@@ -319,6 +320,7 @@ function CatalogTable({
   title,
   description,
   items,
+  itemCountLabel,
   loading,
   hasClase = false,
   importControls,
@@ -383,7 +385,14 @@ function CatalogTable({
   return (
     <Card noPadding>
       <div className="border-b border-[#9D9B9A] p-4">
-        <h4 className="text-base font-medium text-[#3B3A36]">{title}</h4>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <h4 className="text-base font-medium text-[#3B3A36]">{title}</h4>
+          {!loading && (
+            <span className="inline-flex w-fit rounded-full bg-[#EEF4FB] px-3 py-1 text-xs font-medium text-[#2475C7]">
+              {itemCountLabel || `${items.length} items`}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-sm text-[#5F6773]">{description}</p>
         {importControls && <ImportActions {...importControls} />}
       </div>
@@ -524,6 +533,7 @@ function CatalogTable({
 function AdditiveCatalogTable({
   items,
   loading,
+  itemCountLabel,
   importControls,
   onAdd,
   onUpdate,
@@ -531,6 +541,7 @@ function AdditiveCatalogTable({
 }: {
   items: AdditiveCatalogItem[];
   loading: boolean;
+  itemCountLabel?: string;
   importControls?: CatalogImportActionProps;
   onAdd: (nombre: string, marca: string, uom: string) => Promise<void>;
   onUpdate: (id: string, nombre: string, marca: string, uom: string) => Promise<void>;
@@ -598,7 +609,14 @@ function AdditiveCatalogTable({
   return (
     <Card noPadding>
       <div className="border-b border-[#9D9B9A] p-4">
-        <h4 className="text-base font-medium text-[#3B3A36]">Aditivos</h4>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <h4 className="text-base font-medium text-[#3B3A36]">Aditivos</h4>
+          {!loading && (
+            <span className="inline-flex w-fit rounded-full bg-[#EEF4FB] px-3 py-1 text-xs font-medium text-[#2475C7]">
+              {itemCountLabel || `${items.length} items`}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-sm text-[#5F6773]">
           Catálogo maestro para nombre, marca y unidad. La configuración de aditivos por planta selecciona desde aquí.
         </p>
@@ -750,6 +768,7 @@ function CalibrationCurvesTable({
   selectedPlantId,
   onPlantChange,
   items,
+  itemCountLabel,
   loading,
   onAdd,
   onUpdate,
@@ -759,6 +778,7 @@ function CalibrationCurvesTable({
   selectedPlantId: string;
   onPlantChange: (plantId: string) => void;
   items: CalibrationCurveCatalogItem[];
+  itemCountLabel?: string;
   loading: boolean;
   onAdd: (payload: {
     plant_id: string;
@@ -857,8 +877,15 @@ function CalibrationCurvesTable({
   return (
     <Card noPadding>
       <div className="space-y-3 border-b border-[#9D9B9A] p-4">
-        <div>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <h4 className="text-base font-medium text-[#3B3A36]">Curvas de conversión</h4>
+          {!loading && (
+            <span className="inline-flex w-fit rounded-full bg-[#EEF4FB] px-3 py-1 text-xs font-medium text-[#2475C7]">
+              {itemCountLabel || `${items.length} items`}
+            </span>
+          )}
+        </div>
+        <div>
           <p className="mt-0.5 text-sm text-[#5F6773]">
             Catálogo por planta para reutilizar tablas de conversión. La importación masiva de curvas queda para la fase 2.
           </p>
@@ -1570,26 +1597,31 @@ export function CatalogsPanel() {
     key: CatalogSectionKey;
     label: string;
     description: string;
+    count: number;
   }> = [
     {
       key: 'materiales',
       label: 'Materiales',
       description: 'Tipos de material que pueden asignarse a un cajón.',
+      count: materiales.length,
     },
     {
       key: 'procedencias',
       label: 'Procedencias',
       description: 'Suplidores o procedencias del material.',
+      count: procedencias.length,
     },
     {
       key: 'aditivos',
       label: 'Aditivos',
       description: 'Catálogo maestro para nombre, marca y unidad.',
+      count: aditivos.length,
     },
     {
       key: 'curvas',
       label: 'Curvas de conversión',
       description: 'Catálogo por planta para tablas de conversión.',
+      count: curvas.length,
     },
   ];
 
@@ -1632,7 +1664,7 @@ export function CatalogsPanel() {
                         : 'border-[#D4D8DD] bg-white text-[#5F6773] hover:border-[#9D9B9A] hover:text-[#3B3A36]',
                     ].join(' ')}
                   >
-                    {option.label}
+                    {option.label} ({option.count})
                   </button>
                 );
               })}
@@ -1645,6 +1677,7 @@ export function CatalogsPanel() {
             title="Materiales"
             description="Tipos de material que pueden asignarse a un cajón."
             items={materiales}
+            itemCountLabel={`${materiales.length} items`}
             loading={loadingMat}
             hasClase={true}
             importControls={{
@@ -1671,6 +1704,7 @@ export function CatalogsPanel() {
             title="Procedencias"
             description="Nombre del suplidor o procedencia del material."
             items={procedencias}
+            itemCountLabel={`${procedencias.length} items`}
             loading={loadingProc}
             importControls={{
               exportingTemplate: exportingProcedenciasTemplate,
@@ -1695,6 +1729,7 @@ export function CatalogsPanel() {
           <AdditiveCatalogTable
             items={aditivos}
             loading={loadingAditivos}
+            itemCountLabel={`${aditivos.length} items`}
             importControls={{
               exportingTemplate: exportingAditivosTemplate,
               exportingCurrent: exportingAditivosCurrent,
@@ -1720,6 +1755,7 @@ export function CatalogsPanel() {
             selectedPlantId={selectedCurvePlantId}
             onPlantChange={setSelectedCurvePlantId}
             items={curvas}
+            itemCountLabel={selectedCurvePlantId ? `${curvas.length} items` : 'Selecciona una planta'}
             loading={loadingCurvas}
             onAdd={handleAddCurve}
             onUpdate={handleUpdateCurve}
