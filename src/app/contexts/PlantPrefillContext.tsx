@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { 
   getPlantConfig, 
   getInventoryMonth,
@@ -72,6 +72,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
   const [currentPlantId, setCurrentPlantId] = useState<string | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
+  const inFlightLoadRef = useRef<Promise<void> | null>(null);
+  const inFlightLoadKeyRef = useRef<string | null>(null);
 
   const { allPlants, user } = useAuth();
 
@@ -532,177 +534,192 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   // MAIN LOAD FUNCTION
   // ============================================================================
   
-  const loadPlantData = useCallback(async (plantId: string, yearMonth: string) => {
+  const loadPlantDataInternal = useCallback(async (plantId: string, yearMonth: string, options?: { force?: boolean }) => {
+    const force = options?.force === true;
+    const requestKey = `${plantId}:${yearMonth}`;
+
+    if (!force && inFlightLoadKeyRef.current === requestKey && inFlightLoadRef.current) {
+      return inFlightLoadRef.current;
+    }
+
+    if (
+      !force &&
+      currentPlantId === plantId &&
+      currentYearMonth === yearMonth &&
+      prefillData.inventoryMonth &&
+      !prefillData.loading &&
+      !prefillData.error
+    ) {
+      return;
+    }
+
     setPrefillData(prev => ({ ...prev, loading: true, error: null }));
     setCurrentPlantId(plantId);
     setCurrentYearMonth(yearMonth);
 
-    try {
-      console.log(`[PlantPrefill] Loading data for plant ${plantId}, month ${yearMonth}`);
+    const loadPromise = (async () => {
+      try {
+        console.log(`[PlantPrefill] Loading data for plant ${plantId}, month ${yearMonth}`);
 
-      // 1. Load plant configuration
-      const configResponse = await getPlantConfig(plantId);
-      if (!configResponse.success || !configResponse.data) {
-        throw new Error(`Failed to load plant config: ${configResponse.error}`);
-      }
-      const config = configResponse.data;
-      console.log('[PlantPrefill] Config loaded:', config);
+        const previousMonthStr = getPreviousMonth(yearMonth);
+        console.log('[PlantPrefill] Attempting to load previous month:', previousMonthStr);
 
-      // 2. Try to load current month inventory
-      let inventoryMonth: InventoryMonth | null = null;
-      const monthResponse = await getInventoryMonth(plantId, yearMonth);
-      
-      console.log('[PlantPrefill] getInventoryMonth response:', monthResponse);
-      
-      if (monthResponse.success && monthResponse.data) {
-        inventoryMonth = monthResponse.data.month;
-        console.log('[PlantPrefill] Current month found:', inventoryMonth);
-      } else {
-        // Create new month if it doesn't exist
-        console.log('[PlantPrefill] Month not found, creating new month...');
-        
-        try {
-          const createResponse = await createInventoryMonth({
-            plant_id: plantId,
-            year_month: yearMonth,
-            status: 'IN_PROGRESS',
-            created_by: user?.name || user?.email || 'unknown',
-          });
-          
-          console.log('[PlantPrefill] createInventoryMonth response:', createResponse);
-          
-          if (!createResponse.success || !createResponse.data) {
-            throw new Error(`Failed to create month: ${createResponse.error || 'Unknown error'}`);
-          }
-          
-          inventoryMonth = createResponse.data;
-          console.log('[PlantPrefill] New month created:', inventoryMonth);
-        } catch (createError) {
-          console.error('[PlantPrefill] Error creating month:', createError);
-          throw new Error(
-            `No se pudo crear el inventario para ${yearMonth}. ` +
-            `Verifica que la base de datos esté configurada correctamente. ` +
-            `Error: ${createError instanceof Error ? createError.message : 'Unknown error'}`
-          );
-        }
-      }
+        const [configResponse, monthResponse, prevMonthResponse] = await Promise.all([
+          getPlantConfig(plantId),
+          getInventoryMonth(plantId, yearMonth),
+          getInventoryMonth(plantId, previousMonthStr),
+        ]);
 
-      if (!inventoryMonth) {
-        throw new Error('No inventory month available');
-      }
-
-      // 3. Try to load previous month for carry-over
-      const previousMonthStr = getPreviousMonth(yearMonth);
-      console.log('[PlantPrefill] Attempting to load previous month:', previousMonthStr);
-      
-      const prevMonthResponse = await getInventoryMonth(plantId, previousMonthStr);
-      let previousMonth: InventoryMonth | null = null;
-      let previousMonthData: any = null;
-
-      if (prevMonthResponse.success && prevMonthResponse.data) {
-        previousMonth = prevMonthResponse.data.month;
-        previousMonthData = prevMonthResponse.data;
-        console.log('[PlantPrefill] ✓ Previous month found:', previousMonth);
-      } else {
-        console.log('[PlantPrefill] ℹ️ No previous month found (this is normal for the first month)');
-      }
-
-      // 4. Load or create entries for current month
-      let entries: any;
-      
-      if (monthResponse.success && monthResponse.data) {
-        // Month exists, use its entries
-        entries = {
-          silos: monthResponse.data.silos || [],
-          agregados: monthResponse.data.agregados || [],
-          aditivos: monthResponse.data.aditivos || [],
-          diesel: monthResponse.data.diesel || null,
-          productos: monthResponse.data.productos || [],
-          utilities: monthResponse.data.utilities || [],
-          meters: monthResponse.data.meters || [],
-          pettyCash: monthResponse.data.pettyCash || null,
-        };
-        
-        // Enrich silos entries with allowed_products from config
-        if (entries.silos && entries.silos.length > 0) {
-          entries.silos = entries.silos.map((entry: any) => {
-            const siloConfig = config.silos.find((s: any) => s.id === entry.silo_config_id);
-            return {
-              ...entry,
-              allowed_products: siloConfig?.allowed_products || [],
-              silo_name: siloConfig?.silo_name || entry.silo_name,
-              measurement_method: siloConfig?.measurement_method || entry.measurement_method,
-            };
-          });
-        }
-        
-        // If month exists but has no aggregate entries yet, create from config
-        const resolvedAggregates = getResolvedAggregatesConfig(config);
-
-        if (entries.agregados.length === 0 && resolvedAggregates.length > 0) {
-          const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
-          entries.agregados = freshEntries.agregados;
-          console.log('[PlantPrefill] Month exists but no aggregate entries — created from config');
+        if (!configResponse.success || !configResponse.data) {
+          throw new Error(`Failed to load plant config: ${configResponse.error}`);
         }
 
-        // Enrich aggregate entries with current config values
-        // Handles cases where config was updated after entries were saved (e.g. DRAWER→BOX/CONE)
-        if (entries.agregados.length > 0 && resolvedAggregates.length > 0) {
-          // Look up cajones from the current plant for dimension fallback
-          const currentPlantForEnrich = allPlants.find((p: any) => p.id === config.plant_id);
-          const cajonesForEnrich = currentPlantForEnrich?.cajones || [];
+        const config = configResponse.data;
+        console.log('[PlantPrefill] Config loaded:', config);
+        console.log('[PlantPrefill] getInventoryMonth response:', monthResponse);
 
-          entries.agregados = entries.agregados.map((entry: any) => {
-            const aggConfig = resolvedAggregates.find((a: any) => a.id === entry.aggregate_config_id);
-            if (!aggConfig) return entry;
-            // Find matching cajón by name for dimension fallback
-            const matchingCajon = cajonesForEnrich.find(
-              (c: any) => c.name === (aggConfig.aggregate_name || entry.aggregate_name)
+        let inventoryMonth: InventoryMonth | null = null;
+
+        if (monthResponse.success && monthResponse.data) {
+          inventoryMonth = monthResponse.data.month;
+          console.log('[PlantPrefill] Current month found:', inventoryMonth);
+        } else {
+          console.log('[PlantPrefill] Month not found, creating new month...');
+
+          try {
+            const createResponse = await createInventoryMonth({
+              plant_id: plantId,
+              year_month: yearMonth,
+              status: 'IN_PROGRESS',
+              created_by: user?.name || user?.email || 'unknown',
+            });
+
+            console.log('[PlantPrefill] createInventoryMonth response:', createResponse);
+
+            if (!createResponse.success || !createResponse.data) {
+              throw new Error(`Failed to create month: ${createResponse.error || 'Unknown error'}`);
+            }
+
+            inventoryMonth = createResponse.data;
+            console.log('[PlantPrefill] New month created:', inventoryMonth);
+          } catch (createError) {
+            console.error('[PlantPrefill] Error creating month:', createError);
+            throw new Error(
+              `No se pudo crear el inventario para ${yearMonth}. ` +
+              `Verifica que la base de datos esté configurada correctamente. ` +
+              `Error: ${createError instanceof Error ? createError.message : 'Unknown error'}`
             );
-            return {
-              ...entry,
-              measurement_method: aggConfig.measurement_method,
-              // BOX dimensions: use aggConfig → cajón config → existing entry value
-              box_width_ft: aggConfig.box_width_ft || matchingCajon?.ancho || entry.box_width_ft,
-              box_height_ft: aggConfig.box_height_ft || matchingCajon?.alto || entry.box_height_ft,
-              aggregate_name: aggConfig.aggregate_name || entry.aggregate_name,
-              material_type: aggConfig.material_type || entry.material_type,
-              location_area: aggConfig.location_area || entry.location_area,
-              unit: aggConfig.unit || entry.unit,
-            };
-          });
-          console.log('[PlantPrefill] Enriched aggregate entries with current config values');
+          }
         }
 
-        // If month exists but has no silo entries yet, create from config
-        if (entries.silos.length === 0 && config.silos?.length > 0) {
+        if (!inventoryMonth) {
+          throw new Error('No inventory month available');
+        }
+
+        let previousMonth: InventoryMonth | null = null;
+        let previousMonthData: any = null;
+
+        if (prevMonthResponse.success && prevMonthResponse.data) {
+          previousMonth = prevMonthResponse.data.month;
+          previousMonthData = prevMonthResponse.data;
+          console.log('[PlantPrefill] ✓ Previous month found:', previousMonth);
+        } else {
+          console.log('[PlantPrefill] ℹ️ No previous month found (this is normal for the first month)');
+        }
+
+        // 4. Load or create entries for current month
+        let entries: any;
+
+        if (monthResponse.success && monthResponse.data) {
+        // Month exists, use its entries
+          entries = {
+            silos: monthResponse.data.silos || [],
+            agregados: monthResponse.data.agregados || [],
+            aditivos: monthResponse.data.aditivos || [],
+            diesel: monthResponse.data.diesel || null,
+            productos: monthResponse.data.productos || [],
+            utilities: monthResponse.data.utilities || [],
+            meters: monthResponse.data.meters || [],
+            pettyCash: monthResponse.data.pettyCash || null,
+          };
+        
+          // Enrich silos entries with allowed_products from config
+          if (entries.silos && entries.silos.length > 0) {
+            entries.silos = entries.silos.map((entry: any) => {
+              const siloConfig = config.silos.find((s: any) => s.id === entry.silo_config_id);
+              return {
+                ...entry,
+                allowed_products: siloConfig?.allowed_products || [],
+                silo_name: siloConfig?.silo_name || entry.silo_name,
+                measurement_method: siloConfig?.measurement_method || entry.measurement_method,
+              };
+            });
+          }
+        
+          // If month exists but has no aggregate entries yet, create from config
+          const resolvedAggregates = getResolvedAggregatesConfig(config);
           const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
-          entries.silos = freshEntries.silos;
-          console.log('[PlantPrefill] Month exists but no silo entries — created from config');
-        }
 
-        const freshEntries = await createEmptyEntriesFromConfig(inventoryMonth.id, config, previousMonth);
+          if (entries.agregados.length === 0 && resolvedAggregates.length > 0) {
+            entries.agregados = freshEntries.agregados;
+            console.log('[PlantPrefill] Month exists but no aggregate entries — created from config');
+          }
 
-        if (entries.silos.length > 0 && freshEntries.silos.length > 0) {
-          const freshSilosByConfigId = new Map(
-            freshEntries.silos.map((entry: any) => [entry.silo_config_id, entry])
-          );
+          // Enrich aggregate entries with current config values
+          // Handles cases where config was updated after entries were saved (e.g. DRAWER→BOX/CONE)
+          if (entries.agregados.length > 0 && resolvedAggregates.length > 0) {
+            // Look up cajones from the current plant for dimension fallback
+            const currentPlantForEnrich = allPlants.find((p: any) => p.id === config.plant_id);
+            const cajonesForEnrich = currentPlantForEnrich?.cajones || [];
 
-          entries.silos = entries.silos.map((entry: any) => {
-            const freshSilo = freshSilosByConfigId.get(entry.silo_config_id);
-            if (!freshSilo) return entry;
+            entries.agregados = entries.agregados.map((entry: any) => {
+              const aggConfig = resolvedAggregates.find((a: any) => a.id === entry.aggregate_config_id);
+              if (!aggConfig) return entry;
+              // Find matching cajón by name for dimension fallback
+              const matchingCajon = cajonesForEnrich.find(
+                (c: any) => c.name === (aggConfig.aggregate_name || entry.aggregate_name)
+              );
+              return {
+                ...entry,
+                measurement_method: aggConfig.measurement_method,
+                // BOX dimensions: use aggConfig → cajón config → existing entry value
+                box_width_ft: aggConfig.box_width_ft || matchingCajon?.ancho || entry.box_width_ft,
+                box_height_ft: aggConfig.box_height_ft || matchingCajon?.alto || entry.box_height_ft,
+                aggregate_name: aggConfig.aggregate_name || entry.aggregate_name,
+                material_type: aggConfig.material_type || entry.material_type,
+                location_area: aggConfig.location_area || entry.location_area,
+                unit: aggConfig.unit || entry.unit,
+              };
+            });
+            console.log('[PlantPrefill] Enriched aggregate entries with current config values');
+          }
 
-            return {
-              ...freshSilo,
-              ...entry,
-              silo_name: freshSilo.silo_name || entry.silo_name,
-              measurement_method: freshSilo.measurement_method || entry.measurement_method,
-              allowed_products: freshSilo.allowed_products || entry.allowed_products || [],
-              product_in_silo: entry.product_in_silo || entry.product_name || freshSilo.product_in_silo,
-            };
-          });
-          console.log('[PlantPrefill] Enriched silo entries with current config values');
-        }
+          // If month exists but has no silo entries yet, create from config
+          if (entries.silos.length === 0 && config.silos?.length > 0) {
+            entries.silos = freshEntries.silos;
+            console.log('[PlantPrefill] Month exists but no silo entries — created from config');
+          }
+
+          if (entries.silos.length > 0 && freshEntries.silos.length > 0) {
+            const freshSilosByConfigId = new Map(
+              freshEntries.silos.map((entry: any) => [entry.silo_config_id, entry])
+            );
+
+            entries.silos = entries.silos.map((entry: any) => {
+              const freshSilo = freshSilosByConfigId.get(entry.silo_config_id);
+              if (!freshSilo) return entry;
+
+              return {
+                ...freshSilo,
+                ...entry,
+                silo_name: freshSilo.silo_name || entry.silo_name,
+                measurement_method: freshSilo.measurement_method || entry.measurement_method,
+                allowed_products: freshSilo.allowed_products || entry.allowed_products || [],
+                product_in_silo: entry.product_in_silo || entry.product_name || freshSilo.product_in_silo,
+              };
+            });
+            console.log('[PlantPrefill] Enriched silo entries with current config values');
+          }
 
         if (entries.utilities.length === 0 && freshEntries.utilities.length > 0) {
           entries.utilities = freshEntries.utilities;
@@ -839,50 +856,64 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           console.log('[PlantPrefill] Enriched petty cash entry with current config values');
         }
 
-        console.log('[PlantPrefill] Using existing entries');
-      } else {
-        // Create empty entries from config
-        entries = await createEmptyEntriesFromConfig(
-          inventoryMonth.id,
+          console.log('[PlantPrefill] Using existing entries');
+        } else {
+          // Create empty entries from config
+          entries = await createEmptyEntriesFromConfig(
+            inventoryMonth.id,
+            config,
+            previousMonth
+          );
+          console.log('[PlantPrefill] Created empty entries from config');
+        }
+
+        // 5. Apply carry-over from previous month if available
+        if (previousMonthData) {
+          entries = applyCarryOver(entries, previousMonthData);
+          console.log('[PlantPrefill] Applied carry-over from previous month');
+        }
+
+        // 6. Update state
+        setPrefillData({
+          inventoryMonth,
+          previousMonth,
           config,
-          previousMonth
-        );
-        console.log('[PlantPrefill] Created empty entries from config');
+          silosEntries: entries.silos,
+          agregadosEntries: entries.agregados,
+          aditivosEntries: entries.aditivos,
+          dieselEntry: entries.diesel,
+          productosEntries: entries.productos,
+          utilitiesEntries: entries.utilities,
+          metersEntries: entries.meters,
+          pettyCashEntry: entries.pettyCash,
+          loading: false,
+          error: null,
+        });
+
+        console.log('[PlantPrefill] Data loaded successfully');
+      } catch (error) {
+        console.error('[PlantPrefill] Error loading plant data:', error);
+        setPrefillData(prev => ({
+          ...prev,
+          loading: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }));
+      } finally {
+        if (inFlightLoadKeyRef.current === requestKey) {
+          inFlightLoadKeyRef.current = null;
+          inFlightLoadRef.current = null;
+        }
       }
+    })();
 
-      // 5. Apply carry-over from previous month if available
-      if (previousMonthData) {
-        entries = applyCarryOver(entries, previousMonthData);
-        console.log('[PlantPrefill] Applied carry-over from previous month');
-      }
+    inFlightLoadKeyRef.current = requestKey;
+    inFlightLoadRef.current = loadPromise;
+    return loadPromise;
+  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, currentPlantId, currentYearMonth, getResolvedAggregatesConfig, prefillData.error, prefillData.inventoryMonth, prefillData.loading, resolveProductConfigKey, resolveUtilityConfigKey, user]);
 
-      // 6. Update state
-      setPrefillData({
-        inventoryMonth,
-        previousMonth,
-        config,
-        silosEntries: entries.silos,
-        agregadosEntries: entries.agregados,
-        aditivosEntries: entries.aditivos,
-        dieselEntry: entries.diesel,
-        productosEntries: entries.productos,
-        utilitiesEntries: entries.utilities,
-        metersEntries: entries.meters,
-        pettyCashEntry: entries.pettyCash,
-        loading: false,
-        error: null,
-      });
-
-      console.log('[PlantPrefill] Data loaded successfully');
-    } catch (error) {
-      console.error('[PlantPrefill] Error loading plant data:', error);
-      setPrefillData(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }));
-    }
-  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, getResolvedAggregatesConfig, resolveProductConfigKey, resolveUtilityConfigKey, user]);
+  const loadPlantData = useCallback(async (plantId: string, yearMonth: string) => {
+    await loadPlantDataInternal(plantId, yearMonth);
+  }, [loadPlantDataInternal]);
 
   // ============================================================================
   // REFRESH FUNCTION
@@ -890,9 +921,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   
   const refreshData = useCallback(async () => {
     if (currentPlantId && currentYearMonth) {
-      await loadPlantData(currentPlantId, currentYearMonth);
+      await loadPlantDataInternal(currentPlantId, currentYearMonth, { force: true });
     }
-  }, [currentPlantId, currentYearMonth, loadPlantData]);
+  }, [currentPlantId, currentYearMonth, loadPlantDataInternal]);
 
   // ============================================================================
   // UPDATE ENTRY (local state only)
