@@ -79,6 +79,8 @@ interface CatalogItem {
   sort_order: number;
 }
 
+type CatalogSectionKey = 'materiales' | 'procedencias' | 'aditivos' | 'curvas';
+
 interface ImportSummary {
   total_rows: number;
   valid_rows: number;
@@ -1045,6 +1047,14 @@ export function CatalogsPanel() {
   const [aditivos, setAditivos] = useState<AdditiveCatalogItem[]>([]);
   const [curvas, setCurvas] = useState<CalibrationCurveCatalogItem[]>([]);
   const [selectedCurvePlantId, setSelectedCurvePlantId] = useState('');
+  const [activeSection, setActiveSection] = useState<CatalogSectionKey>(() => {
+    if (typeof window === 'undefined') return 'materiales';
+    const stored = window.localStorage.getItem('settings_catalog_active_section');
+    if (stored === 'materiales' || stored === 'procedencias' || stored === 'aditivos' || stored === 'curvas') {
+      return stored;
+    }
+    return 'materiales';
+  });
   const [loadingMat, setLoadingMat] = useState(true);
   const [loadingProc, setLoadingProc] = useState(true);
   const [loadingAditivos, setLoadingAditivos] = useState(true);
@@ -1158,6 +1168,11 @@ export function CatalogsPanel() {
       loadCurves(selectedCurvePlantId);
     }
   }, [selectedCurvePlantId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('settings_catalog_active_section', activeSection);
+  }, [activeSection]);
 
   const resetMaterialsImportFlow = () => {
     setShowMaterialsImportPreview(false);
@@ -1551,6 +1566,35 @@ export function CatalogsPanel() {
     else if (!res.success) alert('Error: ' + res.error);
   };
 
+  const sectionOptions: Array<{
+    key: CatalogSectionKey;
+    label: string;
+    description: string;
+  }> = [
+    {
+      key: 'materiales',
+      label: 'Materiales',
+      description: 'Tipos de material que pueden asignarse a un cajón.',
+    },
+    {
+      key: 'procedencias',
+      label: 'Procedencias',
+      description: 'Suplidores o procedencias del material.',
+    },
+    {
+      key: 'aditivos',
+      label: 'Aditivos',
+      description: 'Catálogo maestro para nombre, marca y unidad.',
+    },
+    {
+      key: 'curvas',
+      label: 'Curvas de conversión',
+      description: 'Catálogo por planta para tablas de conversión.',
+    },
+  ];
+
+  const activeSectionMeta = sectionOptions.find((option) => option.key === activeSection) || sectionOptions[0];
+
   return (
     <div className="space-y-6">
       <div>
@@ -1566,85 +1610,122 @@ export function CatalogsPanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <CatalogTable
-          title="Materiales"
-          description="Tipos de material que pueden asignarse a un cajón."
-          items={materiales}
-          loading={loadingMat}
-          hasClase={true}
-          importControls={{
-            exportingTemplate: exportingMaterialsTemplate,
-            exportingCurrent: exportingMaterialsCurrent,
-            previewingImport: previewingMaterialsImport,
-            onDownloadBlankTemplate: handleDownloadMaterialsBlankTemplate,
-            onDownloadCurrentConfiguration: handleDownloadMaterialsCurrent,
-            onOpenFilePicker: () => {
-              setError(null);
-              materialsFileInputRef.current?.click();
-            },
-            fileInputRef: materialsFileInputRef,
-            onImportFileSelected: handleMaterialsFileSelected,
-          }}
-          onAdd={handleAddMaterial}
-          onUpdate={handleUpdateMaterial}
-          onDelete={handleDeleteMaterial}
-        />
+      <div className="space-y-4">
+        <div className="rounded-lg border border-[#D4D8DD] bg-white p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-medium text-[#3B3A36]">Sección activa</p>
+              <p className="mt-1 text-sm text-[#5F6773]">{activeSectionMeta.description}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {sectionOptions.map((option) => {
+                const isActive = option.key === activeSection;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setActiveSection(option.key)}
+                    className={[
+                      'rounded-md border px-4 py-2 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'border-[#2475C7] bg-[#EEF4FB] text-[#2475C7]'
+                        : 'border-[#D4D8DD] bg-white text-[#5F6773] hover:border-[#9D9B9A] hover:text-[#3B3A36]',
+                    ].join(' ')}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-        <CatalogTable
-          title="Procedencias"
-          description="Nombre del suplidor o procedencia del material."
-          items={procedencias}
-          loading={loadingProc}
-          importControls={{
-            exportingTemplate: exportingProcedenciasTemplate,
-            exportingCurrent: exportingProcedenciasCurrent,
-            previewingImport: previewingProcedenciasImport,
-            onDownloadBlankTemplate: handleDownloadProcedenciasBlankTemplate,
-            onDownloadCurrentConfiguration: handleDownloadProcedenciasCurrent,
-            onOpenFilePicker: () => {
-              setError(null);
-              procedenciasFileInputRef.current?.click();
-            },
-            fileInputRef: procedenciasFileInputRef,
-            onImportFileSelected: handleProcedenciasFileSelected,
-          }}
-          onAdd={handleAddProcedencia}
-          onUpdate={handleUpdateProcedencia}
-          onDelete={handleDeleteProcedencia}
-        />
+        {activeSection === 'materiales' && (
+          <CatalogTable
+            title="Materiales"
+            description="Tipos de material que pueden asignarse a un cajón."
+            items={materiales}
+            loading={loadingMat}
+            hasClase={true}
+            importControls={{
+              exportingTemplate: exportingMaterialsTemplate,
+              exportingCurrent: exportingMaterialsCurrent,
+              previewingImport: previewingMaterialsImport,
+              onDownloadBlankTemplate: handleDownloadMaterialsBlankTemplate,
+              onDownloadCurrentConfiguration: handleDownloadMaterialsCurrent,
+              onOpenFilePicker: () => {
+                setError(null);
+                materialsFileInputRef.current?.click();
+              },
+              fileInputRef: materialsFileInputRef,
+              onImportFileSelected: handleMaterialsFileSelected,
+            }}
+            onAdd={handleAddMaterial}
+            onUpdate={handleUpdateMaterial}
+            onDelete={handleDeleteMaterial}
+          />
+        )}
 
-        <AdditiveCatalogTable
-          items={aditivos}
-          loading={loadingAditivos}
-          importControls={{
-            exportingTemplate: exportingAditivosTemplate,
-            exportingCurrent: exportingAditivosCurrent,
-            previewingImport: previewingAditivosImport,
-            onDownloadBlankTemplate: handleDownloadAditivosBlankTemplate,
-            onDownloadCurrentConfiguration: handleDownloadAditivosCurrent,
-            onOpenFilePicker: () => {
-              setError(null);
-              aditivosFileInputRef.current?.click();
-            },
-            fileInputRef: aditivosFileInputRef,
-            onImportFileSelected: handleAditivosFileSelected,
-          }}
-          onAdd={handleAddAditivo}
-          onUpdate={handleUpdateAditivo}
-          onDelete={handleDeleteAditivo}
-        />
+        {activeSection === 'procedencias' && (
+          <CatalogTable
+            title="Procedencias"
+            description="Nombre del suplidor o procedencia del material."
+            items={procedencias}
+            loading={loadingProc}
+            importControls={{
+              exportingTemplate: exportingProcedenciasTemplate,
+              exportingCurrent: exportingProcedenciasCurrent,
+              previewingImport: previewingProcedenciasImport,
+              onDownloadBlankTemplate: handleDownloadProcedenciasBlankTemplate,
+              onDownloadCurrentConfiguration: handleDownloadProcedenciasCurrent,
+              onOpenFilePicker: () => {
+                setError(null);
+                procedenciasFileInputRef.current?.click();
+              },
+              fileInputRef: procedenciasFileInputRef,
+              onImportFileSelected: handleProcedenciasFileSelected,
+            }}
+            onAdd={handleAddProcedencia}
+            onUpdate={handleUpdateProcedencia}
+            onDelete={handleDeleteProcedencia}
+          />
+        )}
 
-        <CalibrationCurvesTable
-          plantOptions={plantOptions}
-          selectedPlantId={selectedCurvePlantId}
-          onPlantChange={setSelectedCurvePlantId}
-          items={curvas}
-          loading={loadingCurvas}
-          onAdd={handleAddCurve}
-          onUpdate={handleUpdateCurve}
-          onDelete={handleDeleteCurve}
-        />
+        {activeSection === 'aditivos' && (
+          <AdditiveCatalogTable
+            items={aditivos}
+            loading={loadingAditivos}
+            importControls={{
+              exportingTemplate: exportingAditivosTemplate,
+              exportingCurrent: exportingAditivosCurrent,
+              previewingImport: previewingAditivosImport,
+              onDownloadBlankTemplate: handleDownloadAditivosBlankTemplate,
+              onDownloadCurrentConfiguration: handleDownloadAditivosCurrent,
+              onOpenFilePicker: () => {
+                setError(null);
+                aditivosFileInputRef.current?.click();
+              },
+              fileInputRef: aditivosFileInputRef,
+              onImportFileSelected: handleAditivosFileSelected,
+            }}
+            onAdd={handleAddAditivo}
+            onUpdate={handleUpdateAditivo}
+            onDelete={handleDeleteAditivo}
+          />
+        )}
+
+        {activeSection === 'curvas' && (
+          <CalibrationCurvesTable
+            plantOptions={plantOptions}
+            selectedPlantId={selectedCurvePlantId}
+            onPlantChange={setSelectedCurvePlantId}
+            items={curvas}
+            loading={loadingCurvas}
+            onAdd={handleAddCurve}
+            onUpdate={handleUpdateCurve}
+            onDelete={handleDeleteCurve}
+          />
+        )}
       </div>
 
       <CatalogImportPreviewModal
