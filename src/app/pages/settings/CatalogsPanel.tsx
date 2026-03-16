@@ -18,6 +18,7 @@ import {
   createCalibrationCurveCatalogItem,
   createMaterial,
   createProcedencia,
+  executeCalibrationCurvesImport,
   deleteAdditiveCatalogItem,
   deleteCalibrationCurveCatalogItem,
   deleteMaterial,
@@ -29,6 +30,7 @@ import {
   getCalibrationCurvesCatalog,
   getMateriales,
   getProcedencias,
+  previewCalibrationCurvesImport,
   previewAdditivesCatalogImport,
   previewMaterialsImport,
   previewProcedenciasImport,
@@ -40,6 +42,8 @@ import {
   type AdditivesCatalogImportExecuteResponse,
   type AdditivesCatalogImportPreviewResponse,
   type AdditivesCatalogImportRowPayload,
+  type CalibrationCurvesImportPreviewResponse,
+  type CalibrationCurvesImportRowPayload,
   type CalibrationCurveCatalogItem,
   type MaterialCatalogItem,
   type MaterialsImportExecuteResponse,
@@ -71,6 +75,13 @@ import {
   PROCEDENCIAS_IMPORT_TEMPLATE_VERSION,
   type ProcedenciasImportWorkbookRow,
 } from '../../utils/procedenciasImportWorkbook';
+import { parseCalibrationCurvesImportFile } from '../../utils/calibrationCurvesImportParser';
+import {
+  CALIBRATION_CURVES_IMPORT_MODULE,
+  CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION,
+  downloadCalibrationCurvesImportWorkbook,
+  type CalibrationCurvesImportWorkbookRow,
+} from '../../utils/calibrationCurvesImportWorkbook';
 
 interface CatalogItem {
   id: string;
@@ -770,6 +781,7 @@ function CalibrationCurvesTable({
   items,
   itemCountLabel,
   loading,
+  importControls,
   onAdd,
   onUpdate,
   onDelete,
@@ -780,6 +792,7 @@ function CalibrationCurvesTable({
   items: CalibrationCurveCatalogItem[];
   itemCountLabel?: string;
   loading: boolean;
+  importControls?: CatalogImportActionProps;
   onAdd: (payload: {
     plant_id: string;
     curve_name: string;
@@ -887,7 +900,7 @@ function CalibrationCurvesTable({
         </div>
         <div>
           <p className="mt-0.5 text-sm text-[#5F6773]">
-            Catálogo por planta para reutilizar tablas de conversión. La importación masiva de curvas queda para la fase 2.
+            Catálogo por planta para reutilizar tablas de conversión. La importación por Excel funciona por planta y hace upsert seguro sobre el nombre de curva. Si una curva ya está en uso, el sistema bloquea renombres y borrados para mantener diesel, silos y aditivos sincronizados.
           </p>
         </div>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
@@ -905,6 +918,7 @@ function CalibrationCurvesTable({
             ))}
           </select>
         </div>
+        {importControls && <ImportActions {...importControls} />}
       </div>
 
       {!selectedPlantId ? (
@@ -1136,9 +1150,29 @@ export function CatalogsPanel() {
   } | null>(null);
   const aditivosFileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [exportingCurvesTemplate, setExportingCurvesTemplate] = useState(false);
+  const [exportingCurvesCurrent, setExportingCurvesCurrent] = useState(false);
+  const [previewingCurvesImport, setPreviewingCurvesImport] = useState(false);
+  const [executingCurvesImport, setExecutingCurvesImport] = useState(false);
+  const [showCurvesImportPreview, setShowCurvesImportPreview] = useState(false);
+  const [curvesImportPreview, setCurvesImportPreview] = useState<CalibrationCurvesImportPreviewResponse | null>(null);
+  const [curvesImportReason, setCurvesImportReason] = useState('');
+  const [curvesImportFileName, setCurvesImportFileName] = useState('');
+  const [curvesImportPayload, setCurvesImportPayload] = useState<{
+    module: 'calibration_curves';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: CalibrationCurvesImportRowPayload[];
+  } | null>(null);
+  const curvesFileInputRef = useRef<HTMLInputElement | null>(null);
+
   const plantOptions = useMemo(
     () => allPlants.map((plant) => ({ value: plant.id, label: plant.name })),
     [allPlants]
+  );
+  const selectedCurvePlant = useMemo(
+    () => allPlants.find((plant) => plant.id === selectedCurvePlantId) || null,
+    [allPlants, selectedCurvePlantId]
   );
 
   useEffect(() => {
@@ -1231,6 +1265,17 @@ export function CatalogsPanel() {
     setAditivosImportPayload(null);
     if (aditivosFileInputRef.current) {
       aditivosFileInputRef.current.value = '';
+    }
+  };
+
+  const resetCurvesImportFlow = () => {
+    setShowCurvesImportPreview(false);
+    setCurvesImportPreview(null);
+    setCurvesImportReason('');
+    setCurvesImportFileName('');
+    setCurvesImportPayload(null);
+    if (curvesFileInputRef.current) {
+      curvesFileInputRef.current.value = '';
     }
   };
 
@@ -1507,6 +1552,129 @@ export function CatalogsPanel() {
     }
   };
 
+  const handleDownloadCurvesBlankTemplate = async () => {
+    if (!selectedCurvePlant) {
+      setError('Selecciona una planta antes de descargar la plantilla de curvas.');
+      return;
+    }
+
+    setExportingCurvesTemplate(true);
+    setError(null);
+    try {
+      await downloadCalibrationCurvesImportWorkbook({
+        plant: selectedCurvePlant,
+        rows: [],
+        templateType: 'blank',
+      });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo generar la plantilla de curvas.');
+    } finally {
+      setExportingCurvesTemplate(false);
+    }
+  };
+
+  const handleDownloadCurvesCurrent = async () => {
+    if (!selectedCurvePlant) {
+      setError('Selecciona una planta antes de exportar las curvas.');
+      return;
+    }
+
+    setExportingCurvesCurrent(true);
+    setError(null);
+    try {
+      const rows: CalibrationCurvesImportWorkbookRow[] = curvas.map((item) => ({
+        curve_name: item.curve_name,
+        measurement_type: item.measurement_type,
+        reading_uom: item.reading_uom || null,
+        data_points: item.data_points || {},
+      }));
+      await downloadCalibrationCurvesImportWorkbook({
+        plant: selectedCurvePlant,
+        rows,
+        templateType: 'current_config',
+      });
+    } catch (downloadError: any) {
+      setError(downloadError?.message || 'No se pudo exportar el catálogo actual de curvas.');
+    } finally {
+      setExportingCurvesCurrent(false);
+    }
+  };
+
+  const handleCurvesFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedCurvePlant) {
+      setError('Selecciona una planta antes de importar curvas.');
+      event.target.value = '';
+      return;
+    }
+
+    setPreviewingCurvesImport(true);
+    setError(null);
+
+    try {
+      const parsed = await parseCalibrationCurvesImportFile(file);
+      if (parsed.meta.plant_id !== selectedCurvePlant.id) {
+        throw new Error(`La plantilla corresponde a la planta "${parsed.meta.plant_name || parsed.meta.plant_id}" y no a la planta seleccionada.`);
+      }
+
+      const payload = {
+        module: CALIBRATION_CURVES_IMPORT_MODULE,
+        template_version: CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION,
+        import_mode: 'upsert' as const,
+        rows: parsed.rows.map((row) => ({
+          row_number: row.row_number,
+          curve_name: row.curve_name,
+          measurement_type: row.measurement_type,
+          reading_uom: row.reading_uom,
+          data_points_json: row.data_points_json,
+        })),
+      };
+
+      const response = await previewCalibrationCurvesImport(selectedCurvePlant.id, payload);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo validar el archivo.');
+      }
+
+      setCurvesImportFileName(file.name);
+      setCurvesImportPayload(payload);
+      setCurvesImportPreview(response.data);
+      setShowCurvesImportPreview(true);
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo procesar el archivo seleccionado.');
+    } finally {
+      setPreviewingCurvesImport(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleExecuteCurvesImport = async () => {
+    if (!selectedCurvePlantId || !curvesImportPayload || !curvesImportPreview?.preview_token) return;
+
+    setExecutingCurvesImport(true);
+    setError(null);
+
+    try {
+      const response = await executeCalibrationCurvesImport(selectedCurvePlantId, {
+        ...curvesImportPayload,
+        preview_token: curvesImportPreview.preview_token,
+        reason: curvesImportReason,
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo importar el catálogo de curvas.');
+      }
+
+      resetCurvesImportFlow();
+      await loadCurves(selectedCurvePlantId);
+    } catch (importError: any) {
+      setError(importError?.message || 'No se pudo importar el catálogo de curvas.');
+    } finally {
+      setExecutingCurvesImport(false);
+    }
+  };
+
   const handleAddMaterial = async (nombre: string, clase?: string) => {
     const res = await createMaterial(nombre, clase);
     if (res.success) await loadMateriales();
@@ -1593,6 +1761,13 @@ export function CatalogsPanel() {
     else if (!res.success) alert('Error: ' + res.error);
   };
 
+  const handleCurvePlantChange = (plantId: string) => {
+    if (plantId !== selectedCurvePlantId) {
+      resetCurvesImportFlow();
+    }
+    setSelectedCurvePlantId(plantId);
+  };
+
   const sectionOptions: Array<{
     key: CatalogSectionKey;
     label: string;
@@ -1632,7 +1807,7 @@ export function CatalogsPanel() {
       <div>
         <h3 className="text-lg text-[#3B3A36]">Catálogos</h3>
         <p className="mt-1 text-sm text-[#5F6773]">
-          Administra los valores estandarizados que usan las configuraciones por planta. Materiales, procedencias y aditivos ya soportan importación masiva con plantilla Excel y previsualización.
+          Administra los valores estandarizados que usan las configuraciones por planta. Materiales, procedencias, aditivos y curvas de conversión ya soportan importación masiva con plantilla Excel y previsualización, y el sistema procura mantener las configuraciones sincronizadas con esos catálogos.
         </p>
       </div>
 
@@ -1753,10 +1928,27 @@ export function CatalogsPanel() {
           <CalibrationCurvesTable
             plantOptions={plantOptions}
             selectedPlantId={selectedCurvePlantId}
-            onPlantChange={setSelectedCurvePlantId}
+            onPlantChange={handleCurvePlantChange}
             items={curvas}
             itemCountLabel={selectedCurvePlantId ? `${curvas.length} items` : 'Selecciona una planta'}
             loading={loadingCurvas}
+            importControls={{
+              exportingTemplate: exportingCurvesTemplate,
+              exportingCurrent: exportingCurvesCurrent,
+              previewingImport: previewingCurvesImport,
+              onDownloadBlankTemplate: handleDownloadCurvesBlankTemplate,
+              onDownloadCurrentConfiguration: handleDownloadCurvesCurrent,
+              onOpenFilePicker: () => {
+                if (!selectedCurvePlantId) {
+                  setError('Selecciona una planta antes de importar curvas.');
+                  return;
+                }
+                setError(null);
+                curvesFileInputRef.current?.click();
+              },
+              fileInputRef: curvesFileInputRef,
+              onImportFileSelected: handleCurvesFileSelected,
+            }}
             onAdd={handleAddCurve}
             onUpdate={handleUpdateCurve}
             onDelete={handleDeleteCurve}
@@ -1801,6 +1993,19 @@ export function CatalogsPanel() {
         onReasonChange={setAditivosImportReason}
         onConfirm={handleExecuteAditivosImport}
         executing={executingAditivosImport}
+      />
+
+      <CatalogImportPreviewModal
+        isOpen={showCurvesImportPreview}
+        onClose={resetCurvesImportFlow}
+        title="Previsualización de importación de curvas"
+        label="Curvas de conversión"
+        preview={curvesImportPreview}
+        fileName={curvesImportFileName}
+        reason={curvesImportReason}
+        onReasonChange={setCurvesImportReason}
+        onConfirm={handleExecuteCurvesImport}
+        executing={executingCurvesImport}
       />
     </div>
   );

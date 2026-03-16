@@ -78,6 +78,7 @@ function buildInstructionRows(meta: ProcedenciasImportMeta) {
     ['2', 'Solo importa archivos generados por el sistema para este mismo catalogo.'],
     ['3', 'Nombre es requerido.'],
     ['4', 'La importacion solo crea o actualiza; no elimina filas faltantes.'],
+    ['5', 'Si la procedencia ya está en uso, no puede eliminarse; los renombres manuales se sincronizan con agregados y cajones.'],
   ];
 }
 

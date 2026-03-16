@@ -11,7 +11,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603131705';
+const BUILD_VERSION = '2603152329';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -1238,6 +1238,9 @@ app.put("/make-server/plants/:plantId/cajones", async (c) => {
     }
     const { plantId } = c.req.param();
     const body = await c.req.json();
+    if (!Object.prototype.hasOwnProperty.call(body, 'cajones') || !Array.isArray(body.cajones)) {
+      return c.json({ success: false, error: 'Payload inválido: se esperaba un arreglo "cajones".' }, 400);
+    }
     const cajones: {
       id?: string;
       name: string;
@@ -1250,6 +1253,41 @@ app.put("/make-server/plants/:plantId/cajones", async (c) => {
     }[] = body.cajones ?? [];
 
     const supabase = db.getSupabaseClient();
+    const [materialCatalog, procedenciaCatalog] = await Promise.all([
+      db.listMaterialCatalogItems(),
+      db.listProcedenciaCatalogItems(),
+    ]);
+    const materialByName = new Map(materialCatalog.map((item) => [String(item.nombre || '').trim().toLowerCase(), item]));
+    const procedenciaByName = new Map(procedenciaCatalog.map((item) => [String(item.nombre || '').trim().toLowerCase(), item]));
+
+    for (const [index, cajon] of cajones.entries()) {
+      const cajonName = String(cajon.name || '').trim();
+      const label = cajonName || `Fila ${index + 1}`;
+      const materialName = String(cajon.material || '').trim();
+      const procedenciaName = String(cajon.procedencia || '').trim();
+      const ancho = cajon.ancho;
+      const alto = cajon.alto;
+
+      if (!cajonName) {
+        return c.json({ success: false, error: `Fila ${index + 1}: el nombre del cajón es requerido.` }, 400);
+      }
+
+      if (!materialName || !materialByName.has(materialName.toLowerCase())) {
+        return c.json({ success: false, error: `${label}: el material debe existir en el catálogo de materiales.` }, 400);
+      }
+
+      if (!procedenciaName || !procedenciaByName.has(procedenciaName.toLowerCase())) {
+        return c.json({ success: false, error: `${label}: la procedencia debe existir en el catálogo de procedencias.` }, 400);
+      }
+
+      if (typeof ancho !== 'number' || Number.isNaN(ancho) || ancho <= 0) {
+        return c.json({ success: false, error: `${label}: el ancho del cajón debe ser mayor que cero.` }, 400);
+      }
+
+      if (typeof alto !== 'number' || Number.isNaN(alto) || alto <= 0) {
+        return c.json({ success: false, error: `${label}: el alto del cajón debe ser mayor que cero.` }, 400);
+      }
+    }
 
     const { error: delError } = await supabase
       .from('plant_cajones_config')
@@ -1260,9 +1298,9 @@ app.put("/make-server/plants/:plantId/cajones", async (c) => {
     if (cajones.length > 0) {
       const rows = cajones.map((cajon, i) => ({
         plant_id: plantId,
-        cajon_name: cajon.name,
-        material: cajon.material ?? '',
-        procedencia: cajon.procedencia ?? '',
+        cajon_name: String(cajon.name || '').trim(),
+        material: materialByName.get(String(cajon.material || '').trim().toLowerCase())?.nombre || '',
+        procedencia: procedenciaByName.get(String(cajon.procedencia || '').trim().toLowerCase())?.nombre || '',
         box_width_ft: cajon.ancho ?? 0,
         box_height_ft: cajon.alto ?? 0,
         sort_order: cajon.sort_order ?? i,
@@ -1327,6 +1365,9 @@ app.put("/make-server/plants/:plantId/aggregates", async (c) => {
 
     const { plantId } = c.req.param();
     const body = await c.req.json();
+    if (!Object.prototype.hasOwnProperty.call(body, 'aggregates') || !Array.isArray(body.aggregates)) {
+      return c.json({ success: false, error: 'Payload inválido: se esperaba un arreglo "aggregates".' }, 400);
+    }
     const aggregates: {
       id?: string;
       aggregate_name: string;
@@ -1340,13 +1381,35 @@ app.put("/make-server/plants/:plantId/aggregates", async (c) => {
       is_active?: boolean;
     }[] = body.aggregates ?? [];
 
+    const [materialCatalog, procedenciaCatalog] = await Promise.all([
+      db.listMaterialCatalogItems(),
+      db.listProcedenciaCatalogItems(),
+    ]);
+    const materialByName = new Map(materialCatalog.map((item) => [String(item.nombre || '').trim().toLowerCase(), item]));
+    const procedenciaByName = new Map(procedenciaCatalog.map((item) => [String(item.nombre || '').trim().toLowerCase(), item]));
+
     for (const [index, aggregate] of aggregates.entries()) {
+      const aggregateName = String(aggregate.aggregate_name || '').trim();
+      const label = aggregateName || `Fila ${index + 1}`;
+      const materialName = String(aggregate.material_type || '').trim();
+      const procedenciaName = String(aggregate.location_area || '').trim();
       const measurementMethod = String(aggregate.measurement_method || 'BOX').toUpperCase();
+      if (!aggregateName) {
+        return c.json({ success: false, error: `Fila ${index + 1}: el nombre del agregado es requerido.` }, 400);
+      }
+
+      if (!materialName || !materialByName.has(materialName.toLowerCase())) {
+        return c.json({ success: false, error: `${label}: el material debe existir en el catálogo de materiales.` }, 400);
+      }
+
+      if (!procedenciaName || !procedenciaByName.has(procedenciaName.toLowerCase())) {
+        return c.json({ success: false, error: `${label}: la procedencia debe existir en el catálogo de procedencias.` }, 400);
+      }
+
       if (measurementMethod !== 'BOX') continue;
 
       const width = aggregate.box_width_ft;
       const height = aggregate.box_height_ft;
-      const label = String(aggregate.aggregate_name || '').trim() || `Fila ${index + 1}`;
 
       if (typeof width !== 'number' || Number.isNaN(width) || width <= 0) {
         return c.json({ success: false, error: `${label}: el ancho del cajon debe ser mayor que cero.` }, 400);
@@ -1373,9 +1436,9 @@ app.put("/make-server/plants/:plantId/aggregates", async (c) => {
         return {
           ...(aggregate.id ? { id: aggregate.id } : {}),
           plant_id: plantId,
-          aggregate_name: aggregate.aggregate_name,
-          material_type: aggregate.material_type ?? '',
-          location_area: aggregate.location_area ?? '',
+          aggregate_name: String(aggregate.aggregate_name || '').trim(),
+          material_type: materialByName.get(String(aggregate.material_type || '').trim().toLowerCase())?.nombre || '',
+          location_area: procedenciaByName.get(String(aggregate.location_area || '').trim().toLowerCase())?.nombre || '',
           measurement_method: isBoxMethod ? 'BOX' : 'CONE',
           unit: aggregate.unit || 'CUBIC_YARDS',
           box_width_ft: isBoxMethod ? (aggregate.box_width_ft ?? 0) : null,
@@ -1488,6 +1551,9 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
 
     const { plantId } = c.req.param();
     const body = await c.req.json();
+    if (!Object.prototype.hasOwnProperty.call(body, 'additives') || !Array.isArray(body.additives)) {
+      return c.json({ success: false, error: 'Payload inválido: se esperaba un arreglo "additives".' }, 400);
+    }
     const additives: {
       id?: string;
       catalog_additive_id?: string | null;
@@ -1506,6 +1572,81 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
     }[] = body.additives ?? [];
 
     const supabase = db.getSupabaseClient();
+    let rows: any[] = [];
+
+    if (additives.length > 0) {
+      const catalogCache = new Map<string, Awaited<ReturnType<typeof db.getAdditiveCatalogById>>>();
+      rows = await Promise.all(additives.map(async (additive, index) => {
+        const additiveType = String(additive.additive_type || 'MANUAL').toUpperCase();
+        const measurementMethod = additive.measurement_method || (additiveType === 'TANK' ? 'TANK_LEVEL' : 'MANUAL_QUANTITY');
+        const catalogId = additive.catalog_additive_id?.trim() || null;
+
+        if (!catalogId) {
+          throw new Error(`El aditivo en la fila ${index + 1} debe seleccionarse desde el catálogo maestro.`);
+        }
+
+        if (!catalogCache.has(catalogId)) {
+          catalogCache.set(catalogId, await db.getAdditiveCatalogById(catalogId));
+        }
+
+        const catalogAdditive = catalogCache.get(catalogId);
+        if (!catalogAdditive) {
+          throw new Error(`El aditivo de catálogo seleccionado en la fila ${index + 1} ya no existe.`);
+        }
+
+        if (additiveType !== 'TANK') {
+          return {
+            ...(additive.id ? { id: additive.id } : {}),
+            plant_id: plantId,
+            catalog_additive_id: catalogAdditive.id,
+            additive_name: catalogAdditive.nombre,
+            additive_type: additiveType,
+            measurement_method: measurementMethod,
+            calibration_curve_name: null,
+            brand: catalogAdditive.marca || '',
+            uom: catalogAdditive.uom || '',
+            requires_photo: additive.requires_photo ?? false,
+            tank_name: null,
+            reading_uom: null,
+            conversion_table: null,
+            sort_order: additive.sort_order ?? index,
+            is_active: additive.is_active ?? true,
+          };
+        }
+
+        const calibrationCurveName = additive.calibration_curve_name?.trim() || null;
+        if (!calibrationCurveName) {
+          throw new Error(`El aditivo "${catalogAdditive.nombre}" debe seleccionar una curva de conversión válida.`);
+        }
+
+        const { curve } = await db.findPlantCalibrationCurveByName(plantId, calibrationCurveName);
+        if (!curve) {
+          throw new Error(`La curva "${calibrationCurveName}" no existe en esta planta.`);
+        }
+
+        if (!curve.reading_uom?.trim()) {
+          throw new Error(`La curva "${curve.curve_name}" no tiene unidad de lectura configurada.`);
+        }
+
+        return {
+          ...(additive.id ? { id: additive.id } : {}),
+          plant_id: plantId,
+          catalog_additive_id: catalogAdditive.id,
+          additive_name: catalogAdditive.nombre,
+          additive_type: additiveType,
+          measurement_method: measurementMethod,
+          calibration_curve_name: curve.curve_name,
+          brand: catalogAdditive.marca || '',
+          uom: catalogAdditive.uom || '',
+          requires_photo: additive.requires_photo ?? false,
+          tank_name: additive.tank_name || null,
+          reading_uom: curve.reading_uom,
+          conversion_table: curve.data_points,
+          sort_order: additive.sort_order ?? index,
+          is_active: additive.is_active ?? true,
+        };
+      }));
+    }
 
     const { error: delError } = await supabase
       .from('plant_additives_config')
@@ -1513,25 +1654,7 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
       .eq('plant_id', plantId);
     if (delError) throw delError;
 
-    if (additives.length > 0) {
-      const rows = additives.map((additive, index) => ({
-        ...(additive.id ? { id: additive.id } : {}),
-        plant_id: plantId,
-        catalog_additive_id: additive.catalog_additive_id || null,
-        additive_name: additive.additive_name,
-        additive_type: String(additive.additive_type || 'MANUAL').toUpperCase(),
-        measurement_method: additive.measurement_method || (String(additive.additive_type || '').toUpperCase() === 'TANK' ? 'TANK_LEVEL' : 'MANUAL_QUANTITY'),
-        calibration_curve_name: additive.calibration_curve_name || null,
-        brand: additive.brand || '',
-        uom: additive.uom || '',
-        requires_photo: additive.requires_photo ?? false,
-        tank_name: additive.tank_name || null,
-        reading_uom: additive.reading_uom || null,
-        conversion_table: additive.conversion_table || null,
-        sort_order: additive.sort_order ?? index,
-        is_active: additive.is_active ?? true,
-      }));
-
+    if (rows.length > 0) {
       const { error: insError } = await supabase
         .from('plant_additives_config')
         .insert(rows);
@@ -1589,6 +1712,9 @@ app.put("/make-server/plants/:plantId/diesel", async (c) => {
 
     const { plantId } = c.req.param();
     const body = await c.req.json();
+    if (!Object.prototype.hasOwnProperty.call(body, 'diesel')) {
+      return c.json({ success: false, error: 'Payload inválido: se esperaba la llave "diesel".' }, 400);
+    }
     const diesel = body.diesel;
     const supabase = db.getSupabaseClient();
 
@@ -1599,15 +1725,29 @@ app.put("/make-server/plants/:plantId/diesel", async (c) => {
     if (deleteError) throw deleteError;
 
     if (diesel) {
+      const calibrationCurveName = diesel.calibration_curve_name?.trim() || null;
+      if (!calibrationCurveName) {
+        return c.json({ success: false, error: 'Debes seleccionar una curva de conversión válida para diesel.' }, 400);
+      }
+
+      const { curve } = await db.findPlantCalibrationCurveByName(plantId, calibrationCurveName);
+      if (!curve) {
+        return c.json({ success: false, error: `La curva "${calibrationCurveName}" no existe en esta planta.` }, 400);
+      }
+
+      if (!curve.reading_uom?.trim()) {
+        return c.json({ success: false, error: `La curva "${curve.curve_name}" no tiene unidad de lectura configurada.` }, 400);
+      }
+
       const row = {
         ...(diesel.id ? { id: diesel.id } : {}),
         plant_id: plantId,
         measurement_method: diesel.measurement_method || 'TANK_LEVEL',
-        calibration_curve_name: diesel.calibration_curve_name || null,
-        reading_uom: diesel.reading_uom || 'inches',
+        calibration_curve_name: curve.curve_name,
+        reading_uom: curve.reading_uom,
         tank_capacity_gallons: diesel.tank_capacity_gallons ?? 0,
         initial_inventory_gallons: diesel.initial_inventory_gallons ?? 0,
-        calibration_table: diesel.calibration_table || null,
+        calibration_table: curve.data_points,
         is_active: diesel.is_active ?? true,
       };
 
@@ -2180,15 +2320,8 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
     }[] = body.silos ?? [];
 
     const supabase = db.getSupabaseClient();
-
-    // Detect default calibration curve for this plant (SILO*)
-    const { data: curves } = await supabase
-      .from('calibration_curves')
-      .select('curve_name')
-      .eq('plant_id', plantId)
-      .ilike('curve_name', 'SILO%')
-      .limit(1);
-    const defaultCurve = curves?.[0]?.curve_name ?? null;
+    const defaultCurveInfo = await db.resolveDefaultSiloCalibrationCurve(plantId);
+    const defaultCurve = defaultCurveInfo.curve_name;
 
     const { data: existingSilos, error: existingSilosError } = await supabase
       .from('plant_silos_config')
@@ -2252,7 +2385,13 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
     }
 
     console.log(`✅ [PUT /plants/${plantId}/silos] Saved ${silos.length} silos by ${user.email}`);
-    return c.json({ success: true, count: silos.length });
+    return c.json({
+      success: true,
+      data: {
+        count: silos.length,
+        warnings: defaultCurveInfo.warning ? [defaultCurveInfo.warning] : [],
+      },
+    });
   } catch (error: any) {
     console.error("❌ Error saving silos:", error);
     return c.json({ success: false, error: error.message }, 500);
@@ -3222,6 +3361,11 @@ app.put("/make-server/catalogs/materiales/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
+    const existingMaterial = await db.getMaterialCatalogById(id);
+    if (!existingMaterial) {
+      return c.json({ success: false, error: 'Material no encontrado' }, 404);
+    }
+
     const update: Record<string, any> = { updated_at: new Date().toISOString() };
     if (body.nombre !== undefined) update.nombre = body.nombre.trim();
     if (body.clase !== undefined) update.clase = body.clase?.trim() ?? null;
@@ -3234,6 +3378,7 @@ app.put("/make-server/catalogs/materiales/:id", async (c) => {
       .select()
       .single();
     if (error) throw error;
+    await db.syncMaterialCatalogConsumers(existingMaterial.nombre, data.nombre);
     return c.json({ success: true, data });
   } catch (error) {
     console.error("❌ Error updating material:", error);
@@ -3244,6 +3389,19 @@ app.put("/make-server/catalogs/materiales/:id", async (c) => {
 app.delete("/make-server/catalogs/materiales/:id", async (c) => {
   try {
     const id = c.req.param('id');
+    const existingMaterial = await db.getMaterialCatalogById(id);
+    if (!existingMaterial) {
+      return c.json({ success: false, error: 'Material no encontrado' }, 404);
+    }
+
+    const references = await db.getMaterialCatalogReferenceSummary(existingMaterial.nombre);
+    if (references.total > 0) {
+      return c.json({
+        success: false,
+        error: `No se puede eliminar "${existingMaterial.nombre}" porque está en uso por ${references.aggregates} agregado(s) y ${references.cajones} cajón(es).`,
+      }, 400);
+    }
+
     const supabase = db.getSupabaseClient();
     const { error } = await supabase
       .from('materiales_catalog')
@@ -3392,6 +3550,11 @@ app.put("/make-server/catalogs/procedencias/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
+    const existingProcedencia = await db.getProcedenciaCatalogById(id);
+    if (!existingProcedencia) {
+      return c.json({ success: false, error: 'Procedencia no encontrada' }, 404);
+    }
+
     const update: Record<string, any> = { updated_at: new Date().toISOString() };
     if (body.nombre !== undefined) update.nombre = body.nombre.trim();
     if (body.sort_order !== undefined) update.sort_order = body.sort_order;
@@ -3403,6 +3566,7 @@ app.put("/make-server/catalogs/procedencias/:id", async (c) => {
       .select()
       .single();
     if (error) throw error;
+    await db.syncProcedenciaCatalogConsumers(existingProcedencia.nombre, data.nombre);
     return c.json({ success: true, data });
   } catch (error) {
     console.error("❌ Error updating procedencia:", error);
@@ -3413,6 +3577,19 @@ app.put("/make-server/catalogs/procedencias/:id", async (c) => {
 app.delete("/make-server/catalogs/procedencias/:id", async (c) => {
   try {
     const id = c.req.param('id');
+    const existingProcedencia = await db.getProcedenciaCatalogById(id);
+    if (!existingProcedencia) {
+      return c.json({ success: false, error: 'Procedencia no encontrada' }, 404);
+    }
+
+    const references = await db.getProcedenciaCatalogReferenceSummary(existingProcedencia.nombre);
+    if (references.total > 0) {
+      return c.json({
+        success: false,
+        error: `No se puede eliminar "${existingProcedencia.nombre}" porque está en uso por ${references.aggregates} agregado(s) y ${references.cajones} cajón(es).`,
+      }, 400);
+    }
+
     const supabase = db.getSupabaseClient();
     const { error } = await supabase
       .from('procedencias_catalog')
@@ -3567,6 +3744,11 @@ app.put("/make-server/catalogs/additivos/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
+    const existingAdditive = await db.getAdditiveCatalogById(id);
+    if (!existingAdditive) {
+      return c.json({ success: false, error: 'Aditivo no encontrado' }, 404);
+    }
+
     const update: Record<string, any> = { updated_at: new Date().toISOString() };
     if (body.nombre !== undefined) update.nombre = body.nombre.trim();
     if (body.marca !== undefined) update.marca = body.marca?.trim() || null;
@@ -3581,6 +3763,11 @@ app.put("/make-server/catalogs/additivos/:id", async (c) => {
       .select()
       .single();
     if (error) throw error;
+    await db.syncAdditiveCatalogConsumers(id, {
+      nombre: data.nombre,
+      marca: data.marca,
+      uom: data.uom,
+    });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("❌ Error updating additive catalog item:", error);
@@ -3591,6 +3778,19 @@ app.put("/make-server/catalogs/additivos/:id", async (c) => {
 app.delete("/make-server/catalogs/additivos/:id", async (c) => {
   try {
     const id = c.req.param('id');
+    const existingAdditive = await db.getAdditiveCatalogById(id);
+    if (!existingAdditive) {
+      return c.json({ success: false, error: 'Aditivo no encontrado' }, 404);
+    }
+
+    const references = await db.getAdditiveCatalogReferenceSummary(id);
+    if (references.total > 0) {
+      return c.json({
+        success: false,
+        error: `No se puede eliminar "${existingAdditive.nombre}" porque está en uso por ${references.additives} configuración(es) de aditivos.`,
+      }, 400);
+    }
+
     const supabase = db.getSupabaseClient();
     const { error } = await supabase
       .from('additives_catalog')
@@ -3754,6 +3954,22 @@ app.put("/make-server/catalogs/calibration-curves/:id", async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
+    const existingCurve = await db.getCalibrationCurveById(id);
+    if (!existingCurve) {
+      return c.json({ success: false, error: 'Curva no encontrada' }, 404);
+    }
+
+    const nextCurveName = body.curve_name !== undefined ? body.curve_name.trim() : existingCurve.curve_name;
+    if (nextCurveName !== existingCurve.curve_name) {
+      const references = await db.getCalibrationCurveReferenceSummary(existingCurve.plant_id, existingCurve.curve_name);
+      if (references.total > 0) {
+        return c.json({
+          success: false,
+          error: `No se puede renombrar la curva "${existingCurve.curve_name}" porque está en uso por ${references.silos} silo(s), ${references.additives} aditivo(s) y ${references.diesel} configuración(es) de diesel.`,
+        }, 400);
+      }
+    }
+
     const update: Record<string, any> = { updated_at: new Date().toISOString() };
     if (body.curve_name !== undefined) update.curve_name = body.curve_name.trim();
     if (body.measurement_type !== undefined) update.measurement_type = body.measurement_type.trim();
@@ -3768,6 +3984,7 @@ app.put("/make-server/catalogs/calibration-curves/:id", async (c) => {
       .select()
       .single();
     if (error) throw error;
+    await db.syncCalibrationCurveConsumers(data.plant_id, data.curve_name, data.reading_uom || null, data.data_points || {});
     return c.json({ success: true, data });
   } catch (error) {
     console.error("❌ Error updating calibration curve:", error);
@@ -3778,6 +3995,19 @@ app.put("/make-server/catalogs/calibration-curves/:id", async (c) => {
 app.delete("/make-server/catalogs/calibration-curves/:id", async (c) => {
   try {
     const id = c.req.param('id');
+    const existingCurve = await db.getCalibrationCurveById(id);
+    if (!existingCurve) {
+      return c.json({ success: false, error: 'Curva no encontrada' }, 404);
+    }
+
+    const references = await db.getCalibrationCurveReferenceSummary(existingCurve.plant_id, existingCurve.curve_name);
+    if (references.total > 0) {
+      return c.json({
+        success: false,
+        error: `No se puede eliminar la curva "${existingCurve.curve_name}" porque está en uso por ${references.silos} silo(s), ${references.additives} aditivo(s) y ${references.diesel} configuración(es) de diesel.`,
+      }, 400);
+    }
+
     const supabase = db.getSupabaseClient();
     const { error } = await supabase
       .from('calibration_curves')
@@ -3788,6 +4018,110 @@ app.delete("/make-server/catalogs/calibration-curves/:id", async (c) => {
   } catch (error) {
     console.error("❌ Error deleting calibration curve:", error);
     return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/calibration-curves/import/preview", async (c) => {
+  try {
+    const user = c.get('user');
+    const plantId = c.req.query('plant_id');
+    if (!plantId?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
+
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const preview = await db.previewCalibrationCurvesImport(plantId.trim(), body);
+    let previewToken: string | null = null;
+
+    if (preview.summary.valid_rows > 0 && preview.errors.length === 0) {
+      const record = await db.createCalibrationCurvesImportPreviewToken(plantId.trim(), body);
+      previewToken = record.token;
+    }
+
+    await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'CALIBRATION_CURVES_IMPORT_PREVIEWED',
+      plant_id: plantId.trim(),
+      details: {
+        import_mode: preview.import_mode,
+        template_version: preview.template_version,
+        summary: preview.summary,
+        warnings: preview.warnings,
+        error_count: preview.errors.length,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...preview,
+        preview_token: previewToken,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error previewing calibration curves import:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/make-server/catalogs/calibration-curves/import/execute", async (c) => {
+  try {
+    const user = c.get('user');
+    const plantId = c.req.query('plant_id');
+    if (!plantId?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
+
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+    const { preview_token, reason, ...payload } = body || {};
+
+    if (typeof reason !== 'string' || reason.trim().length < 10) {
+      return c.json({ success: false, error: 'Debes ingresar un motivo de al menos 10 caracteres.' }, 400);
+    }
+
+    const validation = await db.validateCalibrationCurvesImportPreviewToken(plantId.trim(), preview_token, payload);
+    if (!validation.valid) {
+      return c.json({ success: false, error: validation.error }, 400);
+    }
+
+    const result = await db.executeCalibrationCurvesImport(plantId.trim(), payload);
+    if (result.errors.length > 0) {
+      return c.json({ success: false, error: 'La importacion tiene errores y no puede ejecutarse.' }, 400);
+    }
+
+    const auditActionId = await createAuditEntry(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'CALIBRATION_CURVES_IMPORTED_FROM_TEMPLATE',
+      plant_id: plantId.trim(),
+      details: {
+        import_mode: result.import_mode,
+        template_version: result.template_version,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        reason: reason.trim(),
+      },
+    });
+
+    await db.consumeCalibrationCurvesImportPreviewToken(preview_token);
+
+    return c.json({
+      success: true,
+      data: {
+        plant: result.plant,
+        summary: result.summary,
+        created: result.result.created,
+        updated: result.result.updated,
+        warnings: result.warnings,
+        audit_action_id: auditActionId,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error executing calibration curves import:", error);
+    return c.json({ success: false, error: error.message }, 400);
   }
 });
 

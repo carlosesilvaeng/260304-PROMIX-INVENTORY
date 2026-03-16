@@ -4,11 +4,14 @@ import { Alert } from './Alert';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Modal } from './Modal';
+import { Select } from './Select';
 import {
   executePlantDieselImport,
+  getCalibrationCurvesCatalog,
   getPlantDieselConfigEntry,
   previewPlantDieselImport,
   updatePlantDieselConfigEntry,
+  type CalibrationCurveCatalogItem,
   type DieselImportPreviewResponse,
 } from '../utils/api';
 import type { Plant } from '../contexts/AuthContext';
@@ -120,12 +123,19 @@ export function DieselConfigModal({
   const [importReason, setImportReason] = useState('');
   const [selectedImportFileName, setSelectedImportFileName] = useState('');
   const [importPayload, setImportPayload] = useState<DieselImportPayload | null>(null);
+  const [curveItems, setCurveItems] = useState<CalibrationCurveCatalogItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    getPlantDieselConfigEntry(plant.id)
-      .then((response) => {
+    Promise.all([getPlantDieselConfigEntry(plant.id), getCalibrationCurvesCatalog(plant.id)])
+      .then(([response, curvesResponse]) => {
+        const curves = (curvesResponse.success ? curvesResponse.data : []) || [];
+        setCurveItems(curves);
+        if (!curvesResponse.success) {
+          setError(curvesResponse.error ?? 'Error cargando curvas de conversión');
+        }
+
         if (!response.success) {
           setError(response.error ?? 'Error cargando diesel');
           return;
@@ -136,20 +146,49 @@ export function DieselConfigModal({
           return;
         }
 
+        const matchedCurve = response.data.calibration_curve_name
+          ? curves.find((curve) => curve.curve_name.trim().toUpperCase() === String(response.data.calibration_curve_name).trim().toUpperCase()) || null
+          : null;
+
+        if (response.data.calibration_curve_name && !matchedCurve) {
+          setError(`La curva "${response.data.calibration_curve_name}" ya no existe en el catálogo de esta planta. Selecciona una curva válida para resincronizar diesel.`);
+        }
+
         setForm({
           id: response.data.id,
           measurement_method: response.data.measurement_method || 'TANK_LEVEL',
-          calibration_curve_name: response.data.calibration_curve_name || null,
-          reading_uom: response.data.reading_uom || 'inches',
+          calibration_curve_name: matchedCurve?.curve_name || response.data.calibration_curve_name || null,
+          reading_uom: matchedCurve?.reading_uom || response.data.reading_uom || 'inches',
           tank_capacity_gallons: String(response.data.tank_capacity_gallons ?? ''),
           initial_inventory_gallons: String(response.data.initial_inventory_gallons ?? ''),
-          calibration_table_text: stringifyTable(response.data.calibration_table),
+          calibration_table_text: stringifyTable(matchedCurve?.data_points || response.data.calibration_table),
           is_active: response.data.is_active ?? true,
         });
       })
       .catch(() => setError('Error de conexión cargando diesel'))
       .finally(() => setLoading(false));
   }, [plant.id]);
+
+  const curveOptions = useMemo(
+    () => [
+      { value: '', label: '-- Selecciona una curva --' },
+      ...curveItems.map((curve) => ({
+        value: curve.curve_name,
+        label: curve.curve_name,
+      })),
+    ],
+    [curveItems]
+  );
+
+  const handleCurveChange = (curveName: string) => {
+    const selectedCurve = curveItems.find((curve) => curve.curve_name === curveName) || null;
+    setForm((prev) => ({
+      ...prev,
+      calibration_curve_name: selectedCurve?.curve_name || null,
+      reading_uom: selectedCurve?.reading_uom || '',
+      calibration_table_text: stringifyTable(selectedCurve?.data_points) || '',
+    }));
+  };
 
   const previewHasBlockingErrors = useMemo(
     () => Boolean(importPreview && importPreview.errors.length > 0),
@@ -159,6 +198,14 @@ export function DieselConfigModal({
   const validateForm = () => {
     if (!form.measurement_method.trim()) {
       return 'El método de medición es requerido';
+    }
+
+    if (!form.calibration_curve_name?.trim()) {
+      return 'Debes seleccionar una curva de conversión';
+    }
+
+    if (!curveItems.some((curve) => curve.curve_name === form.calibration_curve_name)) {
+      return 'La curva seleccionada ya no existe en el catálogo de esta planta';
     }
 
     if (!form.reading_uom.trim()) {
@@ -433,8 +480,8 @@ export function DieselConfigModal({
                   <Input
                     label="Unidad de lectura"
                     value={form.reading_uom}
-                    onChange={(e) => setForm((prev) => ({ ...prev, reading_uom: e.target.value }))}
-                    placeholder="Ej: inches"
+                    disabled
+                    placeholder="Se llena desde la curva"
                     required
                   />
                   <Input
@@ -452,11 +499,13 @@ export function DieselConfigModal({
                     onChange={(e) => setForm((prev) => ({ ...prev, initial_inventory_gallons: e.target.value }))}
                     placeholder="5000"
                   />
-                  <Input
-                    label="Nombre de curva"
+                  <Select
+                    label="Curva de conversión"
                     value={form.calibration_curve_name || ''}
-                    onChange={(e) => setForm((prev) => ({ ...prev, calibration_curve_name: e.target.value || null }))}
-                    placeholder="Opcional"
+                    onChange={(e) => handleCurveChange(e.target.value)}
+                    options={curveOptions}
+                    helperText="La unidad de lectura y la tabla se sincronizan desde la curva seleccionada."
+                    required
                   />
                   <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
                     <input
@@ -475,11 +524,14 @@ export function DieselConfigModal({
                   </label>
                   <textarea
                     value={form.calibration_table_text}
-                    onChange={(e) => setForm((prev) => ({ ...prev, calibration_table_text: e.target.value }))}
+                    readOnly
                     rows={10}
                     className="w-full rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 font-mono text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
                     placeholder='{"0": 0, "8": 400, "16": 832}'
                   />
+                  <p className="mt-1 text-xs text-[#5F6773]">
+                    Vista sincronizada con la curva seleccionada. Para cambiarla, actualiza el catálogo de curvas o elige otra curva.
+                  </p>
                 </div>
               </div>
             )}

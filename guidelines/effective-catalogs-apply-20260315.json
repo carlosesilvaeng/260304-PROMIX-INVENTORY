@@ -1,0 +1,315 @@
+{
+  "applied": true,
+  "started_at": "2026-03-16T04:42:40.100Z",
+  "project_id": "jnlsahsxqiufusfamccz",
+  "plants": [
+    {
+      "plant_id": "CAROLINA",
+      "plant_name": "Carolina",
+      "catalog_actions": [
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "WR 200",
+          "brand": "SIKA",
+          "uom": "gallons",
+          "id": "5f86cd1f-84da-4aea-869b-ebfc61f67b64"
+        },
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "PLASTIMENT",
+          "brand": "SIKA",
+          "uom": "gallons",
+          "id": "0b29da30-feab-443b-91df-6157c59e72b1"
+        },
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "VISCOCRETE 3425",
+          "brand": "SIKA",
+          "uom": "gallons",
+          "id": "3b8beb08-2cae-4e82-af64-6840b1dcbf04"
+        },
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "FIBRA SYNTHETIC",
+          "brand": "FORTA",
+          "uom": "bags",
+          "id": "bcbcab2a-291a-4c82-aa20-4e4be1c66086"
+        },
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "COLOR BLACK",
+          "brand": "SOLOMON",
+          "uom": "pails",
+          "id": "2413a6ad-c7b5-4c03-9d35-99ceaa2964bd"
+        },
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "COLOR RED",
+          "brand": "SOLOMON-RUNTIME",
+          "uom": "pails",
+          "id": "695c547d-9e11-4fc2-9637-d56a7dcc5c32"
+        }
+      ],
+      "curve_actions": [
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_WR200_970229A2",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "6f53d021-7777-4b1e-b27d-0e6a67313b6d"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_PLASTIMENT_551DD8F0",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "9fe4c723-bfa8-445a-9929-e7bb6cad35e2"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "DIESEL_CAROLINA_AB107E63",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "0d459176-1c49-48b6-aa6b-47418a47faa9"
+        }
+      ],
+      "additive_migration": {
+        "legacy_rows": 6,
+        "migrated_rows": 6,
+        "skipped_rows": 0
+      },
+      "diesel_migration": {
+        "legacy_detected": true,
+        "migrated": true,
+        "skipped": false
+      },
+      "blocking_conflicts": [],
+      "warnings": []
+    },
+    {
+      "plant_id": "CEIBA",
+      "plant_name": "Ceiba",
+      "catalog_actions": [],
+      "curve_actions": [
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_WR200_970229A2",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "df686338-1e0f-4a0d-8769-015aca561ca4"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_PLASTIMENT_551DD8F0",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "81686b28-3e48-4d2e-856e-0443059612e4"
+        }
+      ],
+      "additive_migration": {
+        "legacy_rows": 4,
+        "migrated_rows": 4,
+        "skipped_rows": 0
+      },
+      "diesel_migration": {
+        "legacy_detected": true,
+        "migrated": true,
+        "skipped": false
+      },
+      "blocking_conflicts": [],
+      "warnings": []
+    },
+    {
+      "plant_id": "GUAYNABO",
+      "plant_name": "Guaynabo",
+      "catalog_actions": [
+        {
+          "type": "create_additive_catalog",
+          "additive_name": "SILICA FUME",
+          "brand": "ELKEM",
+          "uom": "bags",
+          "id": "e0f9b503-41da-41d4-afdc-8a22c8f4cda4"
+        }
+      ],
+      "curve_actions": [
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_WR200_970229A2",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "b1f70d00-7207-4ef5-acc2-fa9089585122"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_PLASTIMENT_551DD8F0",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "6289713a-7e2b-4345-bb70-34c44a6e290d"
+        }
+      ],
+      "additive_migration": {
+        "legacy_rows": 6,
+        "migrated_rows": 6,
+        "skipped_rows": 0
+      },
+      "diesel_migration": {
+        "legacy_detected": false,
+        "migrated": false,
+        "skipped": false
+      },
+      "blocking_conflicts": [],
+      "warnings": []
+    },
+    {
+      "plant_id": "GURABO",
+      "plant_name": "Gurabo",
+      "catalog_actions": [],
+      "curve_actions": [
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_WR200_970229A2",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "3e046a85-d415-44ff-8797-7d7bd4858470"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_PLASTIMENT_551DD8F0",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "5866fc80-9af0-43f7-bcdd-3434f73deac5"
+        }
+      ],
+      "additive_migration": {
+        "legacy_rows": 3,
+        "migrated_rows": 3,
+        "skipped_rows": 0
+      },
+      "diesel_migration": {
+        "legacy_detected": true,
+        "migrated": true,
+        "skipped": false
+      },
+      "blocking_conflicts": [],
+      "warnings": []
+    },
+    {
+      "plant_id": "HUMACAO",
+      "plant_name": "Humacao",
+      "catalog_actions": [],
+      "curve_actions": [
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_WR200_970229A2",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "2d820e01-ad94-485b-9aa4-b5598829432e"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_PLASTIMENT_551DD8F0",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "0fb111d5-7bdc-4af9-81ab-d141cf4d9b93"
+        }
+      ],
+      "additive_migration": {
+        "legacy_rows": 3,
+        "migrated_rows": 3,
+        "skipped_rows": 0
+      },
+      "diesel_migration": {
+        "legacy_detected": true,
+        "migrated": true,
+        "skipped": false
+      },
+      "blocking_conflicts": [],
+      "warnings": []
+    },
+    {
+      "plant_id": "VEGA_BAJA",
+      "plant_name": "Vega Baja",
+      "catalog_actions": [],
+      "curve_actions": [
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_WR200_970229A2",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "ecf41eeb-b0de-4a97-8dc2-f140364f5ecd"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "TANQUE_PLASTIMENT_551DD8F0",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "ebc2a9da-9e08-450a-8e6d-222c537444d8"
+        },
+        {
+          "type": "create_curve",
+          "curve_name": "DIESEL_VEGA_BAJA_AB107E63",
+          "measurement_type": "TANK_LEVEL",
+          "reading_uom": "inches",
+          "id": "82a54607-0702-4838-b379-abb4d52ebf71"
+        }
+      ],
+      "additive_migration": {
+        "legacy_rows": 5,
+        "migrated_rows": 5,
+        "skipped_rows": 0
+      },
+      "diesel_migration": {
+        "legacy_detected": true,
+        "migrated": true,
+        "skipped": false
+      },
+      "blocking_conflicts": [],
+      "warnings": []
+    }
+  ],
+  "verify": [
+    {
+      "plant_id": "CAROLINA",
+      "additives_missing_catalog": 0,
+      "tank_additives_missing_curve": 0,
+      "diesel_missing_curve": 0,
+      "curve_count": 3
+    },
+    {
+      "plant_id": "CEIBA",
+      "additives_missing_catalog": 0,
+      "tank_additives_missing_curve": 0,
+      "diesel_missing_curve": 0,
+      "curve_count": 2
+    },
+    {
+      "plant_id": "GUAYNABO",
+      "additives_missing_catalog": 0,
+      "tank_additives_missing_curve": 0,
+      "diesel_missing_curve": 0,
+      "curve_count": 3
+    },
+    {
+      "plant_id": "GURABO",
+      "additives_missing_catalog": 0,
+      "tank_additives_missing_curve": 0,
+      "diesel_missing_curve": 0,
+      "curve_count": 2
+    },
+    {
+      "plant_id": "HUMACAO",
+      "additives_missing_catalog": 0,
+      "tank_additives_missing_curve": 0,
+      "diesel_missing_curve": 0,
+      "curve_count": 2
+    },
+    {
+      "plant_id": "VEGA_BAJA",
+      "additives_missing_catalog": 0,
+      "tank_additives_missing_curve": 0,
+      "diesel_missing_curve": 0,
+      "curve_count": 3
+    }
+  ],
+  "finished_at": "2026-03-16T04:43:21.338Z"
+}

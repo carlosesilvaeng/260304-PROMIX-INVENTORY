@@ -83,6 +83,7 @@ function buildInstructionRows(meta: MaterialsImportMeta) {
     ['3', 'Nombre es requerido.'],
     ['4', 'Clase es opcional.'],
     ['5', 'La importacion solo crea o actualiza; no elimina filas faltantes.'],
+    ['6', 'Si el material ya está en uso, no puede eliminarse; los renombres manuales se sincronizan con agregados y cajones.'],
   ];
 }
 

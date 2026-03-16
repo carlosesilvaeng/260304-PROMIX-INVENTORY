@@ -7,6 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "dev": "vite",
+    "migrate:effective-catalogs": "node scripts/migrate-effective-catalogs.mjs",
     "deploy:make-server": "supabase functions deploy make-server --project-ref jnlsahsxqiufusfamccz --no-verify-jwt",
     "check:make-server": "supabase functions list --project-ref jnlsahsxqiufusfamccz -o json"
   },

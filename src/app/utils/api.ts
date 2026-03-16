@@ -551,6 +551,58 @@ export interface CalibrationCurveCatalogItem {
   data_points: Record<string, number>;
 }
 
+export interface CalibrationCurvesImportRowPayload {
+  row_number: number;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom: string;
+  data_points_json: string;
+}
+
+export interface CalibrationCurvesImportPreviewResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  module: 'calibration_curves';
+  template_version: string;
+  import_mode: 'upsert';
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+    referenced_updates: number;
+  };
+  errors: Array<{
+    row: number;
+    column: string;
+    message: string;
+  }>;
+  warnings: string[];
+  preview_token: string | null;
+}
+
+export interface CalibrationCurvesImportExecuteResponse {
+  plant: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    creates: number;
+    updates: number;
+    referenced_updates: number;
+  };
+  created: number;
+  updated: number;
+  warnings: string[];
+  audit_action_id: string | null;
+}
+
 /** Obtiene la lista de materiales activos */
 export async function getMateriales(): Promise<ApiResponse<MaterialCatalogItem[]>> {
   return apiRequest('/catalogs/materiales', 'GET');
@@ -816,6 +868,32 @@ export async function updateCalibrationCurveCatalogItem(
 /** Elimina una curva existente */
 export async function deleteCalibrationCurveCatalogItem(id: string): Promise<ApiResponse> {
   return apiRequest(`/catalogs/calibration-curves/${id}`, 'DELETE');
+}
+
+export async function previewCalibrationCurvesImport(
+  plantId: string,
+  payload: {
+    module: 'calibration_curves';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: CalibrationCurvesImportRowPayload[];
+  }
+): Promise<ApiResponse<CalibrationCurvesImportPreviewResponse>> {
+  return apiRequest(`/catalogs/calibration-curves/import/preview?plant_id=${encodeURIComponent(plantId)}`, 'POST', payload);
+}
+
+export async function executeCalibrationCurvesImport(
+  plantId: string,
+  payload: {
+    module: 'calibration_curves';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: CalibrationCurvesImportRowPayload[];
+    preview_token: string;
+    reason: string;
+  }
+): Promise<ApiResponse<CalibrationCurvesImportExecuteResponse>> {
+  return apiRequest(`/catalogs/calibration-curves/import/execute?plant_id=${encodeURIComponent(plantId)}`, 'POST', payload);
 }
 
 // ============================================================================

@@ -276,10 +276,14 @@ export function AggregatesConfigModal({
 
   function validateRows() {
     const normalizedNames = new Set<string>();
+    const availableMaterials = new Set(materialOptions.map((item) => item.trim().toUpperCase()).filter(Boolean));
+    const availableProcedencias = new Set(procedenciaOptions.map((item) => item.trim().toUpperCase()).filter(Boolean));
 
     for (const [index, row] of rows.entries()) {
       const label = row.aggregate_name.trim() || `Fila ${index + 1}`;
       const normalizedName = row.aggregate_name.trim().toUpperCase();
+      const normalizedMaterial = row.material_type.trim().toUpperCase();
+      const normalizedProcedencia = row.location_area.trim().toUpperCase();
 
       if (!normalizedName) {
         return `El agregado en la fila ${index + 1} debe tener nombre`;
@@ -297,9 +301,15 @@ export function AggregatesConfigModal({
       if (!row.material_type.trim()) {
         return `${label}: el material es requerido`;
       }
+      if (!availableMaterials.has(normalizedMaterial)) {
+        return `${label}: el material debe existir en el catálogo de materiales`;
+      }
 
       if (!row.location_area.trim()) {
         return `${label}: la procedencia es requerida`;
+      }
+      if (!availableProcedencias.has(normalizedProcedencia)) {
+        return `${label}: la procedencia debe existir en el catálogo de procedencias`;
       }
 
       if (row.measurement_method === 'BOX') {
@@ -541,14 +551,26 @@ export function AggregatesConfigModal({
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {error && (
-              <div className="mb-4">
-                <Alert type="error" message={error} />
-              </div>
-            )}
+          {error && (
+            <div className="mb-4">
+              <Alert type="error" message={error} />
+            </div>
+          )}
 
-            {loading ? (
-              <div className="py-8 text-center text-[#5F6773]">Cargando agregados...</div>
+          {!loading && materialOptions.length === 0 && (
+            <div className="mb-4">
+              <Alert type="warning" message="No hay materiales en catálogo. Crea primero los materiales en la pestaña Catálogos." />
+            </div>
+          )}
+
+          {!loading && procedenciaOptions.length === 0 && (
+            <div className="mb-4">
+              <Alert type="warning" message="No hay procedencias en catálogo. Crea primero las procedencias en la pestaña Catálogos." />
+            </div>
+          )}
+
+          {loading ? (
+            <div className="py-8 text-center text-[#5F6773]">Cargando agregados...</div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">

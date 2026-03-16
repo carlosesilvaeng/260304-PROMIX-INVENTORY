@@ -368,6 +368,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                     <li>Cada silo puede limitar qué productos aparecen durante el inventario.</li>
                     <li>La plantilla usa la misma estructura para exportar, editar e importar.</li>
                     <li>Productos permitidos se separan con <strong>|</strong> y deben existir como aceites/productos activos.</li>
+                    <li>La curva por defecto solo se autoasigna si la planta tiene exactamente una curva cuyo nombre empiece por <strong>SILO</strong>.</li>
                   </ul>
                 </div>
 

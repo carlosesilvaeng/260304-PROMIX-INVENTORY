@@ -88,6 +88,7 @@ function buildInstructionRows(meta: AdditivesCatalogImportMeta) {
     ['4', 'Unidad es requerida.'],
     ['5', 'Marca es opcional.'],
     ['6', 'La importacion solo crea o actualiza; no elimina filas faltantes.'],
+    ['7', 'Los cambios de nombre, marca y unidad se sincronizan con configuraciones de aditivos que referencian este catálogo.'],
   ];
 }
 

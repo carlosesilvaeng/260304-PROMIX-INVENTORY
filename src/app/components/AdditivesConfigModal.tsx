@@ -223,6 +223,9 @@ export function AdditivesConfigModal({
       if (!row.catalog_additive_id) {
         return `El aditivo en la fila ${index + 1} debe seleccionarse desde el catálogo`;
       }
+      if (!catalogItems.some((item) => item.id === row.catalog_additive_id)) {
+        return `${label}: el aditivo seleccionado ya no existe en el catálogo maestro`;
+      }
 
       if (!row.additive_name.trim()) {
         return `El aditivo en la fila ${index + 1} debe tener nombre`;
@@ -239,6 +242,10 @@ export function AdditivesConfigModal({
 
         if (!row.calibration_curve_name?.trim()) {
           return `${label}: debes seleccionar una curva de conversión`;
+        }
+
+        if (!curveItems.some((curve) => curve.curve_name === row.calibration_curve_name)) {
+          return `${label}: la curva seleccionada ya no existe en esta planta`;
         }
 
         if (!row.reading_uom?.trim()) {
@@ -455,13 +462,13 @@ export function AdditivesConfigModal({
                           </label>
                           <textarea
                             value={row.conversion_table_text}
-                            onChange={(e) => updateRow(index, { conversion_table_text: e.target.value })}
+                            readOnly
                             rows={6}
                             className="w-full rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 font-mono text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
                             placeholder={EMPTY_TANK_TABLE}
                           />
                           <p className="mt-1 text-xs text-[#5F6773]">
-                            Vista previa de la curva seleccionada. Si estás corrigiendo un registro legacy, puedes ajustar el JSON aquí.
+                            Vista sincronizada con la curva seleccionada. Para cambiar tabla o unidad, actualiza el catálogo de curvas o elige otra curva.
                           </p>
                         </div>
                       </div>

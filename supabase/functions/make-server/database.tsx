@@ -33,6 +33,7 @@ const DIESEL_IMPORT_PREVIEW_PREFIX = 'diesel_import_preview:';
 const MATERIALS_IMPORT_PREVIEW_PREFIX = 'materials_import_preview:';
 const PROCEDENCIAS_IMPORT_PREVIEW_PREFIX = 'procedencias_import_preview:';
 const ADDITIVES_CATALOG_IMPORT_PREVIEW_PREFIX = 'additives_catalog_import_preview:';
+const CALIBRATION_CURVES_IMPORT_PREVIEW_PREFIX = 'calibration_curves_import_preview:';
 const CLEANUP_PREVIEW_TTL_MS = 15 * 60 * 1000;
 const MAX_CLEANUP_INVENTORY_MONTHS = 200;
 const MAX_CLEANUP_DISTINCT_MONTHS = 24;
@@ -99,6 +100,15 @@ interface PlantSummaryRow {
   id: string;
   name: string;
   is_active?: boolean;
+}
+
+interface CalibrationCurveRow {
+  id: string;
+  plant_id: string;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom?: string | null;
+  data_points: Record<string, number>;
 }
 
 interface ProductsImportInput {
@@ -375,6 +385,43 @@ interface AdditivesCatalogImportPreviewRecord {
   expires_at: string;
 }
 
+interface CalibrationCurvesImportInput {
+  module?: string;
+  template_version?: string;
+  import_mode?: string;
+  rows?: Array<{
+    row_number?: number;
+    curve_name?: string;
+    measurement_type?: string;
+    reading_uom?: string;
+    data_points_json?: string;
+  }>;
+}
+
+export interface NormalizedCalibrationCurvesImportRow {
+  row_number: number;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom: string | null;
+  data_points: Record<string, number>;
+  action: 'create' | 'update';
+  existing_id?: string;
+  reference_count: number;
+}
+
+interface CalibrationCurvesImportPreviewRecord {
+  token: string;
+  plant_id: string;
+  payload: {
+    module: 'calibration_curves';
+    template_version: string;
+    import_mode: 'upsert';
+    rows: CalibrationCurvesImportInput['rows'];
+  };
+  created_at: string;
+  expires_at: string;
+}
+
 function isValidYearMonth(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value.trim());
 }
@@ -448,6 +495,10 @@ function buildProcedenciasImportPreviewKey(token: string) {
 
 function buildAdditivesCatalogImportPreviewKey(token: string) {
   return `${ADDITIVES_CATALOG_IMPORT_PREVIEW_PREFIX}${token}`;
+}
+
+function buildCalibrationCurvesImportPreviewKey(token: string) {
+  return `${CALIBRATION_CURVES_IMPORT_PREVIEW_PREFIX}${token}`;
 }
 
 function normalizeCleanupFilters(input: CleanupFiltersInput): CleanupFilters {
@@ -594,6 +645,23 @@ function normalizeAdditivesCatalogImportPayload(input: AdditivesCatalogImportInp
           nombre: String(row?.nombre || ''),
           marca: String(row?.marca || ''),
           uom: String(row?.uom || ''),
+        }))
+      : [],
+  };
+}
+
+function normalizeCalibrationCurvesImportPayload(input: CalibrationCurvesImportInput) {
+  return {
+    module: input.module === 'calibration_curves' ? 'calibration_curves' as const : 'calibration_curves' as const,
+    template_version: String(input.template_version || '').trim(),
+    import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
+    rows: Array.isArray(input.rows)
+      ? input.rows.map((row) => ({
+          row_number: Number(row?.row_number || 0),
+          curve_name: String(row?.curve_name || ''),
+          measurement_type: String(row?.measurement_type || ''),
+          reading_uom: String(row?.reading_uom || ''),
+          data_points_json: String(row?.data_points_json || ''),
         }))
       : [],
   };
@@ -753,6 +821,24 @@ function validateAdditivesCatalogImportPayload(input: ReturnType<typeof normaliz
   }
 }
 
+function validateCalibrationCurvesImportPayload(input: ReturnType<typeof normalizeCalibrationCurvesImportPayload>) {
+  if (input.module !== 'calibration_curves') {
+    throw new Error('Solo se admite el modulo calibration_curves en esta version.');
+  }
+
+  if (input.template_version !== '1.0') {
+    throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
+  }
+
+  if (input.import_mode !== 'upsert') {
+    throw new Error('Solo se admite import_mode upsert en esta version.');
+  }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    throw new Error('El archivo no contiene filas para importar.');
+  }
+}
+
 function createEmptyChildCounts() {
   return INVENTORY_CHILD_TABLES.reduce((acc: Record<string, number>, { table }) => {
     acc[table] = 0;
@@ -802,6 +888,169 @@ async function getPlantForConfigCleanup(plantId: string) {
   }
 
   return data as PlantSummaryRow;
+}
+
+function normalizeCurveNameKey(value: string | null | undefined) {
+  return String(value || '').trim().toLowerCase();
+}
+
+async function listPlantCalibrationCurves(plantId: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('calibration_curves')
+    .select('id, plant_id, curve_name, measurement_type, reading_uom, data_points')
+    .eq('plant_id', plantId)
+    .order('curve_name', { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as CalibrationCurveRow[];
+}
+
+function buildCalibrationCurveMap(rows: CalibrationCurveRow[]) {
+  return rows.reduce((acc: Record<string, CalibrationCurveRow>, row) => {
+    acc[normalizeCurveNameKey(row.curve_name)] = row;
+    return acc;
+  }, {});
+}
+
+export async function findPlantCalibrationCurveByName(plantId: string, curveName: string) {
+  const rows = await listPlantCalibrationCurves(plantId);
+  const curve = buildCalibrationCurveMap(rows)[normalizeCurveNameKey(curveName)] || null;
+  return {
+    curve,
+    all: rows,
+  };
+}
+
+function buildCalibrationCurveMapForPackage(rows: CalibrationCurveRow[]) {
+  return rows.reduce((acc: Record<string, CalibrationCurveRow>, row) => {
+    acc[row.id] = row;
+    acc[row.curve_name] = row;
+    return acc;
+  }, {});
+}
+
+function areCalibrationTablesEquivalent(
+  left: Record<string, number> | null | undefined,
+  right: Record<string, number> | null | undefined,
+) {
+  return stableStringify(left || {}) === stableStringify(right || {});
+}
+
+export async function resolveDefaultSiloCalibrationCurve(plantId: string) {
+  const curves = await listPlantCalibrationCurves(plantId);
+  const siloCurves = curves.filter((curve) => normalizeCurveNameKey(curve.curve_name).startsWith('silo'));
+
+  if (siloCurves.length === 1) {
+    return {
+      curve_name: siloCurves[0].curve_name,
+      warning: null,
+      candidates: siloCurves.map((curve) => curve.curve_name),
+    };
+  }
+
+  if (siloCurves.length === 0) {
+    return {
+      curve_name: null,
+      warning: 'La planta no tiene una curva SILO* configurada; los silos quedaron sin calibration_curve_name por defecto.',
+      candidates: [],
+    };
+  }
+
+  return {
+    curve_name: null,
+    warning: `La planta tiene múltiples curvas SILO* (${siloCurves.map((curve) => `"${curve.curve_name}"`).join(', ')}). Los silos no recibieron una calibration_curve_name por defecto para evitar ambigüedad.`,
+    candidates: siloCurves.map((curve) => curve.curve_name),
+  };
+}
+
+export async function getCalibrationCurveById(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('calibration_curves')
+    .select('id, plant_id, curve_name, measurement_type, reading_uom, data_points')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data || null) as CalibrationCurveRow | null;
+}
+
+export async function getCalibrationCurveReferenceSummary(plantId: string, curveName: string) {
+  const supabase = getSupabaseClient();
+  const normalizedKey = normalizeCurveNameKey(curveName);
+
+  const [
+    { data: siloRows, error: silosError },
+    { data: additiveRows, error: additivesError },
+    { data: dieselRows, error: dieselError },
+  ] = await Promise.all([
+    supabase
+      .from('plant_silos_config')
+      .select('calibration_curve_name')
+      .eq('plant_id', plantId)
+      .neq('is_active', false),
+    supabase
+      .from('plant_additives_config')
+      .select('calibration_curve_name')
+      .eq('plant_id', plantId)
+      .neq('is_active', false),
+    supabase
+      .from('plant_diesel_config')
+      .select('calibration_curve_name')
+      .eq('plant_id', plantId)
+      .eq('is_active', true),
+  ]);
+
+  if (silosError) throw silosError;
+  if (additivesError) throw additivesError;
+  if (dieselError) throw dieselError;
+
+  const silos = (siloRows || []).filter((row: any) => normalizeCurveNameKey(row?.calibration_curve_name) === normalizedKey).length;
+  const additives = (additiveRows || []).filter((row: any) => normalizeCurveNameKey(row?.calibration_curve_name) === normalizedKey).length;
+  const diesel = (dieselRows || []).filter((row: any) => normalizeCurveNameKey(row?.calibration_curve_name) === normalizedKey).length;
+
+  return {
+    silos,
+    additives,
+    diesel,
+    total: silos + additives + diesel,
+  };
+}
+
+export async function syncCalibrationCurveConsumers(
+  plantId: string,
+  curveName: string,
+  readingUom: string | null | undefined,
+  dataPoints: Record<string, number>,
+) {
+  const supabase = getSupabaseClient();
+  const normalizedCurveName = String(curveName || '').trim();
+  const normalizedReadingUom = normalizeCatalogOptionalText(readingUom);
+
+  const { error: additivesError } = await supabase
+    .from('plant_additives_config')
+    .update({
+      reading_uom: normalizedReadingUom,
+      conversion_table: dataPoints,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('plant_id', plantId)
+    .eq('calibration_curve_name', normalizedCurveName);
+
+  if (additivesError) throw additivesError;
+
+  const { error: dieselError } = await supabase
+    .from('plant_diesel_config')
+    .update({
+      reading_uom: normalizedReadingUom,
+      calibration_table: dataPoints,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('plant_id', plantId)
+    .eq('calibration_curve_name', normalizedCurveName);
+
+  if (dieselError) throw dieselError;
 }
 
 async function getInventoryMonthCountForPlant(plantId: string) {
@@ -892,6 +1141,289 @@ function parsePipeSeparatedValues(value: string) {
 function normalizeCatalogOptionalText(value: string | null | undefined) {
   const normalized = String(value || '').trim();
   return normalized || null;
+}
+
+function normalizeCatalogNameKey(value: string | null | undefined) {
+  return String(value || '').trim().toLowerCase();
+}
+
+type MaterialCatalogRow = {
+  id: string;
+  nombre: string;
+  clase?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean;
+};
+
+type ProcedenciaCatalogRow = {
+  id: string;
+  nombre: string;
+  sort_order?: number | null;
+  is_active?: boolean;
+};
+
+function buildCatalogNameMap<T extends { nombre: string }>(rows: T[]) {
+  return rows.reduce((acc: Record<string, T>, row) => {
+    acc[normalizeCatalogNameKey(row.nombre)] = row;
+    return acc;
+  }, {});
+}
+
+export async function listMaterialCatalogItems() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('materiales_catalog')
+    .select('id, nombre, clase, sort_order, is_active')
+    .order('sort_order', { ascending: true })
+    .order('nombre', { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as MaterialCatalogRow[];
+}
+
+export async function findMaterialCatalogByName(materialName: string) {
+  const rows = await listMaterialCatalogItems();
+  const material = buildCatalogNameMap(rows)[normalizeCatalogNameKey(materialName)] || null;
+  return {
+    material,
+    all: rows,
+  };
+}
+
+export async function getMaterialCatalogById(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('materiales_catalog')
+    .select('id, nombre, clase, sort_order, is_active')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+export async function listProcedenciaCatalogItems() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('procedencias_catalog')
+    .select('id, nombre, sort_order, is_active')
+    .order('sort_order', { ascending: true })
+    .order('nombre', { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as ProcedenciaCatalogRow[];
+}
+
+export async function findProcedenciaCatalogByName(procedenciaName: string) {
+  const rows = await listProcedenciaCatalogItems();
+  const procedencia = buildCatalogNameMap(rows)[normalizeCatalogNameKey(procedenciaName)] || null;
+  return {
+    procedencia,
+    all: rows,
+  };
+}
+
+export async function getProcedenciaCatalogById(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('procedencias_catalog')
+    .select('id, nombre, sort_order, is_active')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+export async function getAdditiveCatalogById(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('additives_catalog')
+    .select('id, nombre, marca, uom, sort_order, is_active')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+export async function getMaterialCatalogReferenceSummary(materialName: string) {
+  const supabase = getSupabaseClient();
+  const normalizedKey = normalizeCatalogNameKey(materialName);
+  const [{ data: aggregateRows, error: aggregateError }, { data: cajonRows, error: cajonError }] = await Promise.all([
+    supabase
+      .from('plant_aggregates_config')
+      .select('material_type')
+      .neq('is_active', false),
+    supabase
+      .from('plant_cajones_config')
+      .select('material')
+      .neq('is_active', false),
+  ]);
+
+  if (aggregateError) throw aggregateError;
+  if (cajonError) throw cajonError;
+
+  const aggregates = (aggregateRows || []).filter((row: any) => normalizeCatalogNameKey(row?.material_type) === normalizedKey).length;
+  const cajones = (cajonRows || []).filter((row: any) => normalizeCatalogNameKey(row?.material) === normalizedKey).length;
+
+  return {
+    aggregates,
+    cajones,
+    total: aggregates + cajones,
+  };
+}
+
+export async function syncMaterialCatalogConsumers(previousName: string, nextName: string) {
+  const normalizedPrevious = String(previousName || '').trim();
+  const normalizedNext = String(nextName || '').trim();
+  if (!normalizedPrevious || !normalizedNext || normalizedPrevious === normalizedNext) return;
+
+  const supabase = getSupabaseClient();
+  const [{ data: aggregateRows, error: aggregateError }, { data: cajonRows, error: cajonError }] = await Promise.all([
+    supabase
+      .from('plant_aggregates_config')
+      .select('id, material_type')
+      .neq('is_active', false),
+    supabase
+      .from('plant_cajones_config')
+      .select('id, material')
+      .neq('is_active', false),
+  ]);
+
+  if (aggregateError) throw aggregateError;
+  if (cajonError) throw cajonError;
+
+  const aggregateIds = (aggregateRows || [])
+    .filter((row: any) => normalizeCatalogNameKey(row?.material_type) === normalizeCatalogNameKey(normalizedPrevious))
+    .map((row: any) => row.id);
+  const cajonIds = (cajonRows || [])
+    .filter((row: any) => normalizeCatalogNameKey(row?.material) === normalizeCatalogNameKey(normalizedPrevious))
+    .map((row: any) => row.id);
+
+  if (aggregateIds.length > 0) {
+    const { error } = await supabase
+      .from('plant_aggregates_config')
+      .update({ material_type: normalizedNext, updated_at: new Date().toISOString() })
+      .in('id', aggregateIds);
+    if (error) throw error;
+  }
+
+  if (cajonIds.length > 0) {
+    const { error } = await supabase
+      .from('plant_cajones_config')
+      .update({ material: normalizedNext, updated_at: new Date().toISOString() })
+      .in('id', cajonIds);
+    if (error) throw error;
+  }
+}
+
+export async function getProcedenciaCatalogReferenceSummary(procedenciaName: string) {
+  const supabase = getSupabaseClient();
+  const normalizedKey = normalizeCatalogNameKey(procedenciaName);
+  const [{ data: aggregateRows, error: aggregateError }, { data: cajonRows, error: cajonError }] = await Promise.all([
+    supabase
+      .from('plant_aggregates_config')
+      .select('location_area')
+      .neq('is_active', false),
+    supabase
+      .from('plant_cajones_config')
+      .select('procedencia')
+      .neq('is_active', false),
+  ]);
+
+  if (aggregateError) throw aggregateError;
+  if (cajonError) throw cajonError;
+
+  const aggregates = (aggregateRows || []).filter((row: any) => normalizeCatalogNameKey(row?.location_area) === normalizedKey).length;
+  const cajones = (cajonRows || []).filter((row: any) => normalizeCatalogNameKey(row?.procedencia) === normalizedKey).length;
+
+  return {
+    aggregates,
+    cajones,
+    total: aggregates + cajones,
+  };
+}
+
+export async function syncProcedenciaCatalogConsumers(previousName: string, nextName: string) {
+  const normalizedPrevious = String(previousName || '').trim();
+  const normalizedNext = String(nextName || '').trim();
+  if (!normalizedPrevious || !normalizedNext || normalizedPrevious === normalizedNext) return;
+
+  const supabase = getSupabaseClient();
+  const [{ data: aggregateRows, error: aggregateError }, { data: cajonRows, error: cajonError }] = await Promise.all([
+    supabase
+      .from('plant_aggregates_config')
+      .select('id, location_area')
+      .neq('is_active', false),
+    supabase
+      .from('plant_cajones_config')
+      .select('id, procedencia')
+      .neq('is_active', false),
+  ]);
+
+  if (aggregateError) throw aggregateError;
+  if (cajonError) throw cajonError;
+
+  const aggregateIds = (aggregateRows || [])
+    .filter((row: any) => normalizeCatalogNameKey(row?.location_area) === normalizeCatalogNameKey(normalizedPrevious))
+    .map((row: any) => row.id);
+  const cajonIds = (cajonRows || [])
+    .filter((row: any) => normalizeCatalogNameKey(row?.procedencia) === normalizeCatalogNameKey(normalizedPrevious))
+    .map((row: any) => row.id);
+
+  if (aggregateIds.length > 0) {
+    const { error } = await supabase
+      .from('plant_aggregates_config')
+      .update({ location_area: normalizedNext, updated_at: new Date().toISOString() })
+      .in('id', aggregateIds);
+    if (error) throw error;
+  }
+
+  if (cajonIds.length > 0) {
+    const { error } = await supabase
+      .from('plant_cajones_config')
+      .update({ procedencia: normalizedNext, updated_at: new Date().toISOString() })
+      .in('id', cajonIds);
+    if (error) throw error;
+  }
+}
+
+export async function getAdditiveCatalogReferenceSummary(catalogAdditiveId: string) {
+  const supabase = getSupabaseClient();
+  const { count, error } = await supabase
+    .from('plant_additives_config')
+    .select('id', { count: 'exact', head: true })
+    .eq('catalog_additive_id', catalogAdditiveId)
+    .neq('is_active', false);
+
+  if (error) throw error;
+  return {
+    additives: count || 0,
+    total: count || 0,
+  };
+}
+
+export async function syncAdditiveCatalogConsumers(
+  catalogAdditiveId: string,
+  payload: {
+    nombre: string;
+    marca?: string | null;
+    uom: string;
+  },
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from('plant_additives_config')
+    .update({
+      additive_name: payload.nombre,
+      brand: payload.marca || '',
+      uom: payload.uom,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('catalog_additive_id', catalogAdditiveId);
+
+  if (error) throw error;
 }
 
 async function queryInventoryMonths(filters: CleanupFilters, options?: { page?: number; pageSize?: number; countExact?: boolean }) {
@@ -1126,7 +1658,8 @@ export async function getPlantConfigPackage(plantId: string) {
       dieselRes,
       productsRes,
       utilitiesRes,
-      pettyCashRes
+      pettyCashRes,
+      curvesRes,
     ] = await Promise.all([
       supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_silos_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
@@ -1136,7 +1669,8 @@ export async function getPlantConfigPackage(plantId: string) {
       supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
       supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
-      supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single()
+      supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
+      supabase.from('calibration_curves').select('id, plant_id, curve_name, measurement_type, reading_uom, data_points').eq('plant_id', plantId).order('curve_name'),
     ]);
     
     console.log(`📊 [getPlantConfigPackage] Aggregates query result:`, {
@@ -1161,25 +1695,11 @@ export async function getPlantConfigPackage(plantId: string) {
       console.error(`❌ [getPlantConfigPackage] Cajones query error:`, cajonesRes.error);
     }
     
-    // Get unique calibration curve IDs
-    const curveIds = new Set<string>();
-    additivesRes.data?.forEach(a => a.calibration_curve_id && curveIds.add(a.calibration_curve_id));
-    productsRes.data?.forEach(p => p.calibration_curve_id && curveIds.add(p.calibration_curve_id));
-    if (dieselRes.data?.calibration_curve_id) curveIds.add(dieselRes.data.calibration_curve_id);
-    
-    // Fetch calibration curves
-    let calibration_curves = {};
-    if (curveIds.size > 0) {
-      const { data: curves } = await supabase
-        .from('calibration_curves')
-        .select('*')
-        .in('id', Array.from(curveIds));
-      
-      calibration_curves = (curves || []).reduce((acc, curve) => {
-        acc[curve.id] = curve;
-        return acc;
-      }, {});
+    if (curvesRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Calibration curves query error:`, curvesRes.error);
     }
+
+    const calibration_curves = buildCalibrationCurveMapForPackage((curvesRes.data || []) as CalibrationCurveRow[]);
     
     // Format silos with allowed products
     const siloAllowedProductsBySiloId = (siloAllowedProductsRes.data || []).reduce((acc: Record<string, string[]>, row: any) => {
@@ -2144,7 +2664,12 @@ export async function previewAggregatesImport(plantId: string, input: Aggregates
 
   const plant = await getPlantForConfigCleanup(plantId);
   const supabase = getSupabaseClient();
-  const [{ data: aggregateRows, error: aggregateError }, { count: legacyCount, error: legacyError }] = await Promise.all([
+  const [
+    { data: aggregateRows, error: aggregateError },
+    { count: legacyCount, error: legacyError },
+    materialCatalogRows,
+    procedenciaCatalogRows,
+  ] = await Promise.all([
     supabase
       .from('plant_aggregates_config')
       .select('id, aggregate_name, sort_order')
@@ -2153,11 +2678,15 @@ export async function previewAggregatesImport(plantId: string, input: Aggregates
       .from('plant_cajones_config')
       .select('id', { count: 'exact', head: true })
       .eq('plant_id', plantId),
+    listMaterialCatalogItems(),
+    listProcedenciaCatalogItems(),
   ]);
 
   if (aggregateError) throw aggregateError;
   if (legacyError) throw legacyError;
 
+  const materialCatalogByName = buildCatalogNameMap(materialCatalogRows);
+  const procedenciaCatalogByName = buildCatalogNameMap(procedenciaCatalogRows);
   const existingByName = (aggregateRows || []).reduce((acc: Record<string, { id: string; sort_order?: number }>, row: any) => {
     acc[String(row.aggregate_name || '').trim().toLowerCase()] = {
       id: row.id,
@@ -2179,10 +2708,18 @@ export async function previewAggregatesImport(plantId: string, input: Aggregates
     const locationArea = rawRow.location_area.trim();
     const measurementMethod = rawRow.measurement_method.trim().toUpperCase();
     const unit = rawRow.unit.trim() || 'CUBIC_YARDS';
+    const matchedMaterial = materialCatalogByName[normalizeCatalogNameKey(materialType)] || null;
+    const matchedProcedencia = procedenciaCatalogByName[normalizeCatalogNameKey(locationArea)] || null;
 
     if (!aggregateName) rowErrors.push({ column: 'Nombre del agregado', message: 'es requerido' });
     if (!materialType) rowErrors.push({ column: 'Material', message: 'es requerido' });
     if (!locationArea) rowErrors.push({ column: 'Procedencia', message: 'es requerida' });
+    if (materialType && !matchedMaterial) {
+      rowErrors.push({ column: 'Material', message: 'no existe en el catálogo de materiales' });
+    }
+    if (locationArea && !matchedProcedencia) {
+      rowErrors.push({ column: 'Procedencia', message: 'no existe en el catálogo de procedencias' });
+    }
     if (!measurementMethod) rowErrors.push({ column: 'Metodo de medicion', message: 'es requerido' });
     if (measurementMethod && !AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
       rowErrors.push({ column: 'Metodo de medicion', message: `valor invalido. Usa ${AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
@@ -2252,8 +2789,8 @@ export async function previewAggregatesImport(plantId: string, input: Aggregates
     normalizedRows.push({
       row_number: rowNumber,
       aggregate_name: aggregateName,
-      material_type: materialType,
-      location_area: locationArea,
+      material_type: matchedMaterial?.nombre || materialType,
+      location_area: matchedProcedencia?.nombre || locationArea,
       measurement_method: measurementMethod as NormalizedAggregatesImportRow['measurement_method'],
       unit,
       box_width_ft: measurementMethod === 'BOX' ? boxWidthFt : null,
@@ -2422,7 +2959,7 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
 
   const plant = await getPlantForConfigCleanup(plantId);
   const supabase = getSupabaseClient();
-  const [{ data: siloRows, error: siloError }, { data: productRows, error: productError }] = await Promise.all([
+  const [{ data: siloRows, error: siloError }, { data: productRows, error: productError }, defaultCurveInfo] = await Promise.all([
     supabase
       .from('plant_silos_config')
       .select('id, silo_name, sort_order')
@@ -2432,6 +2969,7 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
       .select('product_name')
       .eq('plant_id', plantId)
       .neq('is_active', false),
+    resolveDefaultSiloCalibrationCurve(plantId),
   ]);
 
   if (siloError) throw siloError;
@@ -2522,6 +3060,10 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
 
   if (availableProducts.size === 0) {
     warnings.push('La planta no tiene aceites y productos activos. Solo podras importar silos sin productos permitidos.');
+  }
+
+  if (defaultCurveInfo.warning) {
+    warnings.push(defaultCurveInfo.warning);
   }
 
   return {
@@ -2619,13 +3161,8 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
     return acc;
   }, {});
 
-  const { data: curves } = await supabase
-    .from('calibration_curves')
-    .select('curve_name')
-    .eq('plant_id', plantId)
-    .ilike('curve_name', 'SILO%')
-    .limit(1);
-  const defaultCurve = curves?.[0]?.curve_name ?? null;
+  const defaultCurveInfo = await resolveDefaultSiloCalibrationCurve(plantId);
+  const defaultCurve = defaultCurveInfo.curve_name;
 
   const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
   let nextSortOrder = maxSortOrder + 1;
@@ -2689,8 +3226,8 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
   }
 
   const warnings = [...preview.warnings];
-  if (!defaultCurve) {
-    warnings.push('La planta no tiene una curva SILO* configurada; los silos quedaron sin calibration_curve_name por defecto.');
+  if (defaultCurveInfo.warning) {
+    warnings.push(defaultCurveInfo.warning);
   }
 
   return {
@@ -2710,13 +3247,17 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
 
   const plant = await getPlantForConfigCleanup(plantId);
   const supabase = getSupabaseClient();
-  const { data: existingRow, error } = await supabase
-    .from('plant_diesel_config')
-    .select('id')
-    .eq('plant_id', plantId)
-    .maybeSingle();
+  const [{ data: existingRow, error }, curveRows] = await Promise.all([
+    supabase
+      .from('plant_diesel_config')
+      .select('id')
+      .eq('plant_id', plantId)
+      .maybeSingle(),
+    listPlantCalibrationCurves(plantId),
+  ]);
 
   if (error) throw error;
+  const curvesByName = buildCalibrationCurveMap(curveRows);
 
   const errors: Array<{ row: number; column: string; message: string }> = [];
   const warnings: string[] = [];
@@ -2739,11 +3280,16 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
     const measurementMethod = rawRow.measurement_method.trim().toUpperCase() || 'TANK_LEVEL';
     const readingUom = rawRow.reading_uom.trim();
     const calibrationCurveName = rawRow.calibration_curve_name.trim() || null;
+    const matchedCurve = calibrationCurveName ? curvesByName[normalizeCurveNameKey(calibrationCurveName)] || null : null;
 
     if (measurementMethod && !DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
       rowErrors.push({ column: 'Metodo', message: `valor invalido. Usa ${DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
     }
-    if (!readingUom) rowErrors.push({ column: 'Unidad de lectura', message: 'es requerida' });
+    if (!calibrationCurveName) {
+      rowErrors.push({ column: 'Nombre de curva', message: 'es requerido y debe existir en el catálogo de curvas de esta planta' });
+    } else if (!matchedCurve) {
+      rowErrors.push({ column: 'Nombre de curva', message: `"${calibrationCurveName}" no existe en el catálogo de curvas de esta planta` });
+    }
 
     let tankCapacity: number | null = null;
     let initialInventory: number | null = null;
@@ -2784,6 +3330,19 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
       rowErrors.push({ column: 'Inventario inicial', message: 'no puede ser negativo' });
     }
 
+    const curveReadingUom = normalizeCatalogOptionalText(matchedCurve?.reading_uom);
+    if (matchedCurve && !curveReadingUom) {
+      rowErrors.push({ column: 'Nombre de curva', message: `la curva "${matchedCurve.curve_name}" no tiene unidad de lectura configurada` });
+    }
+
+    if (matchedCurve && readingUom && normalizeCatalogOptionalText(readingUom) !== curveReadingUom) {
+      warnings.push(`Fila ${rowNumber}: la unidad de lectura del archivo no coincide con la curva "${matchedCurve.curve_name}". Se usará "${curveReadingUom}".`);
+    }
+
+    if (matchedCurve && calibrationTable && !areCalibrationTablesEquivalent(calibrationTable, matchedCurve.data_points)) {
+      warnings.push(`Fila ${rowNumber}: la tabla JSON del archivo no coincide con la curva "${matchedCurve.curve_name}". Se usará la tabla definida en el catálogo de curvas.`);
+    }
+
     if (rowErrors.length > 0) {
       rowErrors.forEach((rowError) => {
         errors.push({
@@ -2796,11 +3355,11 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
       normalizedRows.push({
         row_number: rowNumber,
         measurement_method: 'TANK_LEVEL',
-        calibration_curve_name: calibrationCurveName,
-        reading_uom: readingUom,
+        calibration_curve_name: matchedCurve!.curve_name,
+        reading_uom: curveReadingUom!,
         tank_capacity_gallons: tankCapacity!,
         initial_inventory_gallons: initialInventory,
-        calibration_table: calibrationTable!,
+        calibration_table: matchedCurve!.data_points,
         is_active: isActive,
         action: existingRow?.id ? 'update' : 'create',
         existing_id: existingRow?.id,
@@ -3507,10 +4066,256 @@ export async function executeAdditivesCatalogImport(input: AdditivesCatalogImpor
         .update(payloadRow)
         .eq('id', row.existing_id);
       if (updateError) throw updateError;
+      await syncAdditiveCatalogConsumers(row.existing_id, {
+        nombre: row.nombre,
+        marca: row.marca,
+        uom: row.uom,
+      });
       updated += 1;
     } else {
       const { error: insertError } = await supabase
         .from('additives_catalog')
+        .insert(payloadRow);
+      if (insertError) throw insertError;
+      created += 1;
+    }
+  }
+
+  return {
+    ...preview,
+    result: {
+      created,
+      updated,
+    },
+  };
+}
+
+export async function previewCalibrationCurvesImport(plantId: string, input: CalibrationCurvesImportInput) {
+  const payload = normalizeCalibrationCurvesImportPayload(input);
+  validateCalibrationCurvesImportPayload(payload);
+
+  const plant = await getPlantForConfigCleanup(plantId);
+  const supabase = getSupabaseClient();
+  const [
+    { data: existingRows, error: existingError },
+    { data: siloRefs, error: siloError },
+    { data: additiveRefs, error: additiveError },
+    { data: dieselRef, error: dieselError },
+  ] = await Promise.all([
+    supabase
+      .from('calibration_curves')
+      .select('id, curve_name, measurement_type, reading_uom, data_points, plant_id')
+      .eq('plant_id', plantId),
+    supabase
+      .from('plant_silos_config')
+      .select('calibration_curve_name')
+      .eq('plant_id', plantId)
+      .neq('is_active', false),
+    supabase
+      .from('plant_additives_config')
+      .select('calibration_curve_name')
+      .eq('plant_id', plantId)
+      .neq('is_active', false),
+    supabase
+      .from('plant_diesel_config')
+      .select('calibration_curve_name')
+      .eq('plant_id', plantId)
+      .eq('is_active', true)
+      .maybeSingle(),
+  ]);
+
+  if (existingError) throw existingError;
+  if (siloError) throw siloError;
+  if (additiveError) throw additiveError;
+  if (dieselError) throw dieselError;
+
+  const existingByName = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+    acc[String(row.curve_name || '').trim().toLowerCase()] = row;
+    return acc;
+  }, {});
+
+  const referenceCountByName = new Map<string, number>();
+  (siloRefs || []).forEach((row: any) => {
+    const key = String(row?.calibration_curve_name || '').trim().toLowerCase();
+    if (!key) return;
+    referenceCountByName.set(key, (referenceCountByName.get(key) || 0) + 1);
+  });
+  (additiveRefs || []).forEach((row: any) => {
+    const key = String(row?.calibration_curve_name || '').trim().toLowerCase();
+    if (!key) return;
+    referenceCountByName.set(key, (referenceCountByName.get(key) || 0) + 1);
+  });
+  {
+    const key = String(dieselRef?.calibration_curve_name || '').trim().toLowerCase();
+    if (key) {
+      referenceCountByName.set(key, (referenceCountByName.get(key) || 0) + 1);
+    }
+  }
+
+  const seenNames = new Map<string, number>();
+  const normalizedRows: NormalizedCalibrationCurvesImportRow[] = [];
+  const errors: Array<{ row: number; column: string; message: string }> = [];
+  const warnings: string[] = [];
+
+  payload.rows.forEach((rawRow, index) => {
+    const rowNumber = rawRow.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const curveName = rawRow.curve_name.trim();
+    const measurementType = rawRow.measurement_type.trim();
+    const readingUom = normalizeCatalogOptionalText(rawRow.reading_uom);
+    const curveKey = curveName.toLowerCase();
+    let dataPoints: Record<string, number> | null = null;
+
+    if (!curveName) rowErrors.push({ column: 'Nombre de curva', message: 'es requerido' });
+    if (!measurementType) rowErrors.push({ column: 'Metodo de medicion', message: 'es requerido' });
+
+    try {
+      dataPoints = parseCalibrationTableJson(rawRow.data_points_json);
+    } catch (error: any) {
+      rowErrors.push({ column: 'Puntos JSON', message: error.message });
+    }
+
+    if (curveName) {
+      if (seenNames.has(curveKey)) {
+        rowErrors.push({ column: 'Nombre de curva', message: `duplicado dentro del archivo; tambien aparece en la fila ${seenNames.get(curveKey)}` });
+      } else {
+        seenNames.set(curveKey, rowNumber);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      rowErrors.forEach((rowError) => {
+        errors.push({ row: rowNumber, column: rowError.column, message: rowError.message });
+      });
+      return;
+    }
+
+    const existing = existingByName[curveKey];
+    const referenceCount = referenceCountByName.get(curveKey) || 0;
+
+    if (existing && referenceCount > 0) {
+      warnings.push(`Fila ${rowNumber}: "${curveName}" ya está referenciada ${referenceCount} vez/veces. Si confirmas la importación, diesel y aditivos que usan esta curva se resincronizarán con la nueva tabla.`);
+    }
+
+    normalizedRows.push({
+      row_number: rowNumber,
+      curve_name: curveName,
+      measurement_type: measurementType,
+      reading_uom: readingUom,
+      data_points: dataPoints!,
+      action: existing ? 'update' : 'create',
+      existing_id: existing?.id,
+      reference_count: referenceCount,
+    });
+  });
+
+  return {
+    plant: {
+      id: plant.id,
+      name: plant.name,
+    },
+    module: 'calibration_curves' as const,
+    template_version: payload.template_version,
+    import_mode: 'upsert' as const,
+    summary: {
+      total_rows: payload.rows.length,
+      valid_rows: normalizedRows.length,
+      error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
+      creates: normalizedRows.filter((row) => row.action === 'create').length,
+      updates: normalizedRows.filter((row) => row.action === 'update').length,
+      referenced_updates: normalizedRows.filter((row) => row.action === 'update' && row.reference_count > 0).length,
+    },
+    errors,
+    warnings: Array.from(new Set(warnings)),
+    normalized_rows: normalizedRows,
+  };
+}
+
+export async function createCalibrationCurvesImportPreviewToken(plantId: string, previewPayload: CalibrationCurvesImportInput) {
+  const payload = normalizeCalibrationCurvesImportPayload(previewPayload);
+  validateCalibrationCurvesImportPayload(payload);
+
+  const token = crypto.randomUUID();
+  const record: CalibrationCurvesImportPreviewRecord = {
+    token,
+    plant_id: plantId,
+    payload,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CLEANUP_PREVIEW_TTL_MS).toISOString(),
+  };
+
+  await kv.set(buildCalibrationCurvesImportPreviewKey(token), record);
+  return record;
+}
+
+export async function validateCalibrationCurvesImportPreviewToken(plantId: string, token: string, payload: CalibrationCurvesImportInput) {
+  if (!token) {
+    return { valid: false, error: 'Preview token requerido.' };
+  }
+
+  const stored = await kv.get(buildCalibrationCurvesImportPreviewKey(token)) as CalibrationCurvesImportPreviewRecord | null;
+  if (!stored) {
+    return { valid: false, error: 'Preview token no encontrado o expirado.' };
+  }
+
+  if (stored.plant_id !== plantId) {
+    return { valid: false, error: 'La previsualizacion no corresponde a esta planta.' };
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await kv.del(buildCalibrationCurvesImportPreviewKey(token));
+    return { valid: false, error: 'Preview token expirado.' };
+  }
+
+  const normalizedPayload = normalizeCalibrationCurvesImportPayload(payload);
+  validateCalibrationCurvesImportPayload(normalizedPayload);
+
+  if (stableStringify(stored.payload) !== stableStringify(normalizedPayload)) {
+    return { valid: false, error: 'El payload no coincide con la previsualizacion aprobada.' };
+  }
+
+  return {
+    valid: true,
+    payload: stored.payload,
+    expires_at: stored.expires_at,
+  };
+}
+
+export async function consumeCalibrationCurvesImportPreviewToken(token: string) {
+  await kv.del(buildCalibrationCurvesImportPreviewKey(token));
+}
+
+export async function executeCalibrationCurvesImport(plantId: string, input: CalibrationCurvesImportInput) {
+  const preview = await previewCalibrationCurvesImport(plantId, input);
+  if (preview.summary.valid_rows === 0) {
+    throw new Error('No hay filas validas para importar.');
+  }
+
+  const supabase = getSupabaseClient();
+  let created = 0;
+  let updated = 0;
+
+  for (const row of preview.normalized_rows) {
+    const payloadRow = {
+      plant_id: plantId,
+      curve_name: row.curve_name,
+      measurement_type: row.measurement_type,
+      reading_uom: row.reading_uom,
+      data_points: row.data_points,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (row.action === 'update' && row.existing_id) {
+      const { error: updateError } = await supabase
+        .from('calibration_curves')
+        .update(payloadRow)
+        .eq('id', row.existing_id);
+      if (updateError) throw updateError;
+      await syncCalibrationCurveConsumers(plantId, row.curve_name, row.reading_uom, row.data_points);
+      updated += 1;
+    } else {
+      const { error: insertError } = await supabase
+        .from('calibration_curves')
         .insert(payloadRow);
       if (insertError) throw insertError;
       created += 1;
