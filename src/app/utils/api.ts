@@ -289,6 +289,20 @@ export async function getPlantConfig(plantId: string): Promise<ApiResponse<Plant
   return apiRequest(`/plants/${plantId}/config`);
 }
 
+export interface PlantConfigurationCounts {
+  plant_id: string;
+  aggregates: number;
+  silos: number;
+  additives: number;
+  diesel: number;
+  products: number;
+  hasInvalidAggregates: boolean;
+}
+
+export async function getPlantConfigurationCounts(): Promise<ApiResponse<PlantConfigurationCounts[]>> {
+  return apiRequest('/plants/config-counts');
+}
+
 // ============================================================================
 // INVENTORY MONTH API
 // ============================================================================

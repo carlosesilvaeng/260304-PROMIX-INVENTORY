@@ -1048,6 +1048,40 @@ app.post("/make-server/db/clear", async (c) => {
 // PLANT CONFIGURATION ENDPOINTS
 // ============================================================================
 
+app.get("/make-server/plants/config-counts", async (c) => {
+  try {
+    const user = c.get('user');
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+    }
+    const supabase = db.getSupabaseClient();
+
+    let plantsQuery = supabase
+      .from('plants')
+      .select('id')
+      .order('name');
+
+    if (!canAccessAllPlants(user)) {
+      const assignedPlants = Array.isArray(user.assigned_plants) ? user.assigned_plants : [];
+      if (assignedPlants.length === 0) {
+        return c.json({ success: true, data: [] });
+      }
+      plantsQuery = plantsQuery.in('id', assignedPlants);
+    }
+
+    const { data: plants, error: plantsError } = await plantsQuery;
+    if (plantsError) throw plantsError;
+
+    const plantIds = (plants || []).map((plant: { id: string }) => plant.id).filter(Boolean);
+    const counts = await db.listPlantConfigurationCounts(plantIds);
+
+    return c.json({ success: true, data: counts });
+  } catch (error: any) {
+    console.error("❌ Error fetching plant configuration counts:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 app.get("/make-server/plants/:plantId/config", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
@@ -1106,19 +1140,28 @@ app.get("/make-server/plants", async (c) => {
     const { data, error } = await query;
     if (error) throw error;
 
+    const plantIds = (data ?? []).map((plant: any) => plant.id).filter(Boolean);
+    if (plantIds.length === 0) {
+      console.log(`✅ [GET /plants] Returned 0 plants for ${user.email} (${user.role})`);
+      return c.json({ success: true, data: [] });
+    }
+
     // Fetch silos and cajones from configuration tables (source of truth)
     const [{ data: allSilos }, { data: allCajones }, { data: allAggregates }] = await Promise.all([
       supabase
         .from('plant_silos_config')
         .select('plant_id, id, silo_name, is_active, sort_order')
+        .in('plant_id', plantIds)
         .order('sort_order', { ascending: true }),
       supabase
         .from('plant_cajones_config')
         .select('plant_id, id, cajon_name, material, procedencia, box_width_ft, box_height_ft, is_active, sort_order')
+        .in('plant_id', plantIds)
         .order('sort_order', { ascending: true }),
       supabase
         .from('plant_aggregates_config')
-        .select('plant_id, measurement_method, is_active'),
+        .select('plant_id, measurement_method, is_active')
+        .in('plant_id', plantIds),
     ]);
 
     // Merge: replace legacy JSONB fields with normalized configuration tables

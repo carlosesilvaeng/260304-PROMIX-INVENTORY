@@ -1197,6 +1197,13 @@ export function CatalogsPanel() {
   const [aditivos, setAditivos] = useState<AdditiveCatalogItem[]>([]);
   const [curvas, setCurvas] = useState<CalibrationCurveCatalogItem[]>([]);
   const [selectedCurvePlantId, setSelectedCurvePlantId] = useState('');
+  const [loadedSections, setLoadedSections] = useState<Record<CatalogSectionKey, boolean>>({
+    materiales: false,
+    procedencias: false,
+    aditivos: false,
+    curvas: false,
+  });
+  const [loadedCurvesPlantId, setLoadedCurvesPlantId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<CatalogSectionKey>(() => {
     if (typeof window === 'undefined') return 'materiales';
     const stored = window.localStorage.getItem('settings_catalog_active_section');
@@ -1296,6 +1303,9 @@ export function CatalogsPanel() {
     const res = await getMateriales();
     if (res.success) setMateriales(res.data || []);
     else setError('Error cargando materiales: ' + res.error);
+    if (res.success) {
+      setLoadedSections((current) => ({ ...current, materiales: true }));
+    }
     setLoadingMat(false);
   };
 
@@ -1304,6 +1314,9 @@ export function CatalogsPanel() {
     const res = await getProcedencias();
     if (res.success) setProcedencias(res.data || []);
     else setError('Error cargando procedencias: ' + res.error);
+    if (res.success) {
+      setLoadedSections((current) => ({ ...current, procedencias: true }));
+    }
     setLoadingProc(false);
   };
 
@@ -1312,6 +1325,9 @@ export function CatalogsPanel() {
     const res = await getAdditivesCatalog();
     if (res.success) setAditivos(res.data || []);
     else setError('Error cargando aditivos: ' + res.error);
+    if (res.success) {
+      setLoadedSections((current) => ({ ...current, aditivos: true }));
+    }
     setLoadingAditivos(false);
   };
 
@@ -1323,22 +1339,29 @@ export function CatalogsPanel() {
 
     setLoadingCurvas(true);
     const res = await getCalibrationCurvesCatalog(plantId);
-    if (res.success) setCurvas(res.data || []);
+    if (res.success) {
+      setCurvas(res.data || []);
+      setLoadedSections((current) => ({ ...current, curvas: true }));
+      setLoadedCurvesPlantId(plantId);
+    }
     else setError('Error cargando curvas: ' + res.error);
     setLoadingCurvas(false);
   };
 
   useEffect(() => {
-    loadMateriales();
-    loadProcedencias();
-    loadAdditives();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCurvePlantId) {
+    if (activeSection === 'materiales' && !loadedSections.materiales) {
+      loadMateriales();
+    }
+    if (activeSection === 'procedencias' && !loadedSections.procedencias) {
+      loadProcedencias();
+    }
+    if (activeSection === 'aditivos' && !loadedSections.aditivos) {
+      loadAdditives();
+    }
+    if (activeSection === 'curvas' && selectedCurvePlantId && loadedCurvesPlantId !== selectedCurvePlantId) {
       loadCurves(selectedCurvePlantId);
     }
-  }, [selectedCurvePlantId]);
+  }, [activeSection, loadedSections, selectedCurvePlantId, loadedCurvesPlantId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

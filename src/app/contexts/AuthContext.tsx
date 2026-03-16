@@ -102,6 +102,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ============================================================================
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
+const SUPABASE_AUTH_BASE_URL = `https://${projectId}.supabase.co/auth/v1`;
 
 async function callAPI(endpoint: string, method: string = 'GET', body?: any, token?: string) {
   const headers: HeadersInit = {
@@ -157,6 +158,34 @@ async function callAPI(endpoint: string, method: string = 'GET', body?: any, tok
     
     throw error;
   }
+}
+
+async function signInWithSupabasePassword(email: string, password: string) {
+  const response = await fetch(`${SUPABASE_AUTH_BASE_URL}/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': publicAnonKey,
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch (parseError) {
+    console.error('❌ [AuthContext] Failed to parse Supabase Auth login response:', parseError);
+    throw new Error('El servicio de autenticación devolvió una respuesta no válida.');
+  }
+
+  if (!response.ok || !data?.access_token) {
+    const authError = data?.msg || data?.error_description || data?.error || 'Credenciales inválidas';
+    throw new Error(authError);
+  }
+
+  return {
+    accessToken: String(data.access_token),
+  };
 }
 
 // ============================================================================
@@ -319,20 +348,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await callAPI('/auth/login', 'POST', { email, password });
+      const authSession = await signInWithSupabasePassword(email, password);
+      const response = await callAPI('/auth/verify', 'POST', {}, authSession.accessToken);
 
-      if (!response.success || !response.user || !response.access_token) {
-        throw new Error(response.error || 'Error al iniciar sesión');
+      if (!response.success || !response.user) {
+        throw new Error(response.error || 'Error validando la sesión');
+      }
+
+      if (response.user.is_active === false) {
+        throw new Error('Usuario inactivo');
       }
 
       // Guardar usuario y token
       setUser(normalizeUser(response.user));
-      setAccessToken(response.access_token);
-      localStorage.setItem('promix_access_token', response.access_token);
+      setAccessToken(authSession.accessToken);
+      localStorage.setItem('promix_access_token', authSession.accessToken);
       localStorage.setItem('promix_user', JSON.stringify(normalizeUser(response.user)));
 
       // Cargar plantas desde la API
-      await loadPlants(response.access_token);
+      await loadPlants(authSession.accessToken);
 
       console.log('✅ Login exitoso:', response.user.email);
     } catch (error: any) {

@@ -102,6 +102,16 @@ interface PlantSummaryRow {
   is_active?: boolean;
 }
 
+export interface PlantConfigurationCountsRow {
+  plant_id: string;
+  aggregates: number;
+  silos: number;
+  additives: number;
+  diesel: number;
+  products: number;
+  hasInvalidAggregates: boolean;
+}
+
 export interface CalibrationCurvePointInput {
   point_key: number;
   point_value: number;
@@ -1897,7 +1907,6 @@ export async function getPlantConfigPackage(plantId: string) {
     const [
       aggregatesRes,
       silosRes,
-      siloAllowedProductsRes,
       cajonesRes,
       additivesRes,
       dieselRes,
@@ -1908,7 +1917,6 @@ export async function getPlantConfigPackage(plantId: string) {
     ] = await Promise.all([
       supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_silos_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
-      supabase.from('silo_allowed_products').select('silo_config_id, product_name'),
       supabase.from('plant_cajones_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
@@ -1927,13 +1935,9 @@ export async function getPlantConfigPackage(plantId: string) {
     if (aggregatesRes.error) {
       console.error(`❌ [getPlantConfigPackage] Aggregates query error:`, aggregatesRes.error);
     }
-    
+
     if (silosRes.error) {
       console.error(`❌ [getPlantConfigPackage] Silos query error:`, silosRes.error);
-    }
-
-    if (siloAllowedProductsRes.error) {
-      console.error(`❌ [getPlantConfigPackage] Silo allowed products query error:`, siloAllowedProductsRes.error);
     }
 
     if (cajonesRes.error) {
@@ -1941,15 +1945,28 @@ export async function getPlantConfigPackage(plantId: string) {
     }
     
     const calibration_curves = buildCalibrationCurveMapForPackage(curves || []);
+    const siloIds = (silosRes.data || []).map((silo) => silo.id).filter(Boolean);
+    let siloAllowedProductsBySiloId: Record<string, string[]> = {};
+
+    if (siloIds.length > 0) {
+      const { data: siloAllowedProductsRows, error: siloAllowedProductsError } = await supabase
+        .from('silo_allowed_products')
+        .select('silo_config_id, product_name')
+        .in('silo_config_id', siloIds);
+
+      if (siloAllowedProductsError) {
+        console.error(`❌ [getPlantConfigPackage] Silo allowed products query error:`, siloAllowedProductsError);
+      } else {
+        siloAllowedProductsBySiloId = (siloAllowedProductsRows || []).reduce((acc: Record<string, string[]>, row: any) => {
+          if (!row?.silo_config_id || !row?.product_name) return acc;
+          if (!acc[row.silo_config_id]) acc[row.silo_config_id] = [];
+          acc[row.silo_config_id].push(row.product_name);
+          return acc;
+        }, {});
+      }
+    }
     
     // Format silos with allowed products
-    const siloAllowedProductsBySiloId = (siloAllowedProductsRes.data || []).reduce((acc: Record<string, string[]>, row: any) => {
-      if (!row?.silo_config_id || !row?.product_name) return acc;
-      if (!acc[row.silo_config_id]) acc[row.silo_config_id] = [];
-      acc[row.silo_config_id].push(row.product_name);
-      return acc;
-    }, {});
-
     const silos = (silosRes.data || []).map(silo => ({
       ...silo,
       allowed_products: siloAllowedProductsBySiloId[silo.id] || []
@@ -1982,6 +1999,116 @@ export async function getPlantConfigPackage(plantId: string) {
     console.error('Error fetching plant configuration:', error);
     throw error;
   }
+}
+
+export async function listPlantConfigurationCounts(plantIds: string[]) {
+  if (plantIds.length === 0) {
+    return [] as PlantConfigurationCountsRow[];
+  }
+
+  const supabase = getSupabaseClient();
+  const [
+    { data: aggregatesRows, error: aggregatesError },
+    { data: cajonesRows, error: cajonesError },
+    { data: silosRows, error: silosError },
+    { data: additivesRows, error: additivesError },
+    { data: dieselRows, error: dieselError },
+    { data: productsRows, error: productsError },
+  ] = await Promise.all([
+    supabase
+      .from('plant_aggregates_config')
+      .select('plant_id, measurement_method, box_width_ft, box_height_ft')
+      .in('plant_id', plantIds)
+      .neq('is_active', false),
+    supabase
+      .from('plant_cajones_config')
+      .select('plant_id, box_width_ft, box_height_ft')
+      .in('plant_id', plantIds)
+      .neq('is_active', false),
+    supabase
+      .from('plant_silos_config')
+      .select('plant_id')
+      .in('plant_id', plantIds)
+      .neq('is_active', false),
+    supabase
+      .from('plant_additives_config')
+      .select('plant_id')
+      .in('plant_id', plantIds)
+      .neq('is_active', false),
+    supabase
+      .from('plant_diesel_config')
+      .select('plant_id')
+      .in('plant_id', plantIds)
+      .eq('is_active', true),
+    supabase
+      .from('plant_products_config')
+      .select('plant_id')
+      .in('plant_id', plantIds)
+      .neq('is_active', false),
+  ]);
+
+  [
+    aggregatesError,
+    cajonesError,
+    silosError,
+    additivesError,
+    dieselError,
+    productsError,
+  ].forEach((error) => {
+    if (error) throw error;
+  });
+
+  const countByPlant = (rows: Array<{ plant_id: string }> | null | undefined) =>
+    (rows || []).reduce((acc: Record<string, number>, row) => {
+      const plantId = String(row?.plant_id || '');
+      if (!plantId) return acc;
+      acc[plantId] = (acc[plantId] || 0) + 1;
+      return acc;
+    }, {});
+
+  const invalidAggregatesByPlant = (aggregatesRows || []).reduce((acc: Record<string, boolean>, row: any) => {
+    const plantId = String(row?.plant_id || '');
+    if (!plantId) return acc;
+    const measurementMethod = String(row?.measurement_method || 'BOX').toUpperCase();
+    if (measurementMethod !== 'BOX') return acc;
+    if (Number(row?.box_width_ft ?? 0) <= 0 || Number(row?.box_height_ft ?? 0) <= 0) {
+      acc[plantId] = true;
+    }
+    return acc;
+  }, {});
+
+  const invalidCajonesByPlant = (cajonesRows || []).reduce((acc: Record<string, boolean>, row: any) => {
+    const plantId = String(row?.plant_id || '');
+    if (!plantId) return acc;
+    if (Number(row?.box_width_ft ?? 0) <= 0 || Number(row?.box_height_ft ?? 0) <= 0) {
+      acc[plantId] = true;
+    }
+    return acc;
+  }, {});
+
+  const aggregatesCountByPlant = countByPlant(aggregatesRows as Array<{ plant_id: string }> | null);
+  const cajonesCountByPlant = countByPlant(cajonesRows as Array<{ plant_id: string }> | null);
+  const silosCountByPlant = countByPlant(silosRows);
+  const additivesCountByPlant = countByPlant(additivesRows);
+  const dieselCountByPlant = countByPlant(dieselRows);
+  const productsCountByPlant = countByPlant(productsRows);
+
+  return plantIds.map((plantId) => {
+    const aggregateCount = aggregatesCountByPlant[plantId] || 0;
+    const cajonesCount = cajonesCountByPlant[plantId] || 0;
+
+    return {
+      plant_id: plantId,
+      aggregates: aggregateCount > 0 ? aggregateCount : cajonesCount,
+      silos: silosCountByPlant[plantId] || 0,
+      additives: additivesCountByPlant[plantId] || 0,
+      diesel: dieselCountByPlant[plantId] || 0,
+      products: productsCountByPlant[plantId] || 0,
+      hasInvalidAggregates: aggregateCount > 0
+        ? Boolean(invalidAggregatesByPlant[plantId])
+        : Boolean(invalidCajonesByPlant[plantId]),
+    } satisfies PlantConfigurationCountsRow;
+  });
 }
 
 // ============================================================================

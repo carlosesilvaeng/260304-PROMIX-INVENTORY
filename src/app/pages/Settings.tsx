@@ -12,7 +12,7 @@ import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
 import { DataControlPanel } from './settings/DataControlPanel';
-import { getPlantConfig } from '../utils/api';
+import { getPlantConfigurationCounts } from '../utils/api';
 import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
 import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
@@ -44,38 +44,6 @@ const EMPTY_MODULE_COUNTS: PlantModuleCounts = {
   products: 0,
   hasInvalidAggregates: false,
 };
-
-function countActiveEntries(entries: any[] | undefined) {
-  return (entries || []).filter((entry) => entry?.is_active !== false).length;
-}
-
-function hasActiveDieselConfig(diesel: any) {
-  if (!diesel || typeof diesel !== 'object') return false;
-  return Object.keys(diesel).length > 0 && diesel.is_active !== false;
-}
-
-function getAggregateCountWithLegacyFallback(config: { aggregates?: any[]; cajones?: any[] }) {
-  const aggregateCount = countActiveEntries(config.aggregates);
-  if (aggregateCount > 0) return aggregateCount;
-  return countActiveEntries(config.cajones);
-}
-
-function hasInvalidAggregateDimensions(config: { aggregates?: any[]; cajones?: any[] }) {
-  const activeAggregates = (config.aggregates || []).filter((entry) => entry?.is_active !== false);
-  if (activeAggregates.length > 0) {
-    return activeAggregates.some((entry) => {
-      const measurementMethod = String(entry?.measurement_method || 'BOX').toUpperCase();
-      if (measurementMethod !== 'BOX') return false;
-      return Number(entry?.box_width_ft ?? 0) <= 0 || Number(entry?.box_height_ft ?? 0) <= 0;
-    });
-  }
-
-  return (config.cajones || []).some((entry) => {
-    const width = Number(entry?.ancho ?? entry?.box_width_ft ?? 0);
-    const height = Number(entry?.alto ?? entry?.box_height_ft ?? 0);
-    return width <= 0 || height <= 0;
-  });
-}
 
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
@@ -128,62 +96,42 @@ export function Settings() {
     setTimeout(() => setShowSaveSuccess(false), 3000);
   };
 
-  const loadPlantModuleCounts = async (plants: Plant[]) => {
-    if (plants.length === 0) {
+  const loadPlantModuleCounts = async () => {
+    if (allPlants.length === 0) {
       setPlantModuleCounts({});
       return;
     }
 
-    const results = await Promise.all(
-      plants.map(async (plant) => {
-        try {
-          const response = await getPlantConfig(plant.id);
-          if (!response.success || !response.data) {
-            return [
-              plant.id,
-              {
-                ...EMPTY_MODULE_COUNTS,
-                silos: plant.silos.length,
-              },
-            ] as const;
-          }
+    try {
+      const response = await getPlantConfigurationCounts();
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'No se pudo cargar el resumen de configuraciones.');
+      }
 
-          return [
-            plant.id,
+      setPlantModuleCounts(
+        Object.fromEntries(
+          response.data.map((row) => [
+            row.plant_id,
             {
-              aggregates: getAggregateCountWithLegacyFallback({
-                aggregates: response.data.aggregates,
-                cajones: response.data.cajones ?? plant.cajones,
-              }),
-              silos: countActiveEntries(response.data.silos),
-              additives: countActiveEntries(response.data.additives),
-              diesel: hasActiveDieselConfig(response.data.diesel) ? 1 : 0,
-              products: countActiveEntries(response.data.products),
-              hasInvalidAggregates: hasInvalidAggregateDimensions({
-                aggregates: response.data.aggregates,
-                cajones: response.data.cajones ?? plant.cajones,
-              }),
+              aggregates: row.aggregates,
+              silos: row.silos,
+              additives: row.additives,
+              diesel: row.diesel,
+              products: row.products,
+              hasInvalidAggregates: row.hasInvalidAggregates,
             },
-          ] as const;
-        } catch (error) {
-          console.error(`❌ Error cargando conteos de configuración para ${plant.name}:`, error);
-          return [
-            plant.id,
-            {
-              ...EMPTY_MODULE_COUNTS,
-              silos: plant.silos.length,
-            },
-          ] as const;
-        }
-      })
-    );
-
-    setPlantModuleCounts(Object.fromEntries(results));
+          ])
+        )
+      );
+    } catch (error) {
+      console.error('❌ Error cargando conteos de configuración:', error);
+      setPlantModuleCounts({});
+    }
   };
 
   useEffect(() => {
     if (!canManagePlants || activeTab !== 'plants') return;
-    loadPlantModuleCounts(allPlants);
+    loadPlantModuleCounts();
   }, [activeTab, allPlants, canManagePlants]);
 
   const getCountsForPlant = (plant: Plant) => {
@@ -601,7 +549,7 @@ export function Settings() {
               .catch((error) => {
                 console.error('❌ Error recargando plantas tras guardar agregados:', error);
               })
-              .then(() => loadPlantModuleCounts(allPlants))
+              .then(() => loadPlantModuleCounts())
               .finally(() => {
                 setEditingAggregates(null);
                 handleSave();
@@ -617,7 +565,7 @@ export function Settings() {
           plant={editingSilos}
           onSaved={() => {
             setEditingSilos(null);
-            loadPlantModuleCounts(allPlants);
+            loadPlantModuleCounts();
             handleSave();
           }}
           onClose={() => setEditingSilos(null)}
@@ -629,7 +577,7 @@ export function Settings() {
           plant={editingAdditives}
           onSaved={() => {
             setEditingAdditives(null);
-            loadPlantModuleCounts(allPlants);
+            loadPlantModuleCounts();
             handleSave();
           }}
           onClose={() => setEditingAdditives(null)}
@@ -641,7 +589,7 @@ export function Settings() {
           plant={editingDiesel}
           onSaved={() => {
             setEditingDiesel(null);
-            loadPlantModuleCounts(allPlants);
+            loadPlantModuleCounts();
             handleSave();
           }}
           onClose={() => setEditingDiesel(null)}
@@ -653,7 +601,7 @@ export function Settings() {
           plant={editingProducts}
           onSaved={() => {
             setEditingProducts(null);
-            loadPlantModuleCounts(allPlants);
+            loadPlantModuleCounts();
             handleSave();
           }}
           onClose={() => setEditingProducts(null)}
