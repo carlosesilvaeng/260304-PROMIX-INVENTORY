@@ -42,8 +42,9 @@ import {
   type AdditivesCatalogImportExecuteResponse,
   type AdditivesCatalogImportPreviewResponse,
   type AdditivesCatalogImportRowPayload,
+  type CalibrationCurvesImportCurvePayload,
+  type CalibrationCurvesImportPointPayload,
   type CalibrationCurvesImportPreviewResponse,
-  type CalibrationCurvesImportRowPayload,
   type CalibrationCurveCatalogItem,
   type MaterialCatalogItem,
   type MaterialsImportExecuteResponse,
@@ -766,12 +767,126 @@ function AdditiveCatalogTable({
   );
 }
 
-function parseCurveText(raw: string): Record<string, number> {
-  const parsed = JSON.parse(raw);
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
-    throw new Error('La curva debe ser un JSON con puntos de lectura');
+type EditableCurvePoint = {
+  id: string;
+  point_key: string;
+  point_value: string;
+};
+
+function createEditableCurvePoint(point?: { point_key?: number; point_value?: number }): EditableCurvePoint {
+  return {
+    id: crypto.randomUUID(),
+    point_key: point?.point_key !== undefined ? String(point.point_key) : '',
+    point_value: point?.point_value !== undefined ? String(point.point_value) : '',
+  };
+}
+
+function normalizeCurvePoints(points: EditableCurvePoint[]) {
+  const normalized = points
+    .map((point, index) => {
+      const rawKey = point.point_key.trim();
+      const rawValue = point.point_value.trim();
+      if (!rawKey && !rawValue) return null;
+      if (!rawKey || !rawValue) {
+        throw new Error(`Completa Key y Value en el punto ${index + 1}`);
+      }
+
+      const pointKey = Number(rawKey);
+      const pointValue = Number(rawValue);
+      if (!Number.isFinite(pointKey)) {
+        throw new Error(`Key inválido en el punto ${index + 1}`);
+      }
+      if (!Number.isFinite(pointValue)) {
+        throw new Error(`Value inválido en el punto ${index + 1}`);
+      }
+
+      return {
+        point_key: pointKey,
+        point_value: pointValue,
+      };
+    })
+    .filter((point): point is { point_key: number; point_value: number } => point !== null)
+    .sort((left, right) => left.point_key - right.point_key);
+
+  if (normalized.length === 0) {
+    throw new Error('La curva debe tener al menos un punto');
   }
-  return parsed;
+
+  for (let index = 1; index < normalized.length; index += 1) {
+    if (normalized[index - 1].point_key === normalized[index].point_key) {
+      throw new Error(`Key duplicado: ${normalized[index].point_key}`);
+    }
+  }
+
+  return normalized;
+}
+
+function formatCurvePointSummary(points: Array<{ point_key: number; point_value: number }>) {
+  if (!points.length) return '0 puntos';
+  const sorted = [...points].sort((left, right) => left.point_key - right.point_key);
+  const first = sorted[0]?.point_key;
+  const last = sorted[sorted.length - 1]?.point_key;
+  if (first === last) {
+    return `${sorted.length} punto${sorted.length === 1 ? '' : 's'} · ${first}`;
+  }
+  return `${sorted.length} puntos · ${first} → ${last}`;
+}
+
+function CurvePointsEditor({
+  points,
+  onChange,
+}: {
+  points: EditableCurvePoint[];
+  onChange: (points: EditableCurvePoint[]) => void;
+}) {
+  const handlePointChange = (id: string, field: 'point_key' | 'point_value', value: string) => {
+    onChange(points.map((point) => (point.id === id ? { ...point, [field]: value } : point)));
+  };
+
+  const handleAddPoint = () => {
+    onChange([...points, createEditableCurvePoint()]);
+  };
+
+  const handleRemovePoint = (id: string) => {
+    onChange(points.filter((point) => point.id !== id));
+  };
+
+  return (
+    <div className="space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-[#5F6773]">
+        <span>Key</span>
+        <span>Value</span>
+        <span />
+      </div>
+      {points.map((point) => (
+        <div key={point.id} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <input
+            type="text"
+            value={point.point_key}
+            onChange={(e) => handlePointChange(point.id, 'point_key', e.target.value)}
+            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="0"
+          />
+          <input
+            type="text"
+            value={point.point_value}
+            onChange={(e) => handlePointChange(point.id, 'point_value', e.target.value)}
+            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="0"
+          />
+          <Button variant="ghost" size="sm" onClick={() => handleRemovePoint(point.id)}>
+            ✕
+          </Button>
+        </div>
+      ))}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-[#5F6773]">{points.length} punto{points.length === 1 ? '' : 's'} en edición</span>
+        <Button variant="ghost" size="sm" onClick={handleAddPoint}>
+          + Punto
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function CalibrationCurvesTable({
@@ -798,13 +913,13 @@ function CalibrationCurvesTable({
     curve_name: string;
     measurement_type: string;
     reading_uom: string;
-    data_points: Record<string, number>;
+    points: Array<{ point_key: number; point_value: number }>;
   }) => Promise<void>;
   onUpdate: (id: string, payload: {
     curve_name: string;
     measurement_type: string;
     reading_uom: string;
-    data_points: Record<string, number>;
+    points: Array<{ point_key: number; point_value: number }>;
   }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
@@ -812,11 +927,11 @@ function CalibrationCurvesTable({
   const [editCurveName, setEditCurveName] = useState('');
   const [editMeasurementType, setEditMeasurementType] = useState('TANK_LEVEL');
   const [editReadingUom, setEditReadingUom] = useState('');
-  const [editDataPoints, setEditDataPoints] = useState('');
+  const [editPoints, setEditPoints] = useState<EditableCurvePoint[]>([createEditableCurvePoint()]);
   const [newCurveName, setNewCurveName] = useState('');
   const [newMeasurementType, setNewMeasurementType] = useState('TANK_LEVEL');
   const [newReadingUom, setNewReadingUom] = useState('');
-  const [newDataPoints, setNewDataPoints] = useState('{\n  "0": 0\n}');
+  const [newPoints, setNewPoints] = useState<EditableCurvePoint[]>([createEditableCurvePoint({ point_key: 0, point_value: 0 })]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -825,7 +940,7 @@ function CalibrationCurvesTable({
     setEditCurveName(item.curve_name);
     setEditMeasurementType(item.measurement_type);
     setEditReadingUom(item.reading_uom || '');
-    setEditDataPoints(JSON.stringify(item.data_points || {}, null, 2));
+    setEditPoints((item.points || []).map((point) => createEditableCurvePoint(point)));
     setConfirmDeleteId(null);
   };
 
@@ -834,7 +949,7 @@ function CalibrationCurvesTable({
     setEditCurveName('');
     setEditMeasurementType('TANK_LEVEL');
     setEditReadingUom('');
-    setEditDataPoints('');
+    setEditPoints([createEditableCurvePoint()]);
   };
 
   const handleSaveEdit = async () => {
@@ -845,7 +960,7 @@ function CalibrationCurvesTable({
         curve_name: editCurveName.trim(),
         measurement_type: editMeasurementType.trim(),
         reading_uom: editReadingUom.trim(),
-        data_points: parseCurveText(editDataPoints),
+        points: normalizeCurvePoints(editPoints),
       });
       cancelEdit();
     } catch (error) {
@@ -864,12 +979,12 @@ function CalibrationCurvesTable({
         curve_name: newCurveName.trim(),
         measurement_type: newMeasurementType.trim(),
         reading_uom: newReadingUom.trim(),
-        data_points: parseCurveText(newDataPoints),
+        points: normalizeCurvePoints(newPoints),
       });
       setNewCurveName('');
       setNewMeasurementType('TANK_LEVEL');
       setNewReadingUom('');
-      setNewDataPoints('{\n  "0": 0\n}');
+      setNewPoints([createEditableCurvePoint({ point_key: 0, point_value: 0 })]);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error validando la curva');
     } finally {
@@ -986,15 +1101,15 @@ function CalibrationCurvesTable({
                     </td>
                     <td className="px-4 py-2">
                       {editingId === item.id ? (
-                        <textarea
-                          value={editDataPoints}
-                          onChange={(e) => setEditDataPoints(e.target.value)}
-                          rows={6}
-                          className="w-full rounded border border-[#2475C7] bg-white px-2 py-1 font-mono text-xs text-[#3B3A36] focus:outline-none"
-                        />
+                        <CurvePointsEditor points={editPoints} onChange={setEditPoints} />
                       ) : (
-                        <div className="max-w-[260px] break-all whitespace-pre-wrap rounded bg-[#F2F3F5] px-2 py-1 font-mono text-xs text-[#5F6773]">
-                          {JSON.stringify(item.data_points || {})}
+                        <div className="space-y-1">
+                          <div className="inline-flex rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+                            {item.point_count || item.points.length} punto{(item.point_count || item.points.length) === 1 ? '' : 's'}
+                          </div>
+                          <div className="text-xs text-[#5F6773]">
+                            {formatCurvePointSummary(item.points || [])}
+                          </div>
                         </div>
                       )}
                     </td>
@@ -1062,13 +1177,7 @@ function CalibrationCurvesTable({
                 className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
               />
             </div>
-            <textarea
-              value={newDataPoints}
-              onChange={(e) => setNewDataPoints(e.target.value)}
-              rows={6}
-              className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 font-mono text-xs text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
-              placeholder='{"0": 0, "6": 250, "12": 520}'
-            />
+            <CurvePointsEditor points={newPoints} onChange={setNewPoints} />
             <div className="flex justify-end">
               <Button variant="secondary" size="sm" onClick={handleAdd} disabled={saving || !selectedPlantId || !newCurveName.trim()}>
                 + Agregar Curva
@@ -1162,7 +1271,8 @@ export function CatalogsPanel() {
     module: 'calibration_curves';
     template_version: string;
     import_mode: 'upsert';
-    rows: CalibrationCurvesImportRowPayload[];
+    curves: CalibrationCurvesImportCurvePayload[];
+    points: CalibrationCurvesImportPointPayload[];
   } | null>(null);
   const curvesFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1586,7 +1696,7 @@ export function CatalogsPanel() {
         curve_name: item.curve_name,
         measurement_type: item.measurement_type,
         reading_uom: item.reading_uom || null,
-        data_points: item.data_points || {},
+        points: item.points || [],
       }));
       await downloadCalibrationCurvesImportWorkbook({
         plant: selectedCurvePlant,
@@ -1623,12 +1733,17 @@ export function CatalogsPanel() {
         module: CALIBRATION_CURVES_IMPORT_MODULE,
         template_version: CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION,
         import_mode: 'upsert' as const,
-        rows: parsed.rows.map((row) => ({
+        curves: parsed.curves.map((row) => ({
           row_number: row.row_number,
           curve_name: row.curve_name,
           measurement_type: row.measurement_type,
           reading_uom: row.reading_uom,
-          data_points_json: row.data_points_json,
+        })),
+        points: parsed.points.map((point) => ({
+          row_number: point.row_number,
+          curve_name: point.curve_name,
+          point_key: point.point_key,
+          point_value: point.point_value,
         })),
       };
 
@@ -1734,7 +1849,7 @@ export function CatalogsPanel() {
     curve_name: string;
     measurement_type: string;
     reading_uom: string;
-    data_points: Record<string, number>;
+    points: Array<{ point_key: number; point_value: number }>;
   }) => {
     const res = await createCalibrationCurveCatalogItem(payload);
     if (res.success) await loadCurves(payload.plant_id);
@@ -1747,7 +1862,7 @@ export function CatalogsPanel() {
       curve_name: string;
       measurement_type: string;
       reading_uom: string;
-      data_points: Record<string, number>;
+      points: Array<{ point_key: number; point_value: number }>;
     }
   ) => {
     const res = await updateCalibrationCurveCatalogItem(id, payload);

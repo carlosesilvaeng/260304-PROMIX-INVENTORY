@@ -548,15 +548,26 @@ export interface CalibrationCurveCatalogItem {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  points: Array<{
+    point_key: number;
+    point_value: number;
+  }>;
+  point_count: number;
   data_points: Record<string, number>;
 }
 
-export interface CalibrationCurvesImportRowPayload {
+export interface CalibrationCurvesImportCurvePayload {
   row_number: number;
   curve_name: string;
   measurement_type: string;
   reading_uom: string;
-  data_points_json: string;
+}
+
+export interface CalibrationCurvesImportPointPayload {
+  row_number: number;
+  curve_name: string;
+  point_key: string;
+  point_value: string;
 }
 
 export interface CalibrationCurvesImportPreviewResponse {
@@ -847,7 +858,11 @@ export async function createCalibrationCurveCatalogItem(data: {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
-  data_points: Record<string, number>;
+  points: Array<{
+    point_key: number;
+    point_value: number;
+  }>;
+  data_points?: Record<string, number>;
 }): Promise<ApiResponse<CalibrationCurveCatalogItem>> {
   return apiRequest('/catalogs/calibration-curves', 'POST', data);
 }
@@ -859,6 +874,10 @@ export async function updateCalibrationCurveCatalogItem(
     curve_name?: string;
     measurement_type?: string;
     reading_uom?: string | null;
+    points?: Array<{
+      point_key: number;
+      point_value: number;
+    }>;
     data_points?: Record<string, number>;
   }
 ): Promise<ApiResponse<CalibrationCurveCatalogItem>> {
@@ -876,7 +895,8 @@ export async function previewCalibrationCurvesImport(
     module: 'calibration_curves';
     template_version: string;
     import_mode: 'upsert';
-    rows: CalibrationCurvesImportRowPayload[];
+    curves: CalibrationCurvesImportCurvePayload[];
+    points: CalibrationCurvesImportPointPayload[];
   }
 ): Promise<ApiResponse<CalibrationCurvesImportPreviewResponse>> {
   return apiRequest(`/catalogs/calibration-curves/import/preview?plant_id=${encodeURIComponent(plantId)}`, 'POST', payload);
@@ -888,7 +908,8 @@ export async function executeCalibrationCurvesImport(
     module: 'calibration_curves';
     template_version: string;
     import_mode: 'upsert';
-    rows: CalibrationCurvesImportRowPayload[];
+    curves: CalibrationCurvesImportCurvePayload[];
+    points: CalibrationCurvesImportPointPayload[];
     preview_token: string;
     reason: string;
   }

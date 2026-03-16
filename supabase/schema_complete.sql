@@ -125,6 +125,16 @@ CREATE TABLE IF NOT EXISTS calibration_curves (
   UNIQUE (plant_id, curve_name)
 );
 
+CREATE TABLE IF NOT EXISTS calibration_curve_points (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  curve_id TEXT NOT NULL REFERENCES calibration_curves(id) ON DELETE CASCADE,
+  point_key NUMERIC NOT NULL,
+  point_value NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (curve_id, point_key)
+);
+
 CREATE TABLE IF NOT EXISTS plant_aggregates_config (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   plant_id TEXT NOT NULL,

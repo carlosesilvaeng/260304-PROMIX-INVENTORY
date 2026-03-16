@@ -1,16 +1,22 @@
 import type { Plant } from '../contexts/AuthContext';
 
-export const CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION = '1.0';
+export const CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION = '2.0';
 export const CALIBRATION_CURVES_IMPORT_MODULE = 'calibration_curves';
-export const CALIBRATION_CURVES_IMPORT_SHEET_NAME = 'Datos';
+export const CALIBRATION_CURVES_IMPORT_CURVES_SHEET = 'Curvas';
+export const CALIBRATION_CURVES_IMPORT_POINTS_SHEET = 'Puntos';
 export const CALIBRATION_CURVES_IMPORT_INSTRUCTIONS_SHEET = 'Instrucciones';
 export const CALIBRATION_CURVES_IMPORT_META_SHEET = 'Meta';
+
+export interface CalibrationCurveWorkbookPoint {
+  point_key: number;
+  point_value: number;
+}
 
 export interface CalibrationCurvesImportWorkbookRow {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
-  data_points: Record<string, number>;
+  points: CalibrationCurveWorkbookPoint[];
 }
 
 export interface CalibrationCurvesImportMeta {
@@ -23,23 +29,21 @@ export interface CalibrationCurvesImportMeta {
 }
 
 type ColumnDefinition = {
-  key: keyof CalibrationCurvesImportWorkbookExportRow;
+  key: string;
   label: string;
   width: number;
 };
 
-export interface CalibrationCurvesImportWorkbookExportRow {
-  curve_name: string;
-  measurement_type: string;
-  reading_uom: string;
-  data_points_json: string;
-}
-
-export const CALIBRATION_CURVES_IMPORT_COLUMNS: ColumnDefinition[] = [
+export const CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS: ColumnDefinition[] = [
   { key: 'curve_name', label: 'Nombre de curva', width: 30 },
   { key: 'measurement_type', label: 'Metodo de medicion', width: 22 },
   { key: 'reading_uom', label: 'Unidad de lectura', width: 20 },
-  { key: 'data_points_json', label: 'Puntos JSON', width: 44 },
+];
+
+export const CALIBRATION_CURVES_IMPORT_POINT_COLUMNS: ColumnDefinition[] = [
+  { key: 'curve_name', label: 'Nombre de curva', width: 30 },
+  { key: 'point_key', label: 'Key', width: 16 },
+  { key: 'point_value', label: 'Value', width: 16 },
 ];
 
 const SECTION_FILL = {
@@ -61,18 +65,8 @@ const THIN_BORDER = {
   right: { style: 'thin' },
 } as const;
 
-function stringifyCurve(value: Record<string, number> | null | undefined) {
-  if (!value || Object.keys(value).length === 0) return '';
-  return JSON.stringify(value, null, 2);
-}
-
-function toExportRows(rows: CalibrationCurvesImportWorkbookRow[]): CalibrationCurvesImportWorkbookExportRow[] {
-  return rows.map((row) => ({
-    curve_name: row.curve_name || '',
-    measurement_type: row.measurement_type || '',
-    reading_uom: row.reading_uom || '',
-    data_points_json: stringifyCurve(row.data_points),
-  }));
+function sortPoints(points: CalibrationCurveWorkbookPoint[]) {
+  return [...points].sort((left, right) => left.point_key - right.point_key);
 }
 
 function downloadBuffer(buffer: ArrayBuffer, fileName: string) {
@@ -96,15 +90,31 @@ function buildInstructionRows(meta: CalibrationCurvesImportMeta) {
     ['Generado', new Date(meta.generated_at).toLocaleString('es-PR')],
     ['', ''],
     ['Reglas generales', ''],
-    ['1', 'No cambies los encabezados de la hoja Datos.'],
+    ['1', 'No cambies los encabezados de las hojas Curvas y Puntos.'],
     ['2', 'La plantilla solo aplica a esta planta.'],
     ['3', 'La importación trabaja en modo upsert por Nombre de curva.'],
-    ['4', 'Si cambias el nombre de una curva existente, el sistema lo tratará como una curva nueva.'],
-    ['5', 'Puntos JSON debe ser un objeto JSON válido con pares lectura:valor.'],
-    ['6', 'La importación no elimina curvas faltantes del archivo.'],
-    ['7', 'Si una curva ya es usada por diesel o aditivos, el preview avisará y esas configuraciones se resincronizarán con la nueva tabla al ejecutar la importación.'],
-    ['8', 'Las curvas que ya están en uso no pueden renombrarse ni eliminarse desde el sistema.'],
+    ['4', 'Cada curva en la hoja Curvas debe tener al menos un punto en la hoja Puntos.'],
+    ['5', 'Cada fila de la hoja Puntos debe referenciar una curva existente en la hoja Curvas.'],
+    ['6', 'Key y Value deben ser numéricos.'],
+    ['7', 'No se permiten Keys duplicados dentro de la misma curva.'],
+    ['8', 'La importación no elimina curvas faltantes del archivo.'],
+    ['9', 'Si una curva ya es usada por diesel o aditivos, el preview avisará y esas configuraciones se resincronizarán con la nueva tabla al ejecutar la importación.'],
   ];
+}
+
+function writeHeaders(worksheet: any, columns: ColumnDefinition[]) {
+  worksheet.properties.defaultRowHeight = 22;
+  worksheet.columns = columns.map((column) => ({ key: column.key, width: column.width }));
+
+  const headerRow = worksheet.getRow(1);
+  columns.forEach((column, index) => {
+    const cell = headerRow.getCell(index + 1);
+    cell.value = column.label;
+    cell.font = { bold: true, color: { argb: '1F2937' } };
+    cell.fill = HEADER_FILL;
+    cell.border = THIN_BORDER;
+    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+  });
 }
 
 export async function downloadCalibrationCurvesImportWorkbook(options: {
@@ -127,29 +137,39 @@ export async function downloadCalibrationCurvesImportWorkbook(options: {
     generated_at: new Date().toISOString(),
   };
 
-  const dataSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_SHEET_NAME, {
+  const curvesSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_CURVES_SHEET, {
     views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }],
   });
-  dataSheet.properties.defaultRowHeight = 22;
-  dataSheet.columns = CALIBRATION_CURVES_IMPORT_COLUMNS.map((column) => ({ key: column.key, width: column.width }));
+  writeHeaders(curvesSheet, CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS);
 
-  const headerRow = dataSheet.getRow(1);
-  CALIBRATION_CURVES_IMPORT_COLUMNS.forEach((column, index) => {
-    const cell = headerRow.getCell(index + 1);
-    cell.value = column.label;
-    cell.font = { bold: true, color: { argb: '1F2937' } };
-    cell.fill = HEADER_FILL;
-    cell.border = THIN_BORDER;
-    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+  options.rows.forEach((rowValues, rowIndex) => {
+    const row = curvesSheet.getRow(rowIndex + 2);
+    row.getCell(1).value = rowValues.curve_name || '';
+    row.getCell(2).value = rowValues.measurement_type || '';
+    row.getCell(3).value = rowValues.reading_uom || '';
+    for (let columnIndex = 1; columnIndex <= 3; columnIndex += 1) {
+      row.getCell(columnIndex).border = THIN_BORDER;
+      row.getCell(columnIndex).alignment = { vertical: 'top', wrapText: true };
+    }
   });
 
-  toExportRows(options.rows).forEach((rowValues, rowIndex) => {
-    const row = dataSheet.getRow(rowIndex + 2);
-    CALIBRATION_CURVES_IMPORT_COLUMNS.forEach((column, columnIndex) => {
-      const cell = row.getCell(columnIndex + 1);
-      cell.value = rowValues[column.key];
-      cell.border = THIN_BORDER;
-      cell.alignment = { vertical: 'top', wrapText: true };
+  const pointsSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_POINTS_SHEET, {
+    views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }],
+  });
+  writeHeaders(pointsSheet, CALIBRATION_CURVES_IMPORT_POINT_COLUMNS);
+
+  let pointRowIndex = 2;
+  options.rows.forEach((curve) => {
+    sortPoints(curve.points || []).forEach((point) => {
+      const row = pointsSheet.getRow(pointRowIndex);
+      row.getCell(1).value = curve.curve_name || '';
+      row.getCell(2).value = point.point_key;
+      row.getCell(3).value = point.point_value;
+      for (let columnIndex = 1; columnIndex <= 3; columnIndex += 1) {
+        row.getCell(columnIndex).border = THIN_BORDER;
+        row.getCell(columnIndex).alignment = { vertical: 'top', wrapText: true };
+      }
+      pointRowIndex += 1;
     });
   });
 

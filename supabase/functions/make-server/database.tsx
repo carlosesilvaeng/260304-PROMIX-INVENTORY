@@ -102,12 +102,19 @@ interface PlantSummaryRow {
   is_active?: boolean;
 }
 
+export interface CalibrationCurvePointInput {
+  point_key: number;
+  point_value: number;
+}
+
 interface CalibrationCurveRow {
   id: string;
   plant_id: string;
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  points: CalibrationCurvePointInput[];
+  point_count: number;
   data_points: Record<string, number>;
 }
 
@@ -389,12 +396,17 @@ interface CalibrationCurvesImportInput {
   module?: string;
   template_version?: string;
   import_mode?: string;
-  rows?: Array<{
+  curves?: Array<{
     row_number?: number;
     curve_name?: string;
     measurement_type?: string;
     reading_uom?: string;
-    data_points_json?: string;
+  }>;
+  points?: Array<{
+    row_number?: number;
+    curve_name?: string;
+    point_key?: string | number;
+    point_value?: string | number;
   }>;
 }
 
@@ -403,6 +415,7 @@ export interface NormalizedCalibrationCurvesImportRow {
   curve_name: string;
   measurement_type: string;
   reading_uom: string | null;
+  points: CalibrationCurvePointInput[];
   data_points: Record<string, number>;
   action: 'create' | 'update';
   existing_id?: string;
@@ -416,7 +429,8 @@ interface CalibrationCurvesImportPreviewRecord {
     module: 'calibration_curves';
     template_version: string;
     import_mode: 'upsert';
-    rows: CalibrationCurvesImportInput['rows'];
+    curves: CalibrationCurvesImportInput['curves'];
+    points: CalibrationCurvesImportInput['points'];
   };
   created_at: string;
   expires_at: string;
@@ -655,13 +669,20 @@ function normalizeCalibrationCurvesImportPayload(input: CalibrationCurvesImportI
     module: input.module === 'calibration_curves' ? 'calibration_curves' as const : 'calibration_curves' as const,
     template_version: String(input.template_version || '').trim(),
     import_mode: input.import_mode === 'upsert' ? 'upsert' as const : 'upsert' as const,
-    rows: Array.isArray(input.rows)
-      ? input.rows.map((row) => ({
+    curves: Array.isArray(input.curves)
+      ? input.curves.map((row) => ({
           row_number: Number(row?.row_number || 0),
           curve_name: String(row?.curve_name || ''),
           measurement_type: String(row?.measurement_type || ''),
           reading_uom: String(row?.reading_uom || ''),
-          data_points_json: String(row?.data_points_json || ''),
+        }))
+      : [],
+    points: Array.isArray(input.points)
+      ? input.points.map((point) => ({
+          row_number: Number(point?.row_number || 0),
+          curve_name: String(point?.curve_name || ''),
+          point_key: String(point?.point_key ?? ''),
+          point_value: String(point?.point_value ?? ''),
         }))
       : [],
   };
@@ -700,7 +721,7 @@ function validateProductsImportPayload(input: ReturnType<typeof normalizeProduct
     throw new Error('Solo se admite el modulo products en esta version.');
   }
 
-  if (input.template_version !== '1.0') {
+  if (input.template_version !== '2.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
@@ -718,7 +739,7 @@ function validateAggregatesImportPayload(input: ReturnType<typeof normalizeAggre
     throw new Error('Solo se admite el modulo aggregates en esta version.');
   }
 
-  if (input.template_version !== '1.0') {
+  if (input.template_version !== '2.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
@@ -826,7 +847,7 @@ function validateCalibrationCurvesImportPayload(input: ReturnType<typeof normali
     throw new Error('Solo se admite el modulo calibration_curves en esta version.');
   }
 
-  if (input.template_version !== '1.0') {
+  if (input.template_version !== '2.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
@@ -834,8 +855,12 @@ function validateCalibrationCurvesImportPayload(input: ReturnType<typeof normali
     throw new Error('Solo se admite import_mode upsert en esta version.');
   }
 
-  if (!Array.isArray(input.rows) || input.rows.length === 0) {
-    throw new Error('El archivo no contiene filas para importar.');
+  if (!Array.isArray(input.curves) || input.curves.length === 0) {
+    throw new Error('El archivo no contiene curvas para importar.');
+  }
+
+  if (!Array.isArray(input.points) || input.points.length === 0) {
+    throw new Error('El archivo no contiene puntos para importar.');
   }
 }
 
@@ -894,7 +919,126 @@ function normalizeCurveNameKey(value: string | null | undefined) {
   return String(value || '').trim().toLowerCase();
 }
 
-async function listPlantCalibrationCurves(plantId: string) {
+interface RawCalibrationCurveRecord {
+  id: string;
+  plant_id: string;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom?: string | null;
+  data_points?: Record<string, number> | null;
+}
+
+interface RawCalibrationCurvePointRecord {
+  curve_id: string;
+  point_key: string | number;
+  point_value: string | number;
+}
+
+function parseCalibrationCurvePointNumber(value: unknown, label: string) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${label} debe ser numerico`);
+  }
+  return parsed;
+}
+
+function sortCalibrationCurvePoints(points: CalibrationCurvePointInput[]) {
+  return [...points].sort((left, right) => left.point_key - right.point_key);
+}
+
+function buildCalibrationCurveDataPoints(points: CalibrationCurvePointInput[]) {
+  return sortCalibrationCurvePoints(points).reduce((acc: Record<string, number>, point) => {
+    acc[String(point.point_key)] = point.point_value;
+    return acc;
+  }, {});
+}
+
+function normalizeCalibrationCurvePoints(
+  points: Array<{ point_key: unknown; point_value: unknown }> | null | undefined,
+  options?: { allowEmpty?: boolean },
+) {
+  const normalized = Array.isArray(points)
+    ? points
+        .map((point) => ({
+          point_key: parseCalibrationCurvePointNumber(point?.point_key, 'Key'),
+          point_value: parseCalibrationCurvePointNumber(point?.point_value, 'Value'),
+        }))
+    : [];
+
+  const seenKeys = new Set<number>();
+  for (const point of normalized) {
+    if (seenKeys.has(point.point_key)) {
+      throw new Error(`Key duplicado: ${point.point_key}`);
+    }
+    seenKeys.add(point.point_key);
+  }
+
+  if (!options?.allowEmpty && normalized.length === 0) {
+    throw new Error('La curva debe tener al menos un punto');
+  }
+
+  return sortCalibrationCurvePoints(normalized);
+}
+
+function normalizeCalibrationCurvePointsFromRecord(
+  value: Record<string, number> | null | undefined,
+  options?: { allowEmpty?: boolean },
+) {
+  const points = Object.entries(value || {}).map(([point_key, point_value]) => ({
+    point_key,
+    point_value,
+  }));
+  return normalizeCalibrationCurvePoints(points, options);
+}
+
+async function listCalibrationCurvePointsByCurveIds(curveIds: string[]) {
+  if (curveIds.length === 0) {
+    return new Map<string, CalibrationCurvePointInput[]>();
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('calibration_curve_points')
+    .select('curve_id, point_key, point_value')
+    .in('curve_id', curveIds)
+    .order('point_key', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).reduce((acc, row) => {
+    const curveId = String((row as RawCalibrationCurvePointRecord).curve_id || '');
+    const existing = acc.get(curveId) || [];
+    existing.push({
+      point_key: parseCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).point_key, 'Key'),
+      point_value: parseCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).point_value, 'Value'),
+    });
+    acc.set(curveId, existing);
+    return acc;
+  }, new Map<string, CalibrationCurvePointInput[]>());
+}
+
+async function hydrateCalibrationCurves(rows: RawCalibrationCurveRecord[]) {
+  const pointsByCurveId = await listCalibrationCurvePointsByCurveIds(rows.map((row) => row.id));
+
+  return rows.map((row) => {
+    const normalizedPoints = pointsByCurveId.get(row.id)?.length
+      ? normalizeCalibrationCurvePoints(pointsByCurveId.get(row.id))
+      : normalizeCalibrationCurvePointsFromRecord(row.data_points || {}, { allowEmpty: true });
+
+    return {
+      id: row.id,
+      plant_id: row.plant_id,
+      curve_name: row.curve_name,
+      measurement_type: row.measurement_type,
+      reading_uom: row.reading_uom ?? null,
+      points: normalizedPoints,
+      point_count: normalizedPoints.length,
+      data_points: buildCalibrationCurveDataPoints(normalizedPoints),
+    } satisfies CalibrationCurveRow;
+  });
+}
+
+export async function listPlantCalibrationCurves(plantId: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('calibration_curves')
@@ -903,7 +1047,7 @@ async function listPlantCalibrationCurves(plantId: string) {
     .order('curve_name', { ascending: true });
 
   if (error) throw error;
-  return (data || []) as CalibrationCurveRow[];
+  return hydrateCalibrationCurves((data || []) as RawCalibrationCurveRecord[]);
 }
 
 function buildCalibrationCurveMap(rows: CalibrationCurveRow[]) {
@@ -973,7 +1117,108 @@ export async function getCalibrationCurveById(id: string) {
     .maybeSingle();
 
   if (error) throw error;
-  return (data || null) as CalibrationCurveRow | null;
+  if (!data) return null;
+  const [curve] = await hydrateCalibrationCurves([data as RawCalibrationCurveRecord]);
+  return curve || null;
+}
+
+async function replaceCalibrationCurvePoints(curveId: string, points: CalibrationCurvePointInput[]) {
+  const supabase = getSupabaseClient();
+  const normalizedPoints = normalizeCalibrationCurvePoints(points);
+
+  const { error: deleteError } = await supabase
+    .from('calibration_curve_points')
+    .delete()
+    .eq('curve_id', curveId);
+
+  if (deleteError) throw deleteError;
+
+  const { error: insertError } = await supabase
+    .from('calibration_curve_points')
+    .insert(normalizedPoints.map((point) => ({
+      curve_id: curveId,
+      point_key: point.point_key,
+      point_value: point.point_value,
+    })));
+
+  if (insertError) throw insertError;
+}
+
+export async function createCalibrationCurve(data: {
+  plant_id: string;
+  curve_name: string;
+  measurement_type: string;
+  reading_uom?: string | null;
+  points?: CalibrationCurvePointInput[];
+  data_points?: Record<string, number>;
+}) {
+  const points = data.points
+    ? normalizeCalibrationCurvePoints(data.points)
+    : normalizeCalibrationCurvePointsFromRecord(data.data_points || {});
+  const derivedDataPoints = buildCalibrationCurveDataPoints(points);
+  const supabase = getSupabaseClient();
+
+  const { data: created, error } = await supabase
+    .from('calibration_curves')
+    .insert({
+      plant_id: data.plant_id.trim(),
+      curve_name: data.curve_name.trim(),
+      measurement_type: data.measurement_type.trim(),
+      reading_uom: normalizeCatalogOptionalText(data.reading_uom),
+      data_points: derivedDataPoints,
+    })
+    .select('id, plant_id, curve_name, measurement_type, reading_uom, data_points')
+    .single();
+
+  if (error) throw error;
+  await replaceCalibrationCurvePoints(created.id, points);
+  const curve = await getCalibrationCurveById(created.id);
+  if (!curve) {
+    throw new Error('No se pudo recargar la curva creada.');
+  }
+  return curve;
+}
+
+export async function updateCalibrationCurve(id: string, patch: {
+  curve_name?: string;
+  measurement_type?: string;
+  reading_uom?: string | null;
+  points?: CalibrationCurvePointInput[];
+  data_points?: Record<string, number>;
+}) {
+  const existing = await getCalibrationCurveById(id);
+  if (!existing) {
+    throw new Error('Curva no encontrada');
+  }
+
+  const points = patch.points
+    ? normalizeCalibrationCurvePoints(patch.points)
+    : patch.data_points
+      ? normalizeCalibrationCurvePointsFromRecord(patch.data_points)
+      : existing.points;
+  const update: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+    data_points: buildCalibrationCurveDataPoints(points),
+  };
+
+  if (patch.curve_name !== undefined) update.curve_name = patch.curve_name.trim();
+  if (patch.measurement_type !== undefined) update.measurement_type = patch.measurement_type.trim();
+  if (patch.reading_uom !== undefined) update.reading_uom = normalizeCatalogOptionalText(patch.reading_uom);
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from('calibration_curves')
+    .update(update)
+    .eq('id', id);
+
+  if (error) throw error;
+
+  await replaceCalibrationCurvePoints(id, points);
+  const curve = await getCalibrationCurveById(id);
+  if (!curve) {
+    throw new Error('No se pudo recargar la curva actualizada.');
+  }
+  return curve;
 }
 
 export async function getCalibrationCurveReferenceSummary(plantId: string, curveName: string) {
@@ -1659,7 +1904,7 @@ export async function getPlantConfigPackage(plantId: string) {
       productsRes,
       utilitiesRes,
       pettyCashRes,
-      curvesRes,
+      curves,
     ] = await Promise.all([
       supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_silos_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
@@ -1670,7 +1915,7 @@ export async function getPlantConfigPackage(plantId: string) {
       supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
-      supabase.from('calibration_curves').select('id, plant_id, curve_name, measurement_type, reading_uom, data_points').eq('plant_id', plantId).order('curve_name'),
+      listPlantCalibrationCurves(plantId),
     ]);
     
     console.log(`📊 [getPlantConfigPackage] Aggregates query result:`, {
@@ -1695,11 +1940,7 @@ export async function getPlantConfigPackage(plantId: string) {
       console.error(`❌ [getPlantConfigPackage] Cajones query error:`, cajonesRes.error);
     }
     
-    if (curvesRes.error) {
-      console.error(`❌ [getPlantConfigPackage] Calibration curves query error:`, curvesRes.error);
-    }
-
-    const calibration_curves = buildCalibrationCurveMapForPackage((curvesRes.data || []) as CalibrationCurveRow[]);
+    const calibration_curves = buildCalibrationCurveMapForPackage(curves || []);
     
     // Format silos with allowed products
     const siloAllowedProductsBySiloId = (siloAllowedProductsRes.data || []).reduce((acc: Record<string, string[]>, row: any) => {
@@ -4097,15 +4338,12 @@ export async function previewCalibrationCurvesImport(plantId: string, input: Cal
   const plant = await getPlantForConfigCleanup(plantId);
   const supabase = getSupabaseClient();
   const [
-    { data: existingRows, error: existingError },
+    existingRows,
     { data: siloRefs, error: siloError },
     { data: additiveRefs, error: additiveError },
     { data: dieselRef, error: dieselError },
   ] = await Promise.all([
-    supabase
-      .from('calibration_curves')
-      .select('id, curve_name, measurement_type, reading_uom, data_points, plant_id')
-      .eq('plant_id', plantId),
+    listPlantCalibrationCurves(plantId),
     supabase
       .from('plant_silos_config')
       .select('calibration_curve_name')
@@ -4124,12 +4362,11 @@ export async function previewCalibrationCurvesImport(plantId: string, input: Cal
       .maybeSingle(),
   ]);
 
-  if (existingError) throw existingError;
   if (siloError) throw siloError;
   if (additiveError) throw additiveError;
   if (dieselError) throw dieselError;
 
-  const existingByName = (existingRows || []).reduce((acc: Record<string, any>, row: any) => {
+  const existingByName = (existingRows || []).reduce((acc: Record<string, CalibrationCurveRow>, row) => {
     acc[String(row.curve_name || '').trim().toLowerCase()] = row;
     return acc;
   }, {});
@@ -4152,57 +4389,139 @@ export async function previewCalibrationCurvesImport(plantId: string, input: Cal
     }
   }
 
+  const curveDefinitions = new Map<string, {
+    row_number: number;
+    curve_name: string;
+    measurement_type: string;
+    reading_uom: string | null;
+  }>();
   const seenNames = new Map<string, number>();
+  const pointsByCurveKey = new Map<string, CalibrationCurvePointInput[]>();
+  const pointKeysByCurveKey = new Map<string, Map<number, number>>();
+  const invalidCurveKeys = new Set<string>();
   const normalizedRows: NormalizedCalibrationCurvesImportRow[] = [];
   const errors: Array<{ row: number; column: string; message: string }> = [];
   const warnings: string[] = [];
 
-  payload.rows.forEach((rawRow, index) => {
+  payload.curves.forEach((rawRow, index) => {
     const rowNumber = rawRow.row_number || index + 2;
     const rowErrors: Array<{ column: string; message: string }> = [];
     const curveName = rawRow.curve_name.trim();
     const measurementType = rawRow.measurement_type.trim();
     const readingUom = normalizeCatalogOptionalText(rawRow.reading_uom);
     const curveKey = curveName.toLowerCase();
-    let dataPoints: Record<string, number> | null = null;
 
     if (!curveName) rowErrors.push({ column: 'Nombre de curva', message: 'es requerido' });
     if (!measurementType) rowErrors.push({ column: 'Metodo de medicion', message: 'es requerido' });
-
-    try {
-      dataPoints = parseCalibrationTableJson(rawRow.data_points_json);
-    } catch (error: any) {
-      rowErrors.push({ column: 'Puntos JSON', message: error.message });
-    }
 
     if (curveName) {
       if (seenNames.has(curveKey)) {
         rowErrors.push({ column: 'Nombre de curva', message: `duplicado dentro del archivo; tambien aparece en la fila ${seenNames.get(curveKey)}` });
       } else {
         seenNames.set(curveKey, rowNumber);
+        curveDefinitions.set(curveKey, {
+          row_number: rowNumber,
+          curve_name: curveName,
+          measurement_type: measurementType,
+          reading_uom: readingUom,
+        });
       }
     }
 
     if (rowErrors.length > 0) {
+      if (curveKey) invalidCurveKeys.add(curveKey);
+      rowErrors.forEach((rowError) => {
+        errors.push({ row: rowNumber, column: rowError.column, message: rowError.message });
+      });
+    }
+  });
+
+  payload.points.forEach((rawPoint, index) => {
+    const rowNumber = rawPoint.row_number || index + 2;
+    const rowErrors: Array<{ column: string; message: string }> = [];
+    const curveName = rawPoint.curve_name.trim();
+    const curveKey = curveName.toLowerCase();
+
+    if (!curveName) {
+      rowErrors.push({ column: 'Nombre de curva', message: 'es requerido' });
+    } else if (!curveDefinitions.has(curveKey)) {
+      rowErrors.push({ column: 'Nombre de curva', message: 'debe referenciar una curva existente en la hoja Curvas' });
+      invalidCurveKeys.add(curveKey);
+    }
+
+    let pointKey: number | null = null;
+    let pointValue: number | null = null;
+
+    try {
+      pointKey = parseCalibrationCurvePointNumber(rawPoint.point_key, 'Key');
+    } catch (error: any) {
+      rowErrors.push({ column: 'Key', message: error.message });
+    }
+
+    try {
+      pointValue = parseCalibrationCurvePointNumber(rawPoint.point_value, 'Value');
+    } catch (error: any) {
+      rowErrors.push({ column: 'Value', message: error.message });
+    }
+
+    if (curveName && pointKey !== null) {
+      const seenPointKeys = pointKeysByCurveKey.get(curveKey) || new Map<number, number>();
+      if (seenPointKeys.has(pointKey)) {
+        rowErrors.push({ column: 'Key', message: `duplicado dentro de la curva; tambien aparece en la fila ${seenPointKeys.get(pointKey)}` });
+      } else {
+        seenPointKeys.set(pointKey, rowNumber);
+        pointKeysByCurveKey.set(curveKey, seenPointKeys);
+      }
+    }
+
+    if (rowErrors.length > 0) {
+      if (curveKey) invalidCurveKeys.add(curveKey);
       rowErrors.forEach((rowError) => {
         errors.push({ row: rowNumber, column: rowError.column, message: rowError.message });
       });
       return;
     }
 
+    const existingPoints = pointsByCurveKey.get(curveKey) || [];
+    existingPoints.push({
+      point_key: pointKey!,
+      point_value: pointValue!,
+    });
+    pointsByCurveKey.set(curveKey, existingPoints);
+  });
+
+  curveDefinitions.forEach((definition, curveKey) => {
+    if (!pointsByCurveKey.get(curveKey)?.length) {
+      invalidCurveKeys.add(curveKey);
+      errors.push({
+        row: definition.row_number,
+        column: 'Puntos',
+        message: 'la curva debe tener al menos un punto en la hoja Puntos',
+      });
+    }
+  });
+
+  curveDefinitions.forEach((definition, curveKey) => {
+    if (invalidCurveKeys.has(curveKey)) {
+      return;
+    }
+
+    const points = normalizeCalibrationCurvePoints(pointsByCurveKey.get(curveKey) || []);
+    const dataPoints = buildCalibrationCurveDataPoints(points);
     const existing = existingByName[curveKey];
     const referenceCount = referenceCountByName.get(curveKey) || 0;
 
     if (existing && referenceCount > 0) {
-      warnings.push(`Fila ${rowNumber}: "${curveName}" ya está referenciada ${referenceCount} vez/veces. Si confirmas la importación, diesel y aditivos que usan esta curva se resincronizarán con la nueva tabla.`);
+      warnings.push(`Fila ${definition.row_number}: "${definition.curve_name}" ya está referenciada ${referenceCount} vez/veces. Si confirmas la importación, diesel y aditivos que usan esta curva se resincronizarán con la nueva tabla.`);
     }
 
     normalizedRows.push({
-      row_number: rowNumber,
-      curve_name: curveName,
-      measurement_type: measurementType,
-      reading_uom: readingUom,
-      data_points: dataPoints!,
+      row_number: definition.row_number,
+      curve_name: definition.curve_name,
+      measurement_type: definition.measurement_type,
+      reading_uom: definition.reading_uom,
+      points,
+      data_points: dataPoints,
       action: existing ? 'update' : 'create',
       existing_id: existing?.id,
       reference_count: referenceCount,
@@ -4218,7 +4537,7 @@ export async function previewCalibrationCurvesImport(plantId: string, input: Cal
     template_version: payload.template_version,
     import_mode: 'upsert' as const,
     summary: {
-      total_rows: payload.rows.length,
+      total_rows: payload.curves.length,
       valid_rows: normalizedRows.length,
       error_rows: Array.from(new Set(errors.map((item) => item.row))).length,
       creates: normalizedRows.filter((row) => row.action === 'create').length,
@@ -4291,33 +4610,27 @@ export async function executeCalibrationCurvesImport(plantId: string, input: Cal
     throw new Error('No hay filas validas para importar.');
   }
 
-  const supabase = getSupabaseClient();
   let created = 0;
   let updated = 0;
 
   for (const row of preview.normalized_rows) {
-    const payloadRow = {
-      plant_id: plantId,
-      curve_name: row.curve_name,
-      measurement_type: row.measurement_type,
-      reading_uom: row.reading_uom,
-      data_points: row.data_points,
-      updated_at: new Date().toISOString(),
-    };
-
     if (row.action === 'update' && row.existing_id) {
-      const { error: updateError } = await supabase
-        .from('calibration_curves')
-        .update(payloadRow)
-        .eq('id', row.existing_id);
-      if (updateError) throw updateError;
+      await updateCalibrationCurve(row.existing_id, {
+        curve_name: row.curve_name,
+        measurement_type: row.measurement_type,
+        reading_uom: row.reading_uom,
+        points: row.points,
+      });
       await syncCalibrationCurveConsumers(plantId, row.curve_name, row.reading_uom, row.data_points);
       updated += 1;
     } else {
-      const { error: insertError } = await supabase
-        .from('calibration_curves')
-        .insert(payloadRow);
-      if (insertError) throw insertError;
+      await createCalibrationCurve({
+        plant_id: plantId,
+        curve_name: row.curve_name,
+        measurement_type: row.measurement_type,
+        reading_uom: row.reading_uom,
+        points: row.points,
+      });
       created += 1;
     }
   }

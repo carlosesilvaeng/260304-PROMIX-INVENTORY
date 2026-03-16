@@ -1,23 +1,32 @@
 import {
-  CALIBRATION_CURVES_IMPORT_COLUMNS,
+  CALIBRATION_CURVES_IMPORT_CURVES_SHEET,
+  CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS,
   CALIBRATION_CURVES_IMPORT_META_SHEET,
   CALIBRATION_CURVES_IMPORT_MODULE,
-  CALIBRATION_CURVES_IMPORT_SHEET_NAME,
+  CALIBRATION_CURVES_IMPORT_POINTS_SHEET,
+  CALIBRATION_CURVES_IMPORT_POINT_COLUMNS,
   CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION,
   type CalibrationCurvesImportMeta,
 } from './calibrationCurvesImportWorkbook';
 
-export interface ParsedCalibrationCurvesImportRow {
+export interface ParsedCalibrationCurvesImportCurveRow {
   row_number: number;
   curve_name: string;
   measurement_type: string;
   reading_uom: string;
-  data_points_json: string;
+}
+
+export interface ParsedCalibrationCurvesImportPointRow {
+  row_number: number;
+  curve_name: string;
+  point_key: string;
+  point_value: string;
 }
 
 export interface ParsedCalibrationCurvesImportFile {
   meta: CalibrationCurvesImportMeta;
-  rows: ParsedCalibrationCurvesImportRow[];
+  curves: ParsedCalibrationCurvesImportCurveRow[];
+  points: ParsedCalibrationCurvesImportPointRow[];
 }
 
 function toCellString(value: unknown) {
@@ -25,44 +34,78 @@ function toCellString(value: unknown) {
   return String(value).trim();
 }
 
+function ensureHeaders(actual: string[], expected: string[], sheetName: string) {
+  if (expected.length !== actual.length || expected.some((header, index) => header !== actual[index])) {
+    throw new Error(`Los encabezados de la hoja ${sheetName} no coinciden con la plantilla oficial.`);
+  }
+}
+
 export async function parseCalibrationCurvesImportFile(file: File): Promise<ParsedCalibrationCurvesImportFile> {
   const XLSX = await import('xlsx');
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
 
-  const dataSheet = workbook.Sheets[CALIBRATION_CURVES_IMPORT_SHEET_NAME];
-  if (!dataSheet) {
-    throw new Error(`El archivo no contiene la hoja "${CALIBRATION_CURVES_IMPORT_SHEET_NAME}".`);
+  const curvesSheet = workbook.Sheets[CALIBRATION_CURVES_IMPORT_CURVES_SHEET];
+  if (!curvesSheet) {
+    throw new Error(`El archivo no contiene la hoja "${CALIBRATION_CURVES_IMPORT_CURVES_SHEET}".`);
   }
 
-  const headerRows = XLSX.utils.sheet_to_json<(string | number)[]>(dataSheet, {
+  const pointsSheet = workbook.Sheets[CALIBRATION_CURVES_IMPORT_POINTS_SHEET];
+  if (!pointsSheet) {
+    throw new Error(`El archivo no contiene la hoja "${CALIBRATION_CURVES_IMPORT_POINTS_SHEET}".`);
+  }
+
+  const curveRowsRaw = XLSX.utils.sheet_to_json<(string | number)[]>(curvesSheet, {
+    header: 1,
+    blankrows: false,
+    raw: false,
+  });
+  const pointRowsRaw = XLSX.utils.sheet_to_json<(string | number)[]>(pointsSheet, {
     header: 1,
     blankrows: false,
     raw: false,
   });
 
-  const expectedHeaders = CALIBRATION_CURVES_IMPORT_COLUMNS.map((column) => column.label);
-  const actualHeaders = (headerRows[0] || []).map((value) => toCellString(value));
+  ensureHeaders(
+    (curveRowsRaw[0] || []).map((value) => toCellString(value)),
+    CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS.map((column) => column.label),
+    CALIBRATION_CURVES_IMPORT_CURVES_SHEET,
+  );
+  ensureHeaders(
+    (pointRowsRaw[0] || []).map((value) => toCellString(value)),
+    CALIBRATION_CURVES_IMPORT_POINT_COLUMNS.map((column) => column.label),
+    CALIBRATION_CURVES_IMPORT_POINTS_SHEET,
+  );
 
-  if (expectedHeaders.length !== actualHeaders.length || expectedHeaders.some((header, index) => header !== actualHeaders[index])) {
-    throw new Error('Los encabezados de la hoja Datos no coinciden con la plantilla oficial.');
-  }
+  const curves: ParsedCalibrationCurvesImportCurveRow[] = [];
+  curveRowsRaw.slice(1).forEach((rowValues, index) => {
+    const curve_name = toCellString(rowValues[0]);
+    const measurement_type = toCellString(rowValues[1]);
+    const reading_uom = toCellString(rowValues[2]);
 
-  const rows: ParsedCalibrationCurvesImportRow[] = [];
-  headerRows.slice(1).forEach((rowValues, index) => {
-    const normalized = CALIBRATION_CURVES_IMPORT_COLUMNS.reduce((acc, column, columnIndex) => {
-      acc[column.key] = toCellString(rowValues[columnIndex]);
-      return acc;
-    }, {} as Record<string, string>);
+    if (![curve_name, measurement_type, reading_uom].some(Boolean)) return;
 
-    if (Object.values(normalized).every((value) => !value)) return;
-
-    rows.push({
+    curves.push({
       row_number: index + 2,
-      curve_name: normalized.curve_name || '',
-      measurement_type: normalized.measurement_type || '',
-      reading_uom: normalized.reading_uom || '',
-      data_points_json: normalized.data_points_json || '',
+      curve_name,
+      measurement_type,
+      reading_uom,
+    });
+  });
+
+  const points: ParsedCalibrationCurvesImportPointRow[] = [];
+  pointRowsRaw.slice(1).forEach((rowValues, index) => {
+    const curve_name = toCellString(rowValues[0]);
+    const point_key = toCellString(rowValues[1]);
+    const point_value = toCellString(rowValues[2]);
+
+    if (![curve_name, point_key, point_value].some(Boolean)) return;
+
+    points.push({
+      row_number: index + 2,
+      curve_name,
+      point_key,
+      point_value,
     });
   });
 
@@ -105,5 +148,5 @@ export async function parseCalibrationCurvesImportFile(file: File): Promise<Pars
     throw new Error('La plantilla no indica la planta destino.');
   }
 
-  return { meta, rows };
+  return { meta, curves, points };
 }

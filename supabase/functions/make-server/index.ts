@@ -3366,7 +3366,7 @@ app.put("/make-server/catalogs/materiales/:id", async (c) => {
       return c.json({ success: false, error: 'Material no encontrado' }, 404);
     }
 
-    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    const update: Record<string, any> = {};
     if (body.nombre !== undefined) update.nombre = body.nombre.trim();
     if (body.clase !== undefined) update.clase = body.clase?.trim() ?? null;
     if (body.sort_order !== undefined) update.sort_order = body.sort_order;
@@ -3906,13 +3906,7 @@ app.get("/make-server/catalogs/calibration-curves", async (c) => {
     const plantId = c.req.query('plant_id');
     if (!plantId?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
 
-    const supabase = db.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calibration_curves')
-      .select('*')
-      .eq('plant_id', plantId.trim())
-      .order('curve_name');
-    if (error) throw error;
+    const data = await db.listPlantCalibrationCurves(plantId.trim());
     return c.json({ success: true, data });
   } catch (error) {
     console.error("❌ Error fetching calibration curves:", error);
@@ -3922,27 +3916,22 @@ app.get("/make-server/catalogs/calibration-curves", async (c) => {
 
 app.post("/make-server/catalogs/calibration-curves", async (c) => {
   try {
-    const { plant_id, curve_name, measurement_type, reading_uom, data_points } = await c.req.json();
+    const { plant_id, curve_name, measurement_type, reading_uom, points, data_points } = await c.req.json();
     if (!plant_id?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
     if (!curve_name?.trim()) return c.json({ success: false, error: 'curve_name requerido' }, 400);
     if (!measurement_type?.trim()) return c.json({ success: false, error: 'measurement_type requerido' }, 400);
-    if (!data_points || typeof data_points !== 'object' || Array.isArray(data_points) || Object.keys(data_points).length === 0) {
-      return c.json({ success: false, error: 'data_points requerido' }, 400);
+    if ((!Array.isArray(points) || points.length === 0) && (!data_points || typeof data_points !== 'object' || Array.isArray(data_points) || Object.keys(data_points).length === 0)) {
+      return c.json({ success: false, error: 'points requerido' }, 400);
     }
 
-    const supabase = db.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calibration_curves')
-      .insert({
-        plant_id: plant_id.trim(),
-        curve_name: curve_name.trim(),
-        measurement_type: measurement_type.trim(),
-        reading_uom: reading_uom?.trim() || null,
-        data_points,
-      })
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await db.createCalibrationCurve({
+      plant_id: plant_id.trim(),
+      curve_name: curve_name.trim(),
+      measurement_type: measurement_type.trim(),
+      reading_uom: reading_uom?.trim() || null,
+      points: Array.isArray(points) ? points : undefined,
+      data_points,
+    });
     return c.json({ success: true, data }, 201);
   } catch (error) {
     console.error("❌ Error creating calibration curve:", error);
@@ -3974,16 +3963,10 @@ app.put("/make-server/catalogs/calibration-curves/:id", async (c) => {
     if (body.curve_name !== undefined) update.curve_name = body.curve_name.trim();
     if (body.measurement_type !== undefined) update.measurement_type = body.measurement_type.trim();
     if (body.reading_uom !== undefined) update.reading_uom = body.reading_uom?.trim() || null;
+    if (body.points !== undefined) update.points = body.points;
     if (body.data_points !== undefined) update.data_points = body.data_points;
 
-    const supabase = db.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calibration_curves')
-      .update(update)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await db.updateCalibrationCurve(id, update);
     await db.syncCalibrationCurveConsumers(data.plant_id, data.curve_name, data.reading_uom || null, data.data_points || {});
     return c.json({ success: true, data });
   } catch (error) {
