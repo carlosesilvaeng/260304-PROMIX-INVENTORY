@@ -141,6 +141,10 @@ function canManagePlantManagers(user: any): boolean {
   return user?.role === 'operations_manager' || user?.role === 'admin' || user?.role === 'super_admin';
 }
 
+function isWorkflowApprover(user: any): boolean {
+  return user?.role === 'admin' || user?.role === 'super_admin';
+}
+
 function checkPlantAccess(user: any, plantId: string): boolean {
   if (canAccessAllPlants(user)) return true;
   return (user.assigned_plants as string[])?.includes(plantId) ?? false;
@@ -219,6 +223,229 @@ function rejectMismatchedInventoryMonthPayload(
   }
 
   return null;
+}
+
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildInventoryWorkflowTransition(
+  c: any,
+  currentStatus: string,
+  action: 'save_draft' | 'submit' | 'approve' | 'reject',
+  actorName: string,
+  timestamp: string,
+  options: {
+    approvalNotes?: unknown;
+    rejectionNotes?: unknown;
+  } = {},
+) {
+  switch (action) {
+    case 'save_draft':
+      if (currentStatus !== 'IN_PROGRESS') {
+        return {
+          response: c.json({
+            success: false,
+            error: `Cannot save draft for inventory with status ${currentStatus}. Only IN_PROGRESS inventories can be saved as draft.`,
+          }, 400),
+        };
+      }
+
+      return {
+        response: null,
+        nextStatus: 'IN_PROGRESS',
+        updateData: {
+          updated_at: timestamp,
+        },
+        auditAction: null,
+        auditDetails: null,
+        logLabel: 'DRAFT',
+        logMessage: `Inventory saved as draft by ${actorName}`,
+      };
+
+    case 'submit':
+      if (currentStatus !== 'IN_PROGRESS') {
+        return {
+          response: c.json({
+            success: false,
+            error: `Cannot submit inventory with status ${currentStatus}. Only IN_PROGRESS inventories can be submitted.`,
+          }, 400),
+        };
+      }
+
+      return {
+        response: null,
+        nextStatus: 'SUBMITTED',
+        updateData: {
+          status: 'SUBMITTED',
+          submitted_by: actorName,
+          submitted_at: timestamp,
+          approved_by: null,
+          approved_at: null,
+          approval_notes: null,
+          rejected_by: null,
+          rejected_at: null,
+          rejection_notes: null,
+          updated_at: timestamp,
+        },
+        auditAction: 'INVENTORY_SUBMITTED',
+        auditDetails: {},
+        logLabel: 'SUBMIT',
+        logMessage: `Inventory submitted for approval by ${actorName}`,
+      };
+
+    case 'approve': {
+      if (currentStatus !== 'SUBMITTED') {
+        return {
+          response: c.json({
+            success: false,
+            error: `Cannot approve inventory with status ${currentStatus}. Only SUBMITTED inventories can be approved.`,
+          }, 400),
+        };
+      }
+
+      const approvalNotes = normalizeOptionalText(options.approvalNotes);
+
+      return {
+        response: null,
+        nextStatus: 'APPROVED',
+        updateData: {
+          status: 'APPROVED',
+          approved_by: actorName,
+          approved_at: timestamp,
+          approval_notes: approvalNotes,
+          rejected_by: null,
+          rejected_at: null,
+          rejection_notes: null,
+          updated_at: timestamp,
+        },
+        auditAction: 'INVENTORY_APPROVED',
+        auditDetails: { notes: approvalNotes },
+        logLabel: 'APPROVE',
+        logMessage: `Inventory approved by ${actorName}${approvalNotes ? ` (${approvalNotes})` : ''}`,
+      };
+    }
+
+    case 'reject': {
+      if (currentStatus !== 'SUBMITTED') {
+        return {
+          response: c.json({
+            success: false,
+            error: `Cannot reject inventory with status ${currentStatus}. Only SUBMITTED inventories can be rejected.`,
+          }, 400),
+        };
+      }
+
+      const rejectionNotes = normalizeOptionalText(options.rejectionNotes);
+      if (!rejectionNotes) {
+        return {
+          response: c.json({
+            success: false,
+            error: 'Missing required field rejection_notes',
+          }, 400),
+        };
+      }
+
+      return {
+        response: null,
+        nextStatus: 'IN_PROGRESS',
+        updateData: {
+          status: 'IN_PROGRESS',
+          rejected_by: actorName,
+          rejected_at: timestamp,
+          rejection_notes: rejectionNotes,
+          submitted_by: null,
+          submitted_at: null,
+          approved_by: null,
+          approved_at: null,
+          approval_notes: null,
+          updated_at: timestamp,
+        },
+        auditAction: 'INVENTORY_REJECTED',
+        auditDetails: { reason: rejectionNotes },
+        logLabel: 'REJECT',
+        logMessage: `Inventory rejected by ${actorName}. Reason: ${rejectionNotes}`,
+      };
+    }
+  }
+}
+
+async function applyInventoryWorkflowAction(
+  c: any,
+  user: any,
+  inventoryMonthId: string,
+  action: 'save_draft' | 'submit' | 'approve' | 'reject',
+  options: {
+    approvalNotes?: unknown;
+    rejectionNotes?: unknown;
+    inventoryMonth?: any;
+  } = {},
+) {
+  const supabase = db.getSupabaseClient();
+  const actorName = getActorDisplayName(user);
+  let currentMonth = options.inventoryMonth;
+
+  if (!currentMonth) {
+    const loaded = await loadAuthorizedInventoryMonth(
+      c,
+      user,
+      inventoryMonthId,
+      ['status', 'year_month'],
+    );
+    currentMonth = loaded.inventoryMonth;
+
+    if (loaded.response) {
+      return { response: loaded.response };
+    }
+  }
+
+  const timestamp = new Date().toISOString();
+  const transition = buildInventoryWorkflowTransition(
+    c,
+    currentMonth.status,
+    action,
+    actorName,
+    timestamp,
+    options,
+  );
+
+  if (transition.response) {
+    return { response: transition.response };
+  }
+
+  const { data, error } = await supabase
+    .from('inventory_month')
+    .update(transition.updateData)
+    .eq('id', inventoryMonthId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  console.log(`[${transition.logLabel}] Inventory ${inventoryMonthId} ${transition.logMessage}`);
+
+  if (transition.auditAction) {
+    logAudit(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: transition.auditAction,
+      plant_id: currentMonth.plant_id,
+      inventory_month_id: inventoryMonthId,
+      details: {
+        year_month: currentMonth.year_month,
+        from_status: currentMonth.status,
+        to_status: transition.nextStatus,
+        ...transition.auditDetails,
+      },
+    });
+  }
+
+  return {
+    response: c.json({ success: true, data }),
+  };
 }
 
 // ============================================================================
@@ -2556,17 +2783,45 @@ app.put("/make-server/inventory/month/:inventoryMonthId/status", async (c) => {
     const user = c.get('user');
     const inventoryMonthId = c.req.param("inventoryMonthId");
     const body = await c.req.json();
-    const { status } = body;
+    const { status, notes, rejection_notes } = body;
     
     if (!status) {
       return c.json({ success: false, error: "Missing status" }, 400);
     }
 
-    const { response } = await loadAuthorizedInventoryMonth(c, user, inventoryMonthId);
-    if (response) return response;
-    
-    const updated = await db.updateInventoryMonthStatus(inventoryMonthId, status, getActorDisplayName(user));
-    return c.json({ success: true, data: updated });
+    const loaded = await loadAuthorizedInventoryMonth(c, user, inventoryMonthId, ['status', 'year_month']);
+    if (loaded.response) return loaded.response;
+
+    let action: 'save_draft' | 'submit' | 'approve' | 'reject';
+
+    if (status === 'SUBMITTED') {
+      if (!isPlantManagerLike(user)) {
+        return c.json({ success: false, error: 'Forbidden: Operational user access required' }, 403);
+      }
+      action = 'submit';
+    } else if (status === 'APPROVED') {
+      if (!isWorkflowApprover(user)) {
+        return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+      }
+      action = 'approve';
+    } else if (status === 'IN_PROGRESS') {
+      action = loaded.inventoryMonth.status === 'SUBMITTED' ? 'reject' : 'save_draft';
+      if (action === 'save_draft' && !isPlantManagerLike(user)) {
+        return c.json({ success: false, error: 'Forbidden: Operational user access required' }, 403);
+      }
+      if (action === 'reject' && !isWorkflowApprover(user)) {
+        return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
+      }
+    } else {
+      return c.json({ success: false, error: `Unsupported status ${status}` }, 400);
+    }
+
+    const result = await applyInventoryWorkflowAction(c, user, inventoryMonthId, action, {
+      approvalNotes: notes,
+      rejectionNotes: rejection_notes,
+      inventoryMonth: loaded.inventoryMonth,
+    });
+    return result.response;
   } catch (error) {
     console.error("Error updating inventory month status:", error);
     return c.json({ success: false, error: error.message }, 500);
@@ -3017,7 +3272,6 @@ app.post("/make-server/inventory/save-draft", async (c) => {
       return c.json({ success: false, error: 'Forbidden: Operational user access required' }, 403);
     }
 
-    const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id } = body;
     
@@ -3025,21 +3279,8 @@ app.post("/make-server/inventory/save-draft", async (c) => {
       return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
     }
 
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-    
-    // Just update the updated_at timestamp
-    const { data, error } = await supabase
-      .from('inventory_month')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', inventory_month_id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    console.log(`[DRAFT] Inventory ${inventory_month_id} saved as draft`);
-    return c.json({ success: true, data });
+    const result = await applyInventoryWorkflowAction(c, user, inventory_month_id, 'save_draft');
+    return result.response;
   } catch (error) {
     console.error("Error saving draft:", error);
     return c.json({ success: false, error: error.message }, 500);
@@ -3054,7 +3295,6 @@ app.post("/make-server/inventory/submit", async (c) => {
       return c.json({ success: false, error: 'Forbidden: Operational user access required' }, 403);
     }
 
-    const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id } = body;
     
@@ -3062,48 +3302,8 @@ app.post("/make-server/inventory/submit", async (c) => {
       return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
     }
 
-    const submittedBy = getActorDisplayName(user);
-    
-    const { inventoryMonth: currentMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
-    if (response) return response;
-    
-    // Validate current status
-    if (currentMonth.status !== 'IN_PROGRESS') {
-      return c.json({ 
-        success: false, 
-        error: `Cannot submit inventory with status ${currentMonth.status}. Only IN_PROGRESS inventories can be submitted.` 
-      }, 400);
-    }
-    
-    // Update status to SUBMITTED
-    const { data, error } = await supabase
-      .from('inventory_month')
-      .update({ 
-        status: 'SUBMITTED',
-        submitted_by: submittedBy,
-        submitted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', inventory_month_id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-
-    console.log(`[SUBMIT] Inventory ${inventory_month_id} submitted for approval by ${submittedBy}`);
-
-    // Audit log
-    logAudit(supabase, {
-      user_email: user.email,
-      user_name: user.name,
-      user_id: user.id,
-      action: 'INVENTORY_SUBMITTED',
-      plant_id: currentMonth.plant_id,
-      inventory_month_id: inventory_month_id,
-      details: { year_month: currentMonth.year_month },
-    });
-
-    return c.json({ success: true, data });
+    const result = await applyInventoryWorkflowAction(c, user, inventory_month_id, 'submit');
+    return result.response;
   } catch (error) {
     console.error("Error submitting inventory:", error);
     return c.json({ success: false, error: error.message }, 500);
@@ -3114,11 +3314,10 @@ app.post("/make-server/inventory/submit", async (c) => {
 app.post("/make-server/inventory/approve", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    if (!isWorkflowApprover(user)) {
       return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
     }
 
-    const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, notes } = body;
 
@@ -3126,54 +3325,10 @@ app.post("/make-server/inventory/approve", async (c) => {
       return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
     }
 
-    const approvedBy = getActorDisplayName(user);
-    
-    const { inventoryMonth: currentMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
-    if (response) return response;
-    
-    // Validate current status
-    if (currentMonth.status !== 'SUBMITTED') {
-      return c.json({ 
-        success: false, 
-        error: `Cannot approve inventory with status ${currentMonth.status}. Only SUBMITTED inventories can be approved.` 
-      }, 400);
-    }
-    
-    // Update status to APPROVED
-    const updateData: any = {
-      status: 'APPROVED',
-      approved_by: approvedBy,
-      approved_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    if (notes) {
-      updateData.approval_notes = notes;
-    }
-    
-    const { data, error } = await supabase
-      .from('inventory_month')
-      .update(updateData)
-      .eq('id', inventory_month_id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-
-    console.log(`[APPROVE] Inventory ${inventory_month_id} approved by ${approvedBy}`);
-
-    // Audit log
-    logAudit(supabase, {
-      user_email: user.email,
-      user_name: user.name,
-      user_id: user.id,
-      action: 'INVENTORY_APPROVED',
-      plant_id: currentMonth.plant_id,
-      inventory_month_id: inventory_month_id,
-      details: { year_month: currentMonth.year_month, notes: notes ?? null },
+    const result = await applyInventoryWorkflowAction(c, user, inventory_month_id, 'approve', {
+      approvalNotes: notes,
     });
-
-    return c.json({ success: true, data });
+    return result.response;
   } catch (error) {
     console.error("Error approving inventory:", error);
     return c.json({ success: false, error: error.message }, 500);
@@ -3184,64 +3339,20 @@ app.post("/make-server/inventory/approve", async (c) => {
 app.post("/make-server/inventory/reject", async (c) => {
   try {
     const user = c.get('user');  // set by requireAuth middleware
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    if (!isWorkflowApprover(user)) {
       return c.json({ success: false, error: 'Forbidden: Admin access required' }, 403);
     }
 
-    const supabase = db.getSupabaseClient();
     const body = await c.req.json();
     const { inventory_month_id, rejection_notes } = body;
 
-    if (!inventory_month_id || !rejection_notes) {
+    if (!inventory_month_id) {
       return c.json({ success: false, error: "Missing required fields (inventory_month_id, rejection_notes)" }, 400);
     }
-
-    const rejectedBy = getActorDisplayName(user);
-    
-    const { inventoryMonth: currentMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
-    if (response) return response;
-    
-    // Validate current status
-    if (currentMonth.status !== 'SUBMITTED') {
-      return c.json({ 
-        success: false, 
-        error: `Cannot reject inventory with status ${currentMonth.status}. Only SUBMITTED inventories can be rejected.` 
-      }, 400);
-    }
-    
-    // Update status back to IN_PROGRESS
-    const { data, error } = await supabase
-      .from('inventory_month')
-      .update({ 
-        status: 'IN_PROGRESS',
-        rejected_by: rejectedBy,
-        rejected_at: new Date().toISOString(),
-        rejection_notes: rejection_notes,
-        // Clear submission data
-        submitted_by: null,
-        submitted_at: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', inventory_month_id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-
-    console.log(`[REJECT] Inventory ${inventory_month_id} rejected by ${rejectedBy}. Reason: ${rejection_notes}`);
-
-    // Audit log
-    logAudit(supabase, {
-      user_email: user.email,
-      user_name: user.name,
-      user_id: user.id,
-      action: 'INVENTORY_REJECTED',
-      plant_id: currentMonth.plant_id,
-      inventory_month_id: inventory_month_id,
-      details: { year_month: currentMonth.year_month, reason: rejection_notes },
+    const result = await applyInventoryWorkflowAction(c, user, inventory_month_id, 'reject', {
+      rejectionNotes: rejection_notes,
     });
-
-    return c.json({ success: true, data });
+    return result.response;
   } catch (error) {
     console.error("Error rejecting inventory:", error);
     return c.json({ success: false, error: error.message }, 500);

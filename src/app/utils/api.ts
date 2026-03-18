@@ -455,47 +455,41 @@ export async function savePettyCashEntry(
 /**
  * Submits an inventory month for approval
  * Changes status from IN_PROGRESS to SUBMITTED
- * Blocks further editing
+ * Blocks further editing and records the actor from the authenticated session
  */
 export async function submitInventoryForApproval(
-  inventoryMonthId: string,
-  submittedBy: string
+  inventoryMonthId: string
 ): Promise<ApiResponse<InventoryMonth>> {
   return apiRequest('/inventory/submit', 'POST', {
-    inventory_month_id: inventoryMonthId,
-    submitted_by: submittedBy
+    inventory_month_id: inventoryMonthId
   });
 }
 
 /**
  * Approves a submitted inventory month
  * Changes status from SUBMITTED to APPROVED
- * Records who approved and when
+ * Records who approved and when from the authenticated session
  */
 export async function approveInventory(
   inventoryMonthId: string,
-  approvedBy: string,
   notes?: string
 ): Promise<ApiResponse<InventoryMonth>> {
   return apiRequest('/inventory/approve', 'POST', {
     inventory_month_id: inventoryMonthId,
-    approved_by: approvedBy,
     notes
   });
 }
 
 /**
  * Rejects a submitted inventory and returns it to IN_PROGRESS
- * Allows manager to edit again
+ * Allows manager to edit again and records the rejecting actor from the authenticated session
  */
 export async function rejectInventory(
   inventoryMonthId: string,
-  rejectedBy: string,
   rejectionNotes: string
 ): Promise<ApiResponse<InventoryMonth>> {
   return apiRequest('/inventory/reject', 'POST', {
     inventory_month_id: inventoryMonthId,
-    rejected_by: rejectedBy,
     rejection_notes: rejectionNotes
   });
 }

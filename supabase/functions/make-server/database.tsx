@@ -2284,31 +2284,6 @@ export async function getInventoryMonthData(inventoryMonthId: string) {
   }
 }
 
-export async function updateInventoryMonthStatus(
-  inventoryMonthId: string,
-  status: 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED',
-  actorName?: string
-) {
-  const supabase = getSupabaseClient();
-  
-  const updateData: any = { status, updated_at: new Date().toISOString() };
-  
-  if (status === 'APPROVED' && actorName) {
-    updateData.approved_by = actorName;
-    updateData.approved_at = new Date().toISOString();
-  }
-  
-  const { data, error } = await supabase
-    .from('inventory_month')
-    .update(updateData)
-    .eq('id', inventoryMonthId)
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
-}
-
 export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth: string) {
   const supabase = getSupabaseClient();
   

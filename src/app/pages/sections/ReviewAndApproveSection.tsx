@@ -38,7 +38,6 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
   const { moduleSettings, isModuleEnabled } = useModules();
   const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
   const normalizedRole = String(user?.role || '').toLowerCase();
-  const userDisplayName = user?.name || user?.email || user?.id || 'Usuario';
   
   const [validation, setValidation] = useState<OverallValidationResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -189,8 +188,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
     try {
       const response = await submitInventoryForApproval(
-        prefillData.inventoryMonth.id,
-        userDisplayName
+        prefillData.inventoryMonth.id
       );
 
       if (response.success) {
@@ -230,8 +228,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
     try {
       const response = await approveInventory(
-        prefillData.inventoryMonth.id,
-        userDisplayName
+        prefillData.inventoryMonth.id
       );
 
       if (response.success) {
@@ -272,7 +269,6 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     try {
       const response = await rejectInventory(
         prefillData.inventoryMonth.id,
-        userDisplayName,
         rejectionNotes
       );
 
