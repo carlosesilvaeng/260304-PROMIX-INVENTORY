@@ -13,6 +13,61 @@ export const getSupabaseClient = () => {
   return createClient(supabaseUrl, supabaseServiceKey);
 };
 
+type AtomicPlantConfigSection = 'cajones' | 'aggregates' | 'additives' | 'diesel' | 'products';
+type AtomicInventorySection =
+  | 'aggregates'
+  | 'silos'
+  | 'additives'
+  | 'diesel'
+  | 'products'
+  | 'utilities'
+  | 'petty-cash';
+
+export async function replacePlantConfigRowsAtomic(
+  section: AtomicPlantConfigSection,
+  plantId: string,
+  rows: Record<string, unknown>[],
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('replace_plant_config_rows_atomic', {
+    p_section: section,
+    p_plant_id: plantId,
+    p_rows: rows ?? [],
+  });
+
+  if (error) throw error;
+}
+
+export async function replacePlantSilosConfigAtomic(
+  plantId: string,
+  silos: Record<string, unknown>[],
+  allowedProductsRows: Record<string, unknown>[],
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('replace_plant_silos_config_atomic', {
+    p_plant_id: plantId,
+    p_silos: silos ?? [],
+    p_allowed_products: allowedProductsRows ?? [],
+  });
+
+  if (error) throw error;
+}
+
+export async function replaceInventorySectionRowsAtomic(
+  section: AtomicInventorySection,
+  inventoryMonthId: string,
+  rows: Record<string, unknown>[],
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('replace_inventory_section_rows_atomic', {
+    p_section: section,
+    p_inventory_month_id: inventoryMonthId,
+    p_rows: rows ?? [],
+  });
+
+  if (error) throw error;
+}
+
 export const INVENTORY_CHILD_TABLES = [
   { table: 'inventory_aggregates_entries', configKey: 'aggregates' },
   { table: 'inventory_silos_entries', configKey: 'silos' },
@@ -3816,12 +3871,12 @@ export async function executeDieselImport(plantId: string, input: DieselImportIn
     throw new Error('No hay filas validas para importar.');
   }
 
-  const supabase = getSupabaseClient();
   const row = preview.normalized_rows[0];
   let created = 0;
   let updated = 0;
 
   const payload = {
+    id: row.existing_id,
     plant_id: plantId,
     measurement_method: row.measurement_method,
     calibration_curve_name: row.calibration_curve_name,
@@ -3832,36 +3887,9 @@ export async function executeDieselImport(plantId: string, input: DieselImportIn
     is_active: row.is_active,
   };
 
-  if (row.action === 'update' && row.existing_id) {
-    const { error } = await supabase
-      .from('plant_diesel_config')
-      .update(payload)
-      .eq('id', row.existing_id);
-
-    if (error) throw error;
-    updated = 1;
-  } else {
-    const { data: existingRows, error: existingError } = await supabase
-      .from('plant_diesel_config')
-      .select('id')
-      .eq('plant_id', plantId);
-    if (existingError) throw existingError;
-
-    if ((existingRows || []).length > 0) {
-      const { error: deleteError } = await supabase
-        .from('plant_diesel_config')
-        .delete()
-        .eq('plant_id', plantId);
-      if (deleteError) throw deleteError;
-    }
-
-    const { error } = await supabase
-      .from('plant_diesel_config')
-      .insert(payload);
-
-    if (error) throw error;
-    created = 1;
-  }
+  await replacePlantConfigRowsAtomic('diesel', plantId, [payload]);
+  if (row.action === 'update' && row.existing_id) updated = 1;
+  else created = 1;
 
   return {
     ...preview,
