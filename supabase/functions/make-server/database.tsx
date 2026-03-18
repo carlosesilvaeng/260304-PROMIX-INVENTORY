@@ -2189,14 +2189,14 @@ export async function getInventoryMonthData(inventoryMonthId: string) {
 export async function updateInventoryMonthStatus(
   inventoryMonthId: string,
   status: 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED',
-  userId?: string
+  actorName?: string
 ) {
   const supabase = getSupabaseClient();
   
   const updateData: any = { status, updated_at: new Date().toISOString() };
   
-  if (status === 'APPROVED' && userId) {
-    updateData.approved_by = userId;
+  if (status === 'APPROVED' && actorName) {
+    updateData.approved_by = actorName;
     updateData.approved_at = new Date().toISOString();
   }
   

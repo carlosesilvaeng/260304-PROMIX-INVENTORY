@@ -78,6 +78,12 @@ export interface AuthResult {
   error?: string;
 }
 
+export interface BootstrapFirstUserData {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
@@ -126,6 +132,73 @@ function sanitizeUserUpdates(updates: Partial<User>): Partial<User> {
   return Object.fromEntries(
     Object.entries(updates).filter(([key]) => USER_UPDATE_FIELDS.has(key))
   ) as Partial<User>;
+}
+
+async function getUserCount(supabase = getSupabaseClient()): Promise<number> {
+  const { count, error } = await supabase
+    .from('users')
+    .select('id', { count: 'exact', head: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return count ?? 0;
+}
+
+async function createManagedUser(data: SignupData): Promise<AuthResult> {
+  const supabase = getSupabaseClient();
+  const normalizedEmail = String(data.email || '').trim().toLowerCase();
+
+  // Check if user already exists
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .single();
+
+  if (existingUser) {
+    return { success: false, error: 'El email ya está registrado' };
+  }
+
+  // Create auth user
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: normalizedEmail,
+    password: data.password,
+    email_confirm: true,
+  });
+
+  if (authError || !authData.user) {
+    console.error('❌ [createManagedUser] Auth user creation failed:', authError?.message);
+    return { success: false, error: authError?.message || 'Error creating user' };
+  }
+
+  // Create user in our table
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .insert({
+      name: String(data.name || '').trim(),
+      email: normalizedEmail,
+      role: data.role,
+      assigned_plants: data.assigned_plants || [],
+      is_active: true,
+      auth_user_id: authData.user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (userError || !userData) {
+    console.error('❌ [createManagedUser] User table insert failed:', userError?.message);
+    await supabase.auth.admin.deleteUser(authData.user.id);
+    return { success: false, error: 'Error creating user record' };
+  }
+
+  return {
+    success: true,
+    user: userData as User,
+  };
 }
 
 // ============================================================================
@@ -274,61 +347,53 @@ export async function signup(data: SignupData, requestingUserId: string): Promis
       return { success: false, error: 'No tienes permisos para crear usuarios con ese rol' };
     }
     
-    // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', data.email)
-      .single();
-    
-    if (existingUser) {
-      return { success: false, error: 'El email ya está registrado' };
+    const result = await createManagedUser(data);
+    if (!result.success) {
+      return result;
     }
-    
-    // Create auth user
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: data.email,
-      password: data.password,
-      email_confirm: true, // Auto-confirm since we don't have email server
-    });
-    
-    if (authError || !authData.user) {
-      console.error('❌ [signup] Auth user creation failed:', authError?.message);
-      return { success: false, error: authError?.message || 'Error creating user' };
-    }
-    
-    // Create user in our table
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert({
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        assigned_plants: data.assigned_plants || [],
-        is_active: true,
-        auth_user_id: authData.user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-    
-    if (userError || !userData) {
-      console.error('❌ [signup] User table insert failed:', userError?.message);
-      // Cleanup: delete auth user
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      return { success: false, error: 'Error creating user record' };
-    }
-    
+
     console.log('✅ [signup] User created successfully:', data.email);
     
-    return {
-      success: true,
-      user: userData as User,
-    };
+    return result;
     
   } catch (error) {
     console.error('[signup] Unexpected error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function bootstrapFirstUser(data: BootstrapFirstUserData): Promise<AuthResult> {
+  console.log('🚀 [bootstrapFirstUser] Attempting bootstrap for:', data.email);
+
+  try {
+    const supabase = getSupabaseClient();
+    const userCount = await getUserCount(supabase);
+
+    if (userCount > 0) {
+      return { success: false, error: 'El bootstrap inicial ya no está disponible porque ya existen usuarios.' };
+    }
+
+    const name = String(data.name || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const password = String(data.password || '');
+
+    if (!name || !email || !password) {
+      return { success: false, error: 'Nombre, correo y contraseña son obligatorios.' };
+    }
+
+    if (password.length < 6) {
+      return { success: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
+    }
+
+    return await createManagedUser({
+      name,
+      email,
+      password,
+      role: 'super_admin',
+      assigned_plants: [],
+    });
+  } catch (error) {
+    console.error('[bootstrapFirstUser] Unexpected error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -669,22 +734,19 @@ export async function resetUserPassword(
 
 export async function isFirstTimeSetup(): Promise<boolean> {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id')
-      .limit(1);
-    
-    if (error) {
-      console.error('Error checking first time setup:', error);
-      return true; // Assume first time on error
-    }
-    
-    return users.length === 0;
+    const count = await getUserCount();
+    return count === 0;
     
   } catch (error) {
     console.error('Unexpected error in isFirstTimeSetup:', error);
     return true;
   }
+}
+
+export async function getFirstTimeSetupStatus(): Promise<{ isFirstTime: boolean; userCount: number }> {
+  const userCount = await getUserCount();
+  return {
+    isFirstTime: userCount === 0,
+    userCount,
+  };
 }

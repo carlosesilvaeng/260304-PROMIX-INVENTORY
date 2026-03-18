@@ -146,6 +146,81 @@ function checkPlantAccess(user: any, plantId: string): boolean {
   return (user.assigned_plants as string[])?.includes(plantId) ?? false;
 }
 
+function getActorDisplayName(user: any): string {
+  return String(user?.name || user?.email || 'Sistema');
+}
+
+function assertPlantAccess(c: any, user: any, plantId: string) {
+  if (!checkPlantAccess(user, plantId)) {
+    return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
+  }
+
+  return null;
+}
+
+async function loadAuthorizedInventoryMonth(
+  c: any,
+  user: any,
+  inventoryMonthId: string,
+  extraFields: string[] = [],
+) {
+  const supabase = db.getSupabaseClient();
+  const fields = Array.from(new Set(['id', 'plant_id', ...extraFields])).join(', ');
+
+  const { data: inventoryMonth, error } = await supabase
+    .from('inventory_month')
+    .select(fields)
+    .eq('id', inventoryMonthId)
+    .single();
+
+  if (error || !inventoryMonth) {
+    return {
+      inventoryMonth: null,
+      response: c.json({ success: false, error: 'Inventory month not found' }, 404),
+    };
+  }
+
+  const accessError = assertPlantAccess(c, user, inventoryMonth.plant_id);
+  if (accessError) {
+    return {
+      inventoryMonth: null,
+      response: accessError,
+    };
+  }
+
+  return {
+    inventoryMonth,
+    response: null,
+  };
+}
+
+function rejectMismatchedInventoryMonthPayload(
+  c: any,
+  inventoryMonthId: string,
+  payload: any[] | Record<string, any> | null | undefined,
+  label: string,
+) {
+  const entries = Array.isArray(payload) ? payload : payload ? [payload] : [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (!entry || typeof entry !== 'object') continue;
+
+    if (
+      entry.inventory_month_id !== undefined &&
+      entry.inventory_month_id !== null &&
+      entry.inventory_month_id !== inventoryMonthId
+    ) {
+      return c.json({
+        success: false,
+        error: `${label} contiene inventory_month_id inconsistente en la fila ${index + 1}.`,
+      }, 400);
+    }
+  }
+
+  return null;
+}
+
 // ============================================================================
 // ROUTE-LEVEL AUTH MIDDLEWARE
 // ============================================================================
@@ -336,6 +411,32 @@ async function deleteInventoryMonthCascade(
 // Health check endpoint
 app.get("/make-server/health", (c) => {
   return c.json({ status: "ok" });
+});
+
+app.get("/make-server/bootstrap/status", async (c) => {
+  try {
+    await db.initializeDatabaseSchema();
+    const setupStatus = await auth.getFirstTimeSetupStatus();
+
+    return c.json({
+      success: true,
+      data: {
+        schemaReady: true,
+        canBootstrap: setupStatus.isFirstTime,
+        userCount: setupStatus.userCount,
+      },
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: error.message,
+      data: {
+        schemaReady: false,
+        canBootstrap: false,
+        userCount: 0,
+      },
+    }, 400);
+  }
 });
 
 // Get BUILD version endpoint
@@ -793,28 +894,46 @@ app.post("/make-server/auth/users/:userId/reset-password", requireUserManagement
 // Check if this is first-time setup (no users exist)
 app.get("/make-server/auth/check-first-time", async (c) => {
   try {
-    const supabase = db.getSupabaseClient();
-    
-    // Count total users
-    const { count, error } = await supabase
-      .from('users')
-      .select('id', { count: 'exact', head: true });
-    
-    if (error) {
-      console.error('Error checking user count:', error);
-      return c.json({ success: false, error: error.message }, 500);
-    }
-    
-    const isFirstTime = count === 0;
-    console.log(`🔍 First-time setup check: ${isFirstTime ? 'YES (no users)' : 'NO (' + count + ' users exist)'}`);
+    const { isFirstTime, userCount } = await auth.getFirstTimeSetupStatus();
+    console.log(`🔍 First-time setup check: ${isFirstTime ? 'YES (no users)' : 'NO (' + userCount + ' users exist)'}`);
     
     return c.json({ 
       success: true, 
       isFirstTime,
-      userCount: count
+      userCount
     });
   } catch (error) {
     console.error("Check first-time error:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/auth/bootstrap-first-user", async (c) => {
+  try {
+    const body = await c.req.json();
+    const result = await auth.bootstrapFirstUser(body);
+
+    if (!result.success) {
+      const status = result.error?.includes('ya no está disponible') ? 409 : 400;
+      return c.json(result, status);
+    }
+
+    if (result.user) {
+      logAudit(db.getSupabaseClient(), {
+        user_email: result.user.email,
+        user_name: result.user.name,
+        user_id: result.user.id,
+        action: 'INITIAL_SUPER_ADMIN_BOOTSTRAPPED',
+        plant_id: null,
+        details: {
+          role: result.user.role,
+        },
+      });
+    }
+
+    return c.json(result, 201);
+  } catch (error) {
+    console.error("Bootstrap first user error:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });
@@ -2452,11 +2571,14 @@ app.post("/make-server/inventory/month", async (c) => {
     const user = c.get('user');
     const body = await c.req.json();
     const { plant_id, year_month, created_by } = body;
-    const effectiveCreatedBy = user?.name || user?.email || created_by;
+    const effectiveCreatedBy = getActorDisplayName(user) || created_by;
 
     if (!plant_id || !year_month || !effectiveCreatedBy) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
+
+    const accessError = assertPlantAccess(c, user, plant_id);
+    if (accessError) return accessError;
 
     // Check if it already exists before creating
     const { data: existing } = await supabase
@@ -2491,7 +2613,10 @@ app.post("/make-server/inventory/month", async (c) => {
 // Get full inventory month data
 app.get("/make-server/inventory/month/:inventoryMonthId", async (c) => {
   try {
+    const user = c.get('user');
     const inventoryMonthId = c.req.param("inventoryMonthId");
+    const { response } = await loadAuthorizedInventoryMonth(c, user, inventoryMonthId);
+    if (response) return response;
     const data = await db.getInventoryMonthData(inventoryMonthId);
     return c.json({ success: true, data });
   } catch (error) {
@@ -2503,8 +2628,11 @@ app.get("/make-server/inventory/month/:inventoryMonthId", async (c) => {
 // Get inventory month by plant and year_month
 app.get("/make-server/inventory/month/:plantId/:yearMonth", async (c) => {
   try {
+    const user = c.get('user');
     const plantId = c.req.param("plantId");
     const yearMonth = c.req.param("yearMonth");
+    const accessError = assertPlantAccess(c, user, plantId);
+    if (accessError) return accessError;
     const data = await db.getInventoryMonthByPlantAndDate(plantId, yearMonth);
     
     if (!data) {
@@ -2521,15 +2649,19 @@ app.get("/make-server/inventory/month/:plantId/:yearMonth", async (c) => {
 // Update inventory month status
 app.put("/make-server/inventory/month/:inventoryMonthId/status", async (c) => {
   try {
+    const user = c.get('user');
     const inventoryMonthId = c.req.param("inventoryMonthId");
     const body = await c.req.json();
-    const { status, user_id } = body;
+    const { status } = body;
     
     if (!status) {
       return c.json({ success: false, error: "Missing status" }, 400);
     }
+
+    const { response } = await loadAuthorizedInventoryMonth(c, user, inventoryMonthId);
+    if (response) return response;
     
-    const updated = await db.updateInventoryMonthStatus(inventoryMonthId, status, user_id);
+    const updated = await db.updateInventoryMonthStatus(inventoryMonthId, status, getActorDisplayName(user));
     return c.json({ success: true, data: updated });
   } catch (error) {
     console.error("Error updating inventory month status:", error);
@@ -2601,20 +2733,27 @@ app.post('/make-server/photos/upload', async (c) => {
 app.post("/make-server/inventory/aggregates", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
 
     if (!inventory_month_id || !entries) {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
+
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
+    if (payloadError) return payloadError;
     
     // Delete existing entries for this inventory month
-    await supabase.from('inventory_aggregates_entries').delete().eq('inventory_month_id', inventory_month_id);
+    await supabase.from('inventory_aggregates_entries').delete().eq('inventory_month_id', inventoryMonth.id);
 
     // Whitelist only DB columns (strips frontend-only fields like _isNew, etc.)
     const dbEntries = entries.map((e: any) => ({
       ...(e.id ? { id: e.id } : {}),
-      inventory_month_id: e.inventory_month_id,
+      inventory_month_id: inventoryMonth.id,
       aggregate_config_id: e.aggregate_config_id,
       aggregate_name: e.aggregate_name,
       material_type: e.material_type,
@@ -2641,7 +2780,7 @@ app.post("/make-server/inventory/aggregates", async (c) => {
     const { data, error } = await supabase.from('inventory_aggregates_entries').insert(dbEntries).select();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'aggregates' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'aggregates' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving aggregates entries:", error);
@@ -2653,6 +2792,7 @@ app.post("/make-server/inventory/aggregates", async (c) => {
 app.post("/make-server/inventory/silos", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
 
@@ -2660,10 +2800,16 @@ app.post("/make-server/inventory/silos", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_silos_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
+    if (payloadError) return payloadError;
+
+    await supabase.from('inventory_silos_entries').delete().eq('inventory_month_id', inventoryMonth.id);
     const dbEntries = entries.map((e: any) => ({
       ...(e.id ? { id: e.id } : {}),
-      inventory_month_id: e.inventory_month_id,
+      inventory_month_id: inventoryMonth.id,
       silo_config_id: e.silo_config_id,
       silo_name: e.silo_name,
       measurement_method: e.measurement_method,
@@ -2682,7 +2828,7 @@ app.post("/make-server/inventory/silos", async (c) => {
     const { data, error } = await supabase.from('inventory_silos_entries').insert(dbEntries).select();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'silos' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'silos' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving silos entries:", error);
@@ -2694,6 +2840,7 @@ app.post("/make-server/inventory/silos", async (c) => {
 app.post("/make-server/inventory/additives", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
 
@@ -2701,10 +2848,16 @@ app.post("/make-server/inventory/additives", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_additives_entries').delete().eq('inventory_month_id', inventory_month_id);
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
+    if (payloadError) return payloadError;
+
+    await supabase.from('inventory_additives_entries').delete().eq('inventory_month_id', inventoryMonth.id);
     const dbEntries = entries.map((e: any) => ({
       ...(e.id ? { id: e.id } : {}),
-      inventory_month_id: e.inventory_month_id,
+      inventory_month_id: inventoryMonth.id,
       additive_config_id: e.additive_config_id,
       additive_type: e.additive_type,
       product_name: e.product_name,
@@ -2725,7 +2878,7 @@ app.post("/make-server/inventory/additives", async (c) => {
     const { data, error } = await supabase.from('inventory_additives_entries').insert(dbEntries).select();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'additives' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'additives' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving additives entries:", error);
@@ -2737,6 +2890,7 @@ app.post("/make-server/inventory/additives", async (c) => {
 app.post("/make-server/inventory/diesel", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entry } = body;
 
@@ -2744,11 +2898,35 @@ app.post("/make-server/inventory/diesel", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_diesel_entries').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_diesel_entries').insert(entry).select().single();
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entry, 'entry');
+    if (payloadError) return payloadError;
+
+    await supabase.from('inventory_diesel_entries').delete().eq('inventory_month_id', inventoryMonth.id);
+    const { data, error } = await supabase.from('inventory_diesel_entries').insert({
+      ...(entry.id ? { id: entry.id } : {}),
+      inventory_month_id: inventoryMonth.id,
+      diesel_config_id: entry.diesel_config_id,
+      plant_id: entry.plant_id,
+      unit: entry.unit,
+      reading_uom: entry.reading_uom,
+      reading_inches: entry.reading_inches,
+      reading: entry.reading,
+      calculated_gallons: entry.calculated_gallons,
+      calibration_table: entry.calibration_table,
+      tank_capacity_gallons: entry.tank_capacity_gallons,
+      beginning_inventory: entry.beginning_inventory,
+      purchases_gallons: entry.purchases_gallons,
+      ending_inventory: entry.ending_inventory,
+      consumption_gallons: entry.consumption_gallons,
+      photo_url: entry.photo_url,
+      notes: entry.notes,
+    }).select().single();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'diesel' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'diesel' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving diesel entry:", error);
@@ -2760,6 +2938,7 @@ app.post("/make-server/inventory/diesel", async (c) => {
 app.post("/make-server/inventory/products", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
 
@@ -2767,11 +2946,39 @@ app.post("/make-server/inventory/products", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
 
-    await supabase.from('inventory_products_entries').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_products_entries').insert(entries).select();
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
+    if (payloadError) return payloadError;
+
+    await supabase.from('inventory_products_entries').delete().eq('inventory_month_id', inventoryMonth.id);
+    const dbEntries = entries.map((entry: any) => ({
+      ...(entry.id ? { id: entry.id } : {}),
+      inventory_month_id: inventoryMonth.id,
+      product_config_id: entry.product_config_id,
+      producto_config_id: entry.producto_config_id,
+      product_name: entry.product_name,
+      category: entry.category,
+      measure_mode: entry.measure_mode,
+      uom: entry.uom,
+      requires_photo: entry.requires_photo,
+      reading_uom: entry.reading_uom,
+      reading_value: entry.reading_value,
+      calculated_quantity: entry.calculated_quantity,
+      calibration_table: entry.calibration_table,
+      tank_capacity: entry.tank_capacity,
+      unit_count: entry.unit_count,
+      unit_volume: entry.unit_volume,
+      total_volume: entry.total_volume,
+      quantity: entry.quantity,
+      photo_url: entry.photo_url,
+      notes: entry.notes,
+    }));
+    const { data, error } = await supabase.from('inventory_products_entries').insert(dbEntries).select();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'products' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'products' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving products entries:", error);
@@ -2783,6 +2990,7 @@ app.post("/make-server/inventory/products", async (c) => {
 app.post("/make-server/inventory/utilities", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entries } = body;
 
@@ -2790,11 +2998,35 @@ app.post("/make-server/inventory/utilities", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
     
-    await supabase.from('inventory_utilities_entries').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_utilities_entries').insert(entries).select();
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
+    if (payloadError) return payloadError;
+    
+    await supabase.from('inventory_utilities_entries').delete().eq('inventory_month_id', inventoryMonth.id);
+    const dbEntries = entries.map((entry: any) => ({
+      ...(entry.id ? { id: entry.id } : {}),
+      inventory_month_id: inventoryMonth.id,
+      utility_config_id: entry.utility_config_id,
+      utility_meter_config_id: entry.utility_meter_config_id,
+      meter_name: entry.meter_name,
+      meter_number: entry.meter_number,
+      utility_type: entry.utility_type,
+      uom: entry.uom,
+      provider: entry.provider,
+      requires_photo: entry.requires_photo,
+      previous_reading: entry.previous_reading,
+      current_reading: entry.current_reading,
+      reading: entry.reading,
+      consumption: entry.consumption,
+      photo_url: entry.photo_url,
+      notes: entry.notes,
+    }));
+    const { data, error } = await supabase.from('inventory_utilities_entries').insert(dbEntries).select();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'utilities' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'utilities' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving utilities entries:", error);
@@ -2806,6 +3038,7 @@ app.post("/make-server/inventory/utilities", async (c) => {
 app.post("/make-server/inventory/petty-cash", async (c) => {
   try {
     const supabase = db.getSupabaseClient();
+    const user = c.get('user');
     const body = await c.req.json();
     const { inventory_month_id, entry } = body;
     
@@ -2813,11 +3046,33 @@ app.post("/make-server/inventory/petty-cash", async (c) => {
       return c.json({ success: false, error: "Missing required fields" }, 400);
     }
     
-    await supabase.from('inventory_petty_cash_entries').delete().eq('inventory_month_id', inventory_month_id);
-    const { data, error } = await supabase.from('inventory_petty_cash_entries').insert(entry).select().single();
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
+
+    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entry, 'entry');
+    if (payloadError) return payloadError;
+    
+    await supabase.from('inventory_petty_cash_entries').delete().eq('inventory_month_id', inventoryMonth.id);
+    const { data, error } = await supabase.from('inventory_petty_cash_entries').insert({
+      ...(entry.id ? { id: entry.id } : {}),
+      inventory_month_id: inventoryMonth.id,
+      petty_cash_config_id: entry.petty_cash_config_id,
+      plant_id: entry.plant_id,
+      established_amount: entry.established_amount,
+      currency: entry.currency,
+      receipts: entry.receipts,
+      cash: entry.cash,
+      total: entry.total,
+      difference: entry.difference,
+      beginning_balance: entry.beginning_balance,
+      ending_balance: entry.ending_balance,
+      amount: entry.amount,
+      photo_url: entry.photo_url,
+      notes: entry.notes,
+    }).select().single();
 
     if (error) throw error;
-    logAudit(supabase, { user_email: c.get('user').email, user_name: c.get('user').name, user_id: c.get('user').id, action: 'SECTION_SAVED', inventory_month_id, details: { section: 'petty-cash' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'petty-cash' } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving petty cash entry:", error);
@@ -2845,19 +3100,8 @@ app.post("/make-server/inventory/save-draft", async (c) => {
       return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
     }
 
-    const { data: inventoryMonth, error: fetchError } = await supabase
-      .from('inventory_month')
-      .select('id, plant_id')
-      .eq('id', inventory_month_id)
-      .single();
-
-    if (fetchError || !inventoryMonth) {
-      return c.json({ success: false, error: 'Inventory month not found' }, 404);
-    }
-
-    if (!checkPlantAccess(user, inventoryMonth.plant_id)) {
-      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
-    }
+    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (response) return response;
     
     // Just update the updated_at timestamp
     const { data, error } = await supabase
@@ -2887,24 +3131,16 @@ app.post("/make-server/inventory/submit", async (c) => {
 
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
-    const { inventory_month_id, submitted_by } = body;
+    const { inventory_month_id } = body;
     
-    if (!inventory_month_id || !submitted_by) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
+    if (!inventory_month_id) {
+      return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
     }
-    
-    // Get current inventory month
-    const { data: currentMonth, error: fetchError } = await supabase
-      .from('inventory_month')
-      .select('*')
-      .eq('id', inventory_month_id)
-      .single();
-    
-    if (fetchError) throw fetchError;
 
-    if (!checkPlantAccess(user, currentMonth.plant_id)) {
-      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
-    }
+    const submittedBy = getActorDisplayName(user);
+    
+    const { inventoryMonth: currentMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
+    if (response) return response;
     
     // Validate current status
     if (currentMonth.status !== 'IN_PROGRESS') {
@@ -2919,7 +3155,7 @@ app.post("/make-server/inventory/submit", async (c) => {
       .from('inventory_month')
       .update({ 
         status: 'SUBMITTED',
-        submitted_by: submitted_by,
+        submitted_by: submittedBy,
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -2929,7 +3165,7 @@ app.post("/make-server/inventory/submit", async (c) => {
     
     if (error) throw error;
 
-    console.log(`[SUBMIT] Inventory ${inventory_month_id} submitted for approval by ${submitted_by}`);
+    console.log(`[SUBMIT] Inventory ${inventory_month_id} submitted for approval by ${submittedBy}`);
 
     // Audit log
     logAudit(supabase, {
@@ -2959,20 +3195,16 @@ app.post("/make-server/inventory/approve", async (c) => {
 
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
-    const { inventory_month_id, approved_by, notes } = body;
+    const { inventory_month_id, notes } = body;
 
-    if (!inventory_month_id || !approved_by) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
+    if (!inventory_month_id) {
+      return c.json({ success: false, error: "Missing inventory_month_id" }, 400);
     }
+
+    const approvedBy = getActorDisplayName(user);
     
-    // Get current inventory month
-    const { data: currentMonth, error: fetchError } = await supabase
-      .from('inventory_month')
-      .select('*')
-      .eq('id', inventory_month_id)
-      .single();
-    
-    if (fetchError) throw fetchError;
+    const { inventoryMonth: currentMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
+    if (response) return response;
     
     // Validate current status
     if (currentMonth.status !== 'SUBMITTED') {
@@ -2985,7 +3217,7 @@ app.post("/make-server/inventory/approve", async (c) => {
     // Update status to APPROVED
     const updateData: any = {
       status: 'APPROVED',
-      approved_by: approved_by,
+      approved_by: approvedBy,
       approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -3003,7 +3235,7 @@ app.post("/make-server/inventory/approve", async (c) => {
     
     if (error) throw error;
 
-    console.log(`[APPROVE] Inventory ${inventory_month_id} approved by ${approved_by}`);
+    console.log(`[APPROVE] Inventory ${inventory_month_id} approved by ${approvedBy}`);
 
     // Audit log
     logAudit(supabase, {
@@ -3033,20 +3265,16 @@ app.post("/make-server/inventory/reject", async (c) => {
 
     const supabase = db.getSupabaseClient();
     const body = await c.req.json();
-    const { inventory_month_id, rejected_by, rejection_notes } = body;
+    const { inventory_month_id, rejection_notes } = body;
 
-    if (!inventory_month_id || !rejected_by || !rejection_notes) {
-      return c.json({ success: false, error: "Missing required fields (inventory_month_id, rejected_by, rejection_notes)" }, 400);
+    if (!inventory_month_id || !rejection_notes) {
+      return c.json({ success: false, error: "Missing required fields (inventory_month_id, rejection_notes)" }, 400);
     }
+
+    const rejectedBy = getActorDisplayName(user);
     
-    // Get current inventory month
-    const { data: currentMonth, error: fetchError } = await supabase
-      .from('inventory_month')
-      .select('*')
-      .eq('id', inventory_month_id)
-      .single();
-    
-    if (fetchError) throw fetchError;
+    const { inventoryMonth: currentMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
+    if (response) return response;
     
     // Validate current status
     if (currentMonth.status !== 'SUBMITTED') {
@@ -3061,7 +3289,7 @@ app.post("/make-server/inventory/reject", async (c) => {
       .from('inventory_month')
       .update({ 
         status: 'IN_PROGRESS',
-        rejected_by: rejected_by,
+        rejected_by: rejectedBy,
         rejected_at: new Date().toISOString(),
         rejection_notes: rejection_notes,
         // Clear submission data
@@ -3075,7 +3303,7 @@ app.post("/make-server/inventory/reject", async (c) => {
     
     if (error) throw error;
 
-    console.log(`[REJECT] Inventory ${inventory_month_id} rejected by ${rejected_by}. Reason: ${rejection_notes}`);
+    console.log(`[REJECT] Inventory ${inventory_month_id} rejected by ${rejectedBy}. Reason: ${rejection_notes}`);
 
     // Audit log
     logAudit(supabase, {

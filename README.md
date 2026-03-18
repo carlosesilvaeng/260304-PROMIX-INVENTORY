@@ -9,6 +9,18 @@
 
   Run `npm run dev` to start the development server.
 
+  ## Initial setup
+
+  For a fresh Supabase project, the database schema must already exist before using the app bootstrap flow.
+
+  The app's initial setup now does this:
+
+  1. Verifies the required schema/tables exist.
+  2. Verifies no users exist yet.
+  3. Creates the first `super_admin`.
+
+  It does not create tables automatically from the UI. If the schema is missing, execute the SQL in `supabase/schema.sql` first.
+
   ## Edge Function deploy
 
   The `make-server` function must be deployed with JWT verification disabled at the gateway level.

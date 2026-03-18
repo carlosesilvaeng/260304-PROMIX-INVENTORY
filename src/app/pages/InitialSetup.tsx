@@ -29,19 +29,19 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
     confirmPassword: ''
   });
 
-  // Inicializar esquema de base de datos
+  // Verificar si el proyecto esta listo para bootstrap inicial
   const handleInitializeDatabase = async () => {
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      console.log('🔧 [InitialSetup] Initializing database schema...');
+      console.log('🔧 [InitialSetup] Checking bootstrap readiness...');
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server/db/initialize`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/bootstrap/status`,
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`
@@ -51,12 +51,20 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
 
       const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'No se pudo inicializar la base de datos');
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'No se pudo verificar el estado del bootstrap inicial');
       }
 
-      console.log('✅ [InitialSetup] Database initialized successfully');
-      setSuccess('Base de datos inicializada correctamente.');
+      if (!data.data?.schemaReady) {
+        throw new Error('El esquema de base de datos no está listo todavía.');
+      }
+
+      if (!data.data?.canBootstrap) {
+        throw new Error('El bootstrap inicial ya no está disponible porque ya existen usuarios.');
+      }
+
+      console.log('✅ [InitialSetup] Bootstrap readiness confirmed');
+      setSuccess('Proyecto listo para crear el primer Super Administrador.');
       
       // Wait a moment then move to admin creation
       setTimeout(() => {
@@ -100,7 +108,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
       console.log('👤 [InitialSetup] Creating Super Admin user...');
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server/auth/signup`,
+        `https://${projectId}.supabase.co/functions/v1/make-server/auth/bootstrap-first-user`,
         {
           method: 'POST',
           headers: {
@@ -111,8 +119,6 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
             email: adminData.email,
             password: adminData.password,
             name: adminData.name,
-            role: 'SUPER_ADMIN',
-            isInitialSetup: true
           })
         }
       );
@@ -153,7 +159,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
         </h1>
         <p className="text-sm text-[#6F767E] text-center mb-6">
           {step === 'database' 
-            ? 'Inicializa la base de datos para comenzar'
+            ? 'Verifica que el proyecto esté listo para crear el primer usuario'
             : 'Crea tu cuenta de Super Administrador'}
         </p>
 
@@ -176,16 +182,15 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
           <div className="space-y-4">
             <div className="bg-[#F5F6F7] rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-[#1A1D1F] mb-2">
-                Base de Datos
+                Bootstrap Inicial
               </h3>
               <p className="text-sm text-[#6F767E] mb-3">
-                Esto creará todas las tablas y el esquema necesarios en tu base de datos de Supabase.
+                Este paso verifica que el esquema de Supabase ya esté instalado y que todavía no existan usuarios.
               </p>
               <ul className="text-sm text-[#6F767E] space-y-1 list-disc list-inside">
-                <li>Tablas de usuarios y autenticación</li>
-                <li>Tablas de configuración de plantas</li>
-                <li>Tablas de seguimiento de inventarios</li>
-                <li>Configuración de módulos</li>
+                <li>Confirma que las tablas requeridas existen</li>
+                <li>Confirma que el bootstrap inicial sigue disponible</li>
+                <li>No crea tablas automáticamente desde la app</li>
               </ul>
             </div>
 
@@ -195,7 +200,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
               fullWidth
               size="lg"
             >
-              {loading ? 'Inicializando...' : 'Inicializar Base de Datos'}
+              {loading ? 'Verificando...' : 'Verificar Proyecto'}
             </Button>
           </div>
         )}
