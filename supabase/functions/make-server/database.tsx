@@ -68,6 +68,49 @@ export async function replaceInventorySectionRowsAtomic(
   if (error) throw error;
 }
 
+export async function upsertSilosImportAtomic(
+  plantId: string,
+  silos: Record<string, unknown>[],
+  allowedProductsRows: Record<string, unknown>[],
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('upsert_silos_import_atomic', {
+    p_plant_id: plantId,
+    p_silos: silos ?? [],
+    p_allowed_products: allowedProductsRows ?? [],
+  });
+
+  if (error) throw error;
+}
+
+export async function upsertAggregatesImportAtomic(
+  plantId: string,
+  aggregates: Record<string, unknown>[],
+  clearLegacyCajones: boolean,
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('upsert_aggregates_import_atomic', {
+    p_plant_id: plantId,
+    p_aggregates: aggregates ?? [],
+    p_clear_legacy_cajones: clearLegacyCajones,
+  });
+
+  if (error) throw error;
+}
+
+export async function upsertProductsImportAtomic(
+  plantId: string,
+  products: Record<string, unknown>[],
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('upsert_products_import_atomic', {
+    p_plant_id: plantId,
+    p_products: products ?? [],
+  });
+
+  if (error) throw error;
+}
+
 export const INVENTORY_CHILD_TABLES = [
   { table: 'inventory_aggregates_entries', configKey: 'aggregates' },
   { table: 'inventory_silos_entries', configKey: 'silos' },
@@ -3033,12 +3076,13 @@ export async function executeProductsImport(plantId: string, input: ProductsImpo
 
   const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
   let nextSortOrder = maxSortOrder + 1;
-
-  let created = 0;
-  let updated = 0;
+  const created = preview.normalized_rows.filter((row) => row.action === 'create').length;
+  const updated = preview.normalized_rows.filter((row) => row.action === 'update').length;
+  const productRows: Array<Record<string, unknown>> = [];
 
   for (const row of preview.normalized_rows) {
     const payload = {
+      id: row.existing_id || crypto.randomUUID(),
       plant_id: plantId,
       product_name: row.product_name,
       unit: row.uom,
@@ -3053,24 +3097,10 @@ export async function executeProductsImport(plantId: string, input: ProductsImpo
       is_active: row.is_active,
       sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
     };
-
-    if (row.action === 'update' && row.existing_id) {
-      const { error: updateError } = await supabase
-        .from('plant_products_config')
-        .update(payload)
-        .eq('id', row.existing_id);
-
-      if (updateError) throw updateError;
-      updated += 1;
-    } else {
-      const { error: insertError } = await supabase
-        .from('plant_products_config')
-        .insert(payload);
-
-      if (insertError) throw insertError;
-      created += 1;
-    }
+    productRows.push(payload);
   }
+
+  await upsertProductsImportAtomic(plantId, productRows);
 
   return {
     ...preview,
@@ -3325,11 +3355,13 @@ export async function executeAggregatesImport(plantId: string, input: Aggregates
 
   const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
   let nextSortOrder = maxSortOrder + 1;
-  let created = 0;
-  let updated = 0;
+  const created = preview.normalized_rows.filter((row) => row.action === 'create').length;
+  const updated = preview.normalized_rows.filter((row) => row.action === 'update').length;
+  const aggregateRows: Array<Record<string, unknown>> = [];
 
   for (const row of preview.normalized_rows) {
     const payload = {
+      id: row.existing_id || crypto.randomUUID(),
       plant_id: plantId,
       aggregate_name: row.aggregate_name,
       material_type: row.material_type,
@@ -3341,30 +3373,9 @@ export async function executeAggregatesImport(plantId: string, input: Aggregates
       is_active: row.is_active,
       sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
     };
-
-    if (row.action === 'update' && row.existing_id) {
-      const { error: updateError } = await supabase
-        .from('plant_aggregates_config')
-        .update(payload)
-        .eq('id', row.existing_id);
-
-      if (updateError) throw updateError;
-      updated += 1;
-    } else {
-      const { error: insertError } = await supabase
-        .from('plant_aggregates_config')
-        .insert(payload);
-
-      if (insertError) throw insertError;
-      created += 1;
-    }
+    aggregateRows.push(payload);
   }
-
-  const { error: legacyDeleteError } = await supabase
-    .from('plant_cajones_config')
-    .delete()
-    .eq('plant_id', plantId);
-  if (legacyDeleteError) throw legacyDeleteError;
+  await upsertAggregatesImportAtomic(plantId, aggregateRows, (preview.summary.legacy_cajones || 0) > 0);
 
   return {
     ...preview,
@@ -3589,13 +3600,15 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
 
   const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
   let nextSortOrder = maxSortOrder + 1;
-  let created = 0;
-  let updated = 0;
-  const affectedSiloIds: string[] = [];
+  const created = preview.normalized_rows.filter((row) => row.action === 'create').length;
+  const updated = preview.normalized_rows.filter((row) => row.action === 'update').length;
+  const siloRows: Array<Record<string, unknown>> = [];
   const allowedProductsRows: Array<{ silo_config_id: string; product_name: string }> = [];
 
   for (const row of preview.normalized_rows) {
+    const siloId = row.existing_id || crypto.randomUUID();
     const payload = {
+      id: siloId,
       plant_id: plantId,
       silo_name: row.silo_name,
       measurement_method: row.measurement_method,
@@ -3603,50 +3616,13 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
       is_active: row.is_active,
       sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
     };
-
-    let siloId = row.existing_id;
-
-    if (row.action === 'update' && row.existing_id) {
-      const { error: updateError } = await supabase
-        .from('plant_silos_config')
-        .update(payload)
-        .eq('id', row.existing_id);
-
-      if (updateError) throw updateError;
-      updated += 1;
-    } else {
-      const { data: inserted, error: insertError } = await supabase
-        .from('plant_silos_config')
-        .insert(payload)
-        .select('id')
-        .single();
-
-      if (insertError) throw insertError;
-      siloId = inserted?.id;
-      created += 1;
-    }
-
-    if (!siloId) continue;
-    affectedSiloIds.push(siloId);
+    siloRows.push(payload);
     row.allowed_products.forEach((product_name) => {
-      allowedProductsRows.push({ silo_config_id: siloId!, product_name });
+      allowedProductsRows.push({ silo_config_id: siloId, product_name });
     });
   }
 
-  if (affectedSiloIds.length > 0) {
-    const { error: deleteAllowedProductsError } = await supabase
-      .from('silo_allowed_products')
-      .delete()
-      .in('silo_config_id', affectedSiloIds);
-    if (deleteAllowedProductsError) throw deleteAllowedProductsError;
-  }
-
-  if (allowedProductsRows.length > 0) {
-    const { error: insertAllowedProductsError } = await supabase
-      .from('silo_allowed_products')
-      .insert(allowedProductsRows);
-    if (insertAllowedProductsError) throw insertAllowedProductsError;
-  }
+  await upsertSilosImportAtomic(plantId, siloRows, allowedProductsRows);
 
   const warnings = [...preview.warnings];
   if (defaultCurveInfo.warning) {
