@@ -549,6 +549,7 @@ BEGIN
 
     WHEN 'aggregates' THEN
       DELETE FROM public.plant_aggregates_config WHERE plant_id = p_plant_id;
+      DELETE FROM public.plant_cajones_config WHERE plant_id = p_plant_id;
 
       IF jsonb_array_length(v_rows) > 0 THEN
         INSERT INTO public.plant_aggregates_config (

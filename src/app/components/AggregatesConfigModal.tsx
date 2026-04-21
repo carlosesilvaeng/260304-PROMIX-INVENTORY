@@ -579,7 +579,7 @@ export function AggregatesConfigModal({
                     <li>Si eliges <strong>Cajón</strong>, el gerente solo ingresará el largo y el sistema usará ancho y alto fijos.</li>
                     <li>Si eliges <strong>Cono</strong>, el gerente ingresará M1 a M6 y D1 a D2 en la captura.</li>
                     <li>Si la planta aún no tiene agregados configurados, se precargan aquí desde la configuración anterior para facilitar la migración inicial.</li>
-                    <li>La importación desde plantilla migra la planta al esquema nuevo y limpia los cajones legacy al ejecutar.</li>
+                    <li>Guardar o importar deja esta planta usando el esquema nuevo de agregados y limpia los cajones legacy.</li>
                   </ul>
                 </div>
 
