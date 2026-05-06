@@ -364,16 +364,6 @@ export function Settings() {
                 Plantas
               </button>
               <button
-                onClick={() => setActiveTab('audit')}
-                className={`px-4 py-2 border-b-2 transition-colors ${
-                  activeTab === 'audit'
-                    ? 'border-[#2475C7] text-[#2475C7]'
-                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-                }`}
-              >
-                Auditoría
-              </button>
-              <button
                 onClick={() => setActiveTab('catalogs')}
                 className={`px-4 py-2 border-b-2 transition-colors ${
                   activeTab === 'catalogs'
@@ -405,6 +395,18 @@ export function Settings() {
               }`}
             >
               Usuarios
+            </button>
+          )}
+          {canViewAudit && (
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={`px-4 py-2 border-b-2 transition-colors ${
+                activeTab === 'audit'
+                  ? 'border-[#2475C7] text-[#2475C7]'
+                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+              }`}
+            >
+              Auditoría
             </button>
           )}
           {canManageSystemModules && (
