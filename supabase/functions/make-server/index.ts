@@ -23,6 +23,55 @@ console.log('   SUPABASE_SERVICE_ROLE_KEY exists:', !!Deno.env.get('SUPABASE_SER
 console.log('   SUPABASE_SERVICE_ROLE_KEY length:', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.length || 0);
 console.log('   SUPABASE_SERVICE_ROLE_KEY prefix:', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.substring(0, 50) + '...');
 
+type NumericCalibrationTable = Record<string, number>;
+
+function roundTo(value: number, decimals = 2) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function normalizeCalibrationPoints(table: NumericCalibrationTable | null | undefined) {
+  const pointsByReading = new Map<number, number>();
+  Object.entries(table || {}).forEach(([readingKey, rawValue]) => {
+    const reading = Number(readingKey);
+    const value = Number(rawValue);
+    if (!Number.isFinite(reading) || !Number.isFinite(value)) return;
+    pointsByReading.set(reading, value);
+  });
+
+  return Array.from(pointsByReading.entries())
+    .map(([reading, value]) => ({ reading, value }))
+    .sort((left, right) => left.reading - right.reading);
+}
+
+function hasCalibrationPoints(table: NumericCalibrationTable | null | undefined) {
+  return normalizeCalibrationPoints(table).length > 0;
+}
+
+function interpolateCalibrationTable(reading: unknown, table: NumericCalibrationTable | null | undefined) {
+  const readingValue = Number(reading);
+  const points = normalizeCalibrationPoints(table);
+
+  if (!Number.isFinite(readingValue) || points.length === 0) return 0;
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  if (readingValue <= firstPoint.reading) return roundTo(firstPoint.value);
+  if (readingValue >= lastPoint.reading) return roundTo(lastPoint.value);
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const lowerPoint = points[index];
+    const upperPoint = points[index + 1];
+    if (readingValue === lowerPoint.reading) return roundTo(lowerPoint.value);
+    if (readingValue >= lowerPoint.reading && readingValue <= upperPoint.reading) {
+      const ratio = (readingValue - lowerPoint.reading) / (upperPoint.reading - lowerPoint.reading);
+      return roundTo(lowerPoint.value + (upperPoint.value - lowerPoint.value) * ratio);
+    }
+  }
+
+  return roundTo(lastPoint.value);
+}
+
 // Decode and check key algorithms
 const anonKey = Deno.env.get('CLIENT_ANON_KEY');
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -3070,24 +3119,34 @@ app.post("/make-server/inventory/silos", async (c) => {
     const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
     if (payloadError) return payloadError;
 
-    const dbEntries = entries.map((e: any) => ({
-      ...(e.id ? { id: e.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      silo_config_id: e.silo_config_id,
-      silo_name: e.silo_name,
-      measurement_method: e.measurement_method,
-      allowed_products: e.allowed_products,
-      product_id: e.product_id,
-      product_name: e.product_name,
-      product_in_silo: e.product_in_silo,
-      reading_value: e.reading_value,
-      reading: e.reading,
-      previous_reading: e.previous_reading,
-      calculated_result_cy: e.calculated_result_cy,
-      calculated_volume: e.calculated_volume,
-      photo_url: e.photo_url,
-      notes: e.notes,
-    }));
+    const dbEntries = entries.map((e: any) => {
+      if (!hasCalibrationPoints(e.conversion_table)) {
+        throw new Error(`${e.silo_name || 'Silo'}: falta tabla de calibración para calcular la lectura del silo.`);
+      }
+      const readingValue = Number(e.reading_value ?? e.reading ?? 0) || 0;
+      const calculatedVolume = interpolateCalibrationTable(readingValue, e.conversion_table);
+
+      return {
+        ...(e.id ? { id: e.id } : {}),
+        inventory_month_id: inventoryMonth.id,
+        silo_config_id: e.silo_config_id,
+        silo_name: e.silo_name,
+        measurement_method: e.measurement_method,
+        allowed_products: e.allowed_products,
+        product_id: e.product_id,
+        product_name: e.product_name,
+        product_in_silo: e.product_in_silo,
+        reading_uom: e.reading_uom,
+        reading_value: readingValue,
+        reading: readingValue,
+        previous_reading: e.previous_reading,
+        calculated_result_cy: calculatedVolume,
+        calculated_volume: calculatedVolume,
+        conversion_table: e.conversion_table,
+        photo_url: e.photo_url,
+        notes: e.notes,
+      };
+    });
     await db.replaceInventorySectionRowsAtomic('silos', inventoryMonth.id, dbEntries);
     const { data, error } = await supabase
       .from('inventory_silos_entries')
@@ -3121,26 +3180,37 @@ app.post("/make-server/inventory/additives", async (c) => {
     const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
     if (payloadError) return payloadError;
 
-    const dbEntries = entries.map((e: any) => ({
-      ...(e.id ? { id: e.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      additive_config_id: e.additive_config_id,
-      additive_type: e.additive_type,
-      product_name: e.product_name,
-      brand: e.brand,
-      uom: e.uom,
-      requires_photo: e.requires_photo,
-      tank_name: e.tank_name,
-      reading_uom: e.reading_uom,
-      reading_value: e.reading_value,
-      reading: e.reading,
-      calculated_volume: e.calculated_volume,
-      calculated_gallons: e.calculated_gallons,
-      conversion_table: e.conversion_table,
-      quantity: e.quantity,
-      photo_url: e.photo_url,
-      notes: e.notes,
-    }));
+    const dbEntries = entries.map((e: any) => {
+      const isTank = String(e.additive_type || '').toUpperCase() === 'TANK';
+      if (isTank && !hasCalibrationPoints(e.conversion_table)) {
+        throw new Error(`${e.product_name || 'Aditivo'}: falta tabla de calibración para calcular la lectura del tanque.`);
+      }
+      const readingValue = Number(e.reading_value ?? e.reading ?? 0) || 0;
+      const calculatedVolume = isTank
+        ? interpolateCalibrationTable(readingValue, e.conversion_table)
+        : Number(e.calculated_volume ?? 0) || 0;
+
+      return {
+        ...(e.id ? { id: e.id } : {}),
+        inventory_month_id: inventoryMonth.id,
+        additive_config_id: e.additive_config_id,
+        additive_type: e.additive_type,
+        product_name: e.product_name,
+        brand: e.brand,
+        uom: e.uom,
+        requires_photo: e.requires_photo,
+        tank_name: e.tank_name,
+        reading_uom: e.reading_uom,
+        reading_value: readingValue,
+        reading: readingValue,
+        calculated_volume: calculatedVolume,
+        calculated_gallons: isTank ? calculatedVolume : e.calculated_gallons,
+        conversion_table: e.conversion_table,
+        quantity: e.quantity,
+        photo_url: e.photo_url,
+        notes: e.notes,
+      };
+    });
     await db.replaceInventorySectionRowsAtomic('additives', inventoryMonth.id, dbEntries);
     const { data, error } = await supabase
       .from('inventory_additives_entries')
@@ -3174,6 +3244,17 @@ app.post("/make-server/inventory/diesel", async (c) => {
     const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entry, 'entry');
     if (payloadError) return payloadError;
 
+    if (!hasCalibrationPoints(entry.calibration_table)) {
+      throw new Error('Falta tabla de calibración para calcular la lectura del tanque de diesel.');
+    }
+    const dieselReading = Number(entry.reading_inches ?? entry.reading ?? 0) || 0;
+    const calculatedGallons = interpolateCalibrationTable(dieselReading, entry.calibration_table);
+    const consumptionGallons = roundTo(
+      (Number(entry.beginning_inventory ?? 0) || 0) +
+      (Number(entry.purchases_gallons ?? 0) || 0) -
+      calculatedGallons
+    );
+
     const dieselRow = {
       ...(entry.id ? { id: entry.id } : {}),
       inventory_month_id: inventoryMonth.id,
@@ -3181,15 +3262,15 @@ app.post("/make-server/inventory/diesel", async (c) => {
       plant_id: entry.plant_id,
       unit: entry.unit,
       reading_uom: entry.reading_uom,
-      reading_inches: entry.reading_inches,
-      reading: entry.reading,
-      calculated_gallons: entry.calculated_gallons,
+      reading_inches: dieselReading,
+      reading: dieselReading,
+      calculated_gallons: calculatedGallons,
       calibration_table: entry.calibration_table,
       tank_capacity_gallons: entry.tank_capacity_gallons,
       beginning_inventory: entry.beginning_inventory,
       purchases_gallons: entry.purchases_gallons,
-      ending_inventory: entry.ending_inventory,
-      consumption_gallons: entry.consumption_gallons,
+      ending_inventory: calculatedGallons,
+      consumption_gallons: consumptionGallons,
       photo_url: entry.photo_url,
       notes: entry.notes,
     };
@@ -3227,28 +3308,39 @@ app.post("/make-server/inventory/products", async (c) => {
     const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
     if (payloadError) return payloadError;
 
-    const dbEntries = entries.map((entry: any) => ({
-      ...(entry.id ? { id: entry.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      product_config_id: entry.product_config_id,
-      producto_config_id: entry.producto_config_id,
-      product_name: entry.product_name,
-      category: entry.category,
-      measure_mode: entry.measure_mode,
-      uom: entry.uom,
-      requires_photo: entry.requires_photo,
-      reading_uom: entry.reading_uom,
-      reading_value: entry.reading_value,
-      calculated_quantity: entry.calculated_quantity,
-      calibration_table: entry.calibration_table,
-      tank_capacity: entry.tank_capacity,
-      unit_count: entry.unit_count,
-      unit_volume: entry.unit_volume,
-      total_volume: entry.total_volume,
-      quantity: entry.quantity,
-      photo_url: entry.photo_url,
-      notes: entry.notes,
-    }));
+    const dbEntries = entries.map((entry: any) => {
+      const isTankReading = String(entry.measure_mode || '').toUpperCase() === 'TANK_READING';
+      if (isTankReading && !hasCalibrationPoints(entry.calibration_table)) {
+        throw new Error(`${entry.product_name || 'Producto'}: falta tabla de calibración para calcular la lectura del tanque.`);
+      }
+      const readingValue = Number(entry.reading_value ?? 0) || 0;
+      const calculatedQuantity = isTankReading
+        ? interpolateCalibrationTable(readingValue, entry.calibration_table)
+        : Number(entry.calculated_quantity ?? 0) || 0;
+
+      return {
+        ...(entry.id ? { id: entry.id } : {}),
+        inventory_month_id: inventoryMonth.id,
+        product_config_id: entry.product_config_id,
+        producto_config_id: entry.producto_config_id,
+        product_name: entry.product_name,
+        category: entry.category,
+        measure_mode: entry.measure_mode,
+        uom: entry.uom,
+        requires_photo: entry.requires_photo,
+        reading_uom: entry.reading_uom,
+        reading_value: readingValue,
+        calculated_quantity: calculatedQuantity,
+        calibration_table: entry.calibration_table,
+        tank_capacity: entry.tank_capacity,
+        unit_count: entry.unit_count,
+        unit_volume: entry.unit_volume,
+        total_volume: entry.total_volume,
+        quantity: isTankReading ? calculatedQuantity : entry.quantity,
+        photo_url: entry.photo_url,
+        notes: entry.notes,
+      };
+    });
     await db.replaceInventorySectionRowsAtomic('products', inventoryMonth.id, dbEntries);
     const { data, error } = await supabase
       .from('inventory_products_entries')

@@ -6,6 +6,7 @@ import { StandardInput, ReadOnlyField, FormSection } from '../../components/Stan
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
+import { hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveDieselEntry } from '../../utils/api';
 
@@ -158,21 +159,33 @@ export function DieselSection() {
     try {
       console.log('[DieselSection] Saving entry:', diesel);
 
+      if (!hasCalibrationPoints(diesel.calibration_table)) {
+        throw new Error('Falta tabla de calibración para calcular la lectura del tanque de diesel.');
+      }
+
+      const readingValue = Number(diesel.reading_inches ?? diesel.reading ?? 0) || 0;
+      const calculatedGallons = convertDieselReadingToGallons(readingValue, diesel.calibration_table);
+      const consumptionGallons = calculateDieselConsumption(
+        diesel.beginning_inventory ?? 0,
+        diesel.purchases_gallons ?? 0,
+        calculatedGallons
+      );
+
       const entryToSave = {
         inventory_month_id: prefillData.inventoryMonth.id,
         diesel_config_id: diesel.diesel_config_id || null,
         plant_id: diesel.plant_id || currentPlant?.id || null,
         unit: diesel.unit || 'gallons',
         reading_uom: diesel.reading_uom || 'inches',
-        reading_inches: diesel.reading_inches ?? 0,
-        reading: diesel.reading_inches ?? diesel.reading ?? 0,
-        calculated_gallons: diesel.calculated_gallons ?? 0,
+        reading_inches: readingValue,
+        reading: readingValue,
+        calculated_gallons: calculatedGallons,
         calibration_table: diesel.calibration_table || null,
         tank_capacity_gallons: diesel.tank_capacity_gallons ?? 0,
         beginning_inventory: diesel.beginning_inventory ?? 0,
         purchases_gallons: diesel.purchases_gallons ?? 0,
-        ending_inventory: diesel.ending_inventory ?? 0,
-        consumption_gallons: diesel.consumption_gallons ?? 0,
+        ending_inventory: calculatedGallons,
+        consumption_gallons: consumptionGallons,
         photo_url: diesel.photo_url || null,
         notes: diesel.notes || '',
       };

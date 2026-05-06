@@ -11,6 +11,7 @@ import {
   getProductInputLabel,
   getProductCalculatedLabel,
 } from '../../utils/products';
+import { hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveProductsEntries } from '../../utils/api';
 
@@ -166,6 +167,15 @@ export function ProductsSection() {
 
       const entriesToSave = productos.map((producto: any) => {
         const configId = producto.product_config_id || producto.producto_config_id || null;
+        const isTankReading = producto.measure_mode === 'TANK_READING';
+        if (isTankReading && !hasCalibrationPoints(producto.calibration_table)) {
+          throw new Error(`${producto.product_name}: falta tabla de calibración para calcular la lectura del tanque.`);
+        }
+
+        const readingValue = Number(producto.reading_value ?? 0) || 0;
+        const calculatedQuantity = isTankReading
+          ? convertProductReadingToQuantity(readingValue, producto.calibration_table)
+          : Number(producto.calculated_quantity ?? 0) || 0;
 
         return {
           inventory_month_id: prefillData.inventoryMonth.id,
@@ -177,14 +187,14 @@ export function ProductsSection() {
           uom: producto.uom || '',
           requires_photo: producto.requires_photo ?? false,
           reading_uom: producto.reading_uom || null,
-          reading_value: producto.reading_value ?? 0,
-          calculated_quantity: producto.calculated_quantity ?? 0,
+          reading_value: readingValue,
+          calculated_quantity: calculatedQuantity,
           calibration_table: producto.calibration_table || null,
           tank_capacity: producto.tank_capacity ?? null,
           unit_count: producto.unit_count ?? 0,
           unit_volume: producto.unit_volume ?? null,
           total_volume: producto.total_volume ?? 0,
-          quantity: producto.quantity ?? 0,
+          quantity: isTankReading ? calculatedQuantity : producto.quantity ?? 0,
           photo_url: producto.photo_url || null,
           notes: producto.notes || '',
         };

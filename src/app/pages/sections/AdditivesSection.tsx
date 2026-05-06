@@ -5,7 +5,7 @@ import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
-import { convertReadingToVolume } from '../../utils/calibration';
+import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
 
@@ -143,26 +143,38 @@ export function AdditivesSection() {
     try {
       console.log('[AdditivesSection] Saving entries:', prefillData.aditivosEntries);
 
-      const entriesToSave = prefillData.aditivosEntries.map((entry: any) => ({
-        ...(entry._isNew ? {} : { id: entry.id }),
-        inventory_month_id: entry.inventory_month_id,
-        additive_config_id: entry.additive_config_id,
-        additive_type: entry.additive_type,
-        product_name: entry.product_name,
-        brand: entry.brand || '',
-        uom: entry.uom,
-        requires_photo: entry.requires_photo ?? false,
-        tank_name: entry.tank_name || null,
-        reading_uom: entry.reading_uom || null,
-        reading_value: entry.reading_value ?? 0,
-        reading: entry.reading_value ?? entry.reading ?? 0,
-        calculated_volume: entry.calculated_volume ?? 0,
-        calculated_gallons: entry.calculated_gallons ?? entry.calculated_volume ?? 0,
-        conversion_table: entry.conversion_table || null,
-        quantity: entry.quantity ?? 0,
-        photo_url: entry.photo_url || null,
-        notes: entry.notes || '',
-      }));
+      const entriesToSave = prefillData.aditivosEntries.map((entry: any) => {
+        const isTank = entry.additive_type === 'TANK';
+        if (isTank && !hasCalibrationPoints(entry.conversion_table)) {
+          throw new Error(`${entry.product_name}: falta tabla de calibración para calcular la lectura del tanque.`);
+        }
+
+        const readingValue = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
+        const calculatedVolume = isTank
+          ? convertReadingToVolume(readingValue, entry.conversion_table)
+          : Number(entry.calculated_volume ?? 0) || 0;
+
+        return {
+          ...(entry._isNew ? {} : { id: entry.id }),
+          inventory_month_id: entry.inventory_month_id,
+          additive_config_id: entry.additive_config_id,
+          additive_type: entry.additive_type,
+          product_name: entry.product_name,
+          brand: entry.brand || '',
+          uom: entry.uom,
+          requires_photo: entry.requires_photo ?? false,
+          tank_name: entry.tank_name || null,
+          reading_uom: entry.reading_uom || null,
+          reading_value: readingValue,
+          reading: readingValue,
+          calculated_volume: calculatedVolume,
+          calculated_gallons: isTank ? calculatedVolume : entry.calculated_gallons ?? calculatedVolume,
+          conversion_table: entry.conversion_table || null,
+          quantity: entry.quantity ?? 0,
+          photo_url: entry.photo_url || null,
+          notes: entry.notes || '',
+        };
+      });
       
       const response = await saveAdditivesEntries(
         prefillData.inventoryMonth.id,

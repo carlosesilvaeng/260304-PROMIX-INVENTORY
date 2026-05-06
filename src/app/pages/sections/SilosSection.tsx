@@ -6,7 +6,7 @@ import { Select } from '../../components/Select';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
-import { convertReadingToVolume } from '../../utils/calibration';
+import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveSilosEntries } from '../../utils/api';
 
@@ -134,27 +134,36 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
     try {
       // Prepare entries for saving (remove temp IDs and internal flags)
-      const entriesToSave = prefillData.silosEntries.map(entry => ({
-        ...(entry._isNew ? {} : { id: entry.id }),
-        inventory_month_id: entry.inventory_month_id,
-        silo_config_id: entry.silo_config_id,
-        silo_name: entry.silo_name,
-        measurement_method: entry.measurement_method,
-        calibration_curve_name: entry.calibration_curve_name || null,
-        reading_uom: entry.reading_uom || null,
-        conversion_table: entry.conversion_table || null,
-        allowed_products: entry.allowed_products || [],
-        product_id: entry.product_id || null,
-        product_name: entry.product_name || null,
-        product_in_silo: entry.product_in_silo || entry.product_name || null,
-        reading_value: entry.reading_value ?? 0,
-        reading: entry.reading_value ?? entry.reading ?? 0,
-        previous_reading: entry.previous_reading ?? 0,
-        calculated_result_cy: entry.calculated_result_cy ?? 0,
-        calculated_volume: entry.calculated_volume ?? entry.calculated_result_cy ?? 0,
-        photo_url: entry.photo_url,
-        notes: entry.notes || '',
-      }));
+      const entriesToSave = prefillData.silosEntries.map(entry => {
+        if (!hasCalibrationPoints(entry.conversion_table)) {
+          throw new Error(`${entry.silo_name}: falta tabla de calibración para calcular la lectura del silo.`);
+        }
+
+        const readingValue = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
+        const calculatedVolume = convertReadingToVolume(readingValue, entry.conversion_table);
+
+        return {
+          ...(entry._isNew ? {} : { id: entry.id }),
+          inventory_month_id: entry.inventory_month_id,
+          silo_config_id: entry.silo_config_id,
+          silo_name: entry.silo_name,
+          measurement_method: entry.measurement_method,
+          calibration_curve_name: entry.calibration_curve_name || null,
+          reading_uom: entry.reading_uom || null,
+          conversion_table: entry.conversion_table || null,
+          allowed_products: entry.allowed_products || [],
+          product_id: entry.product_id || null,
+          product_name: entry.product_name || null,
+          product_in_silo: entry.product_in_silo || entry.product_name || null,
+          reading_value: readingValue,
+          reading: readingValue,
+          previous_reading: entry.previous_reading ?? 0,
+          calculated_result_cy: calculatedVolume,
+          calculated_volume: calculatedVolume,
+          photo_url: entry.photo_url,
+          notes: entry.notes || '',
+        };
+      });
 
       const response = await saveSilosEntries(
         prefillData.inventoryMonth.id,
