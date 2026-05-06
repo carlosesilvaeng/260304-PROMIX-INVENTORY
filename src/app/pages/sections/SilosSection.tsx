@@ -6,6 +6,7 @@ import { Select } from '../../components/Select';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
+import { convertReadingToVolume } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveSilosEntries } from '../../utils/api';
 
@@ -106,11 +107,13 @@ export function SilosSection({ onBack }: SilosSectionProps) {
       updates.product_in_silo = value || null;
     }
 
-    // Auto-calculate result based on reading_value
-    // For now, we'll use a simple 1:1 conversion (reading = result)
-    // TODO: In the future, use calibration curves if configured
     if (field === 'reading_value') {
-      updates.calculated_result_cy = value; // Simple pass-through for now
+      const readingNum = Number(value) || 0;
+      const calculatedVolume = entry.conversion_table
+        ? convertReadingToVolume(readingNum, entry.conversion_table)
+        : readingNum;
+      updates.calculated_result_cy = calculatedVolume;
+      updates.calculated_volume = calculatedVolume;
     }
 
     updateEntry('silos', entryId, updates);
@@ -137,6 +140,9 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         silo_config_id: entry.silo_config_id,
         silo_name: entry.silo_name,
         measurement_method: entry.measurement_method,
+        calibration_curve_name: entry.calibration_curve_name || null,
+        reading_uom: entry.reading_uom || null,
+        conversion_table: entry.conversion_table || null,
         allowed_products: entry.allowed_products || [],
         product_id: entry.product_id || null,
         product_name: entry.product_name || null,
@@ -270,9 +276,9 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     {entry.silo_name}
                   </h3>
                   <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
-                    <span>📏 {entry.measurement_method || 'FEET_TO_CUBIC_YARDS'}</span>
+                    <span>📏 {entry.measurement_method || 'SILO_LEVEL'}</span>
                     <span className="font-medium text-[#2B7DE9]">
-                      Unidad: Cubic Yards (yd³) 🔒
+                      Lectura: {entry.reading_uom || 'nivel'} 🔒
                     </span>
                   </div>
                 </div>
@@ -322,7 +328,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 {/* Reading - EDITABLE */}
                 <div>
                   <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                    Lectura (yd³) *
+                    Lectura ({entry.reading_uom || 'nivel'}) *
                   </label>
                   <NumericInput
                     value={entry.reading_value || 0}
@@ -336,7 +342,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 {/* Result - AUTO CALCULATED */}
                 <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                    Resultado (yd³) 📊
+                    Volumen disponible (yd³) 📊
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">

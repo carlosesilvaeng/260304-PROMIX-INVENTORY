@@ -11,6 +11,8 @@ export interface ParsedSilosImportRow {
   row_number: number;
   silo_name: string;
   measurement_method: string;
+  calibration_curve_name: string;
+  reading_uom: string;
   allowed_products: string;
   is_active: string;
 }
@@ -62,6 +64,8 @@ export async function parseSilosImportFile(file: File): Promise<ParsedSilosImpor
       row_number: index + 2,
       silo_name: normalized.silo_name || '',
       measurement_method: normalized.measurement_method || '',
+      calibration_curve_name: normalized.calibration_curve_name || '',
+      reading_uom: normalized.reading_uom || '',
       allowed_products: normalized.allowed_products || '',
       is_active: normalized.is_active || '',
     });

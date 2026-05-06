@@ -1496,7 +1496,7 @@ app.get("/make-server/plants", async (c) => {
     const [{ data: allSilos }, { data: allCajones }, { data: allAggregates }] = await Promise.all([
       supabase
         .from('plant_silos_config')
-        .select('plant_id, id, silo_name, is_active, sort_order')
+        .select('plant_id, id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, is_active, sort_order')
         .in('plant_id', plantIds)
         .order('sort_order', { ascending: true }),
       supabase
@@ -1925,7 +1925,7 @@ app.get("/make-server/plants/:plantId/silos", async (c) => {
     const [{ data, error }, { data: allowedProducts, error: allowedProductsError }] = await Promise.all([
       supabase
       .from('plant_silos_config')
-      .select('id, silo_name, measurement_method, is_active, sort_order')
+      .select('id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, is_active, sort_order')
       .eq('plant_id', plantId)
       .order('sort_order', { ascending: true }),
       supabase
@@ -2734,19 +2734,40 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
       silo_name: string;
       is_active: boolean;
       measurement_method?: string;
+      calibration_curve_name?: string | null;
+      reading_uom?: string | null;
+      conversion_table?: Record<string, number> | null;
       allowed_products?: string[];
     }[] = body.silos ?? [];
 
-    const defaultCurveInfo = await db.resolveDefaultSiloCalibrationCurve(plantId);
-    const defaultCurve = defaultCurveInfo.curve_name;
-    const rows = silos.map((s, i) => ({
-      id: s.id || crypto.randomUUID(),
-      plant_id: plantId,
-      silo_name: s.silo_name,
-      measurement_method: s.measurement_method || 'FEET_TO_CUBIC_YARDS',
-      calibration_curve_name: defaultCurve,
-      sort_order: i,
-      is_active: s.is_active ?? true,
+    const rows = await Promise.all(silos.map(async (s, i) => {
+      const calibrationCurveName = s.calibration_curve_name?.trim() || null;
+      let readingUom = s.reading_uom?.trim() || null;
+      let conversionTable = s.conversion_table || null;
+
+      if (calibrationCurveName) {
+        const { curve } = await db.findPlantCalibrationCurveByName(plantId, calibrationCurveName);
+        if (!curve) {
+          throw new Error(`La curva "${calibrationCurveName}" del silo "${s.silo_name}" no existe para esta planta.`);
+        }
+        if (!curve.reading_uom?.trim()) {
+          throw new Error(`La curva "${curve.curve_name}" del silo "${s.silo_name}" no tiene unidad de lectura configurada.`);
+        }
+        readingUom = curve.reading_uom;
+        conversionTable = curve.data_points;
+      }
+
+      return {
+        id: s.id || crypto.randomUUID(),
+        plant_id: plantId,
+        silo_name: s.silo_name,
+        measurement_method: s.measurement_method || 'SILO_LEVEL',
+        calibration_curve_name: calibrationCurveName,
+        reading_uom: readingUom,
+        conversion_table: conversionTable,
+        sort_order: i,
+        is_active: s.is_active ?? true,
+      };
     }));
 
     const allowedProductsRows = silos.flatMap((silo, index) =>
@@ -2767,7 +2788,7 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
       success: true,
       data: {
         count: silos.length,
-        warnings: defaultCurveInfo.warning ? [defaultCurveInfo.warning] : [],
+        warnings: [],
       },
     });
   } catch (error: any) {

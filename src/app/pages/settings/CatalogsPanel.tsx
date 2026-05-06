@@ -809,7 +809,7 @@ function normalizeCurvePoints(points: EditableCurvePoint[]) {
       const rawStatus = point.status.trim();
       if (![rawKey, rawAvailableGallons, rawConsumedGallons, rawPercentage, rawStatus].some(Boolean)) return null;
       if (!rawKey || !rawAvailableGallons) {
-        throw new Error(`Completa Nivel y Galones disponibles en el punto ${index + 1}`);
+        throw new Error(`Completa Nivel y Disponible en el punto ${index + 1}`);
       }
 
       const pointKey = Number(rawKey);
@@ -820,10 +820,10 @@ function normalizeCurvePoints(points: EditableCurvePoint[]) {
         throw new Error(`Nivel inválido en el punto ${index + 1}`);
       }
       if (!Number.isFinite(availableGallons)) {
-        throw new Error(`Galones disponibles inválidos en el punto ${index + 1}`);
+        throw new Error(`Disponible inválido en el punto ${index + 1}`);
       }
       if (consumedGallons !== null && !Number.isFinite(consumedGallons)) {
-        throw new Error(`Galones consumidos inválidos en el punto ${index + 1}`);
+        throw new Error(`Consumido inválido en el punto ${index + 1}`);
       }
       if (percentage !== null && !Number.isFinite(percentage)) {
         throw new Error(`Porcentaje inválido en el punto ${index + 1}`);
@@ -868,10 +868,15 @@ function formatCurvePointSummary(points: CurvePointPayload[]) {
 function CurvePointsEditor({
   points,
   onChange,
+  measurementType,
 }: {
   points: EditableCurvePoint[];
   onChange: (points: EditableCurvePoint[]) => void;
+  measurementType?: string;
 }) {
+  const isSiloLevel = String(measurementType || '').trim().toUpperCase() === 'SILO_LEVEL';
+  const availableLabel = isSiloLevel ? 'Vol. disponible' : 'Gal. disponibles';
+  const consumedLabel = isSiloLevel ? 'Vol. consumido' : 'Gal. consumidos';
   const handlePointChange = (id: string, field: keyof Omit<EditableCurvePoint, 'id' | 'point_value'>, value: string) => {
     onChange(points.map((point) => (point.id === id ? { ...point, [field]: value } : point)));
   };
@@ -888,8 +893,8 @@ function CurvePointsEditor({
     <div className="max-w-[720px] space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
       <div className="grid grid-cols-[72px_112px_112px_72px_96px_28px] gap-1.5 text-xs font-medium text-[#5F6773]">
         <span>Nivel</span>
-        <span>Gal. disponibles</span>
-        <span>Gal. consumidos</span>
+        <span>{availableLabel}</span>
+        <span>{consumedLabel}</span>
         <span>%</span>
         <span>Status</span>
         <span />
@@ -1158,7 +1163,7 @@ function CalibrationCurvesTable({
                     </td>
                     <td className="px-4 py-2">
                       {editingId === item.id ? (
-                        <CurvePointsEditor points={editPoints} onChange={setEditPoints} />
+                        <CurvePointsEditor points={editPoints} onChange={setEditPoints} measurementType={editMeasurementType} />
                       ) : (
                         <div className="space-y-1">
                           <div className="inline-flex rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
@@ -1234,7 +1239,7 @@ function CalibrationCurvesTable({
                 className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
               />
             </div>
-            <CurvePointsEditor points={newPoints} onChange={setNewPoints} />
+            <CurvePointsEditor points={newPoints} onChange={setNewPoints} measurementType={newMeasurementType} />
             <div className="flex justify-end">
               <Button variant="secondary" size="sm" onClick={handleAdd} disabled={saving || !selectedPlantId || !newCurveName.trim()}>
                 + Agregar Curva

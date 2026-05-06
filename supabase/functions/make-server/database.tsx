@@ -283,7 +283,7 @@ interface ProductsImportPreviewRecord {
 const PRODUCTS_IMPORT_ALLOWED_CATEGORIES = ['OIL', 'LUBRICANT', 'CONSUMABLE', 'EQUIPMENT', 'OTHER'] as const;
 const PRODUCTS_IMPORT_ALLOWED_MEASURE_MODES = ['COUNT', 'DRUM', 'PAIL', 'TANK_READING'] as const;
 const AGGREGATES_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['BOX', 'CONE'] as const;
-const SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['FEET_TO_CUBIC_YARDS'] as const;
+const SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['SILO_LEVEL'] as const;
 const DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS = ['TANK_LEVEL'] as const;
 
 interface AggregatesImportInput {
@@ -338,6 +338,8 @@ interface SilosImportInput {
     row_number?: number;
     silo_name?: string;
     measurement_method?: string;
+    calibration_curve_name?: string;
+    reading_uom?: string;
     allowed_products?: string;
     is_active?: string;
   }>;
@@ -346,7 +348,10 @@ interface SilosImportInput {
 export interface NormalizedSilosImportRow {
   row_number: number;
   silo_name: string;
-  measurement_method: 'FEET_TO_CUBIC_YARDS';
+  measurement_method: 'SILO_LEVEL';
+  calibration_curve_name: string;
+  reading_uom: string;
+  conversion_table: Record<string, number>;
   allowed_products: string[];
   is_active: boolean;
   action: 'create' | 'update';
@@ -708,6 +713,8 @@ function normalizeSilosImportPayload(input: SilosImportInput) {
           row_number: Number(row?.row_number || 0),
           silo_name: String(row?.silo_name || ''),
           measurement_method: String(row?.measurement_method || ''),
+          calibration_curve_name: String(row?.calibration_curve_name || ''),
+          reading_uom: String(row?.reading_uom || ''),
           allowed_products: String(row?.allowed_products || ''),
           is_active: String(row?.is_active || ''),
         }))
@@ -1443,6 +1450,18 @@ export async function syncCalibrationCurveConsumers(
     .eq('calibration_curve_name', normalizedCurveName);
 
   if (dieselError) throw dieselError;
+
+  const { error: silosError } = await supabase
+    .from('plant_silos_config')
+    .update({
+      reading_uom: normalizedReadingUom,
+      conversion_table: dataPoints,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('plant_id', plantId)
+    .eq('calibration_curve_name', normalizedCurveName);
+
+  if (silosError) throw silosError;
 }
 
 async function getInventoryMonthCountForPlant(plantId: string) {
@@ -3407,7 +3426,7 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
 
   const plant = await getPlantForConfigCleanup(plantId);
   const supabase = getSupabaseClient();
-  const [{ data: siloRows, error: siloError }, { data: productRows, error: productError }, defaultCurveInfo] = await Promise.all([
+  const [{ data: siloRows, error: siloError }, { data: productRows, error: productError }, curveRows] = await Promise.all([
     supabase
       .from('plant_silos_config')
       .select('id, silo_name, sort_order')
@@ -3417,11 +3436,12 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
       .select('product_name')
       .eq('plant_id', plantId)
       .neq('is_active', false),
-    resolveDefaultSiloCalibrationCurve(plantId),
+    listPlantCalibrationCurves(plantId),
   ]);
 
   if (siloError) throw siloError;
   if (productError) throw productError;
+  const curvesByName = buildCalibrationCurveMap(curveRows);
 
   const existingByName = (siloRows || []).reduce((acc: Record<string, { id: string; sort_order?: number }>, row: any) => {
     acc[String(row.silo_name || '').trim().toLowerCase()] = {
@@ -3446,12 +3466,28 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
     const rowNumber = rawRow.row_number || index + 2;
     const rowErrors: Array<{ column: string; message: string }> = [];
     const siloName = rawRow.silo_name.trim();
-    const measurementMethod = rawRow.measurement_method.trim().toUpperCase() || 'FEET_TO_CUBIC_YARDS';
+    const measurementMethod = rawRow.measurement_method.trim().toUpperCase() || 'SILO_LEVEL';
+    const calibrationCurveName = rawRow.calibration_curve_name.trim();
+    const readingUom = rawRow.reading_uom.trim();
+    const matchedCurve = calibrationCurveName ? curvesByName[normalizeCurveNameKey(calibrationCurveName)] || null : null;
     const allowedProducts = parsePipeSeparatedValues(rawRow.allowed_products);
 
     if (!siloName) rowErrors.push({ column: 'Nombre del silo', message: 'es requerido' });
     if (measurementMethod && !SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
       rowErrors.push({ column: 'Metodo de medicion', message: `valor invalido. Usa ${SILOS_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
+    }
+    if (!calibrationCurveName) {
+      rowErrors.push({ column: 'Nombre de curva', message: 'es requerido y debe existir en el catálogo de curvas de esta planta' });
+    } else if (!matchedCurve) {
+      rowErrors.push({ column: 'Nombre de curva', message: `"${calibrationCurveName}" no existe en el catálogo de curvas de esta planta` });
+    }
+
+    const curveReadingUom = normalizeCatalogOptionalText(matchedCurve?.reading_uom);
+    if (matchedCurve && !curveReadingUom) {
+      rowErrors.push({ column: 'Nombre de curva', message: `la curva "${matchedCurve.curve_name}" no tiene unidad de lectura configurada` });
+    }
+    if (matchedCurve && readingUom && normalizeCatalogOptionalText(readingUom) !== curveReadingUom) {
+      warnings.push(`Fila ${rowNumber}: la unidad de lectura del archivo no coincide con la curva "${matchedCurve.curve_name}". Se usará "${curveReadingUom}".`);
     }
 
     let isActive = true;
@@ -3498,7 +3534,10 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
     normalizedRows.push({
       row_number: rowNumber,
       silo_name: siloName,
-      measurement_method: 'FEET_TO_CUBIC_YARDS',
+      measurement_method: 'SILO_LEVEL',
+      calibration_curve_name: matchedCurve!.curve_name,
+      reading_uom: curveReadingUom!,
+      conversion_table: matchedCurve!.data_points,
       allowed_products: allowedProducts,
       is_active: isActive,
       action: existing ? 'update' : 'create',
@@ -3508,10 +3547,6 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
 
   if (availableProducts.size === 0) {
     warnings.push('La planta no tiene aceites y productos activos. Solo podras importar silos sin productos permitidos.');
-  }
-
-  if (defaultCurveInfo.warning) {
-    warnings.push(defaultCurveInfo.warning);
   }
 
   return {
@@ -3609,9 +3644,6 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
     return acc;
   }, {});
 
-  const defaultCurveInfo = await resolveDefaultSiloCalibrationCurve(plantId);
-  const defaultCurve = defaultCurveInfo.curve_name;
-
   const maxSortOrder = Math.max(-1, ...(existingRows || []).map((row: any) => Number(row.sort_order ?? -1)));
   let nextSortOrder = maxSortOrder + 1;
   const created = preview.normalized_rows.filter((row) => row.action === 'create').length;
@@ -3626,7 +3658,9 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
       plant_id: plantId,
       silo_name: row.silo_name,
       measurement_method: row.measurement_method,
-      calibration_curve_name: defaultCurve,
+      calibration_curve_name: row.calibration_curve_name,
+      reading_uom: row.reading_uom,
+      conversion_table: row.conversion_table,
       is_active: row.is_active,
       sort_order: row.existing_id ? (existingById[row.existing_id]?.sort_order ?? nextSortOrder++) : nextSortOrder++,
     };
@@ -3638,14 +3672,8 @@ export async function executeSilosImport(plantId: string, input: SilosImportInpu
 
   await upsertSilosImportAtomic(plantId, siloRows, allowedProductsRows);
 
-  const warnings = [...preview.warnings];
-  if (defaultCurveInfo.warning) {
-    warnings.push(defaultCurveInfo.warning);
-  }
-
   return {
     ...preview,
-    warnings: Array.from(new Set(warnings)),
     result: {
       created,
       updated,

@@ -1,16 +1,18 @@
 import type { Plant } from '../contexts/AuthContext';
 
-export const SILOS_IMPORT_TEMPLATE_VERSION = '1.0';
+export const SILOS_IMPORT_TEMPLATE_VERSION = '2.0';
 export const SILOS_IMPORT_MODULE = 'silos';
 export const SILOS_IMPORT_SHEET_NAME = 'Datos';
 export const SILOS_IMPORT_INSTRUCTIONS_SHEET = 'Instrucciones';
 export const SILOS_IMPORT_META_SHEET = 'Meta';
-export const SILOS_IMPORT_METHOD_OPTIONS = ['FEET_TO_CUBIC_YARDS'] as const;
+export const SILOS_IMPORT_METHOD_OPTIONS = ['SILO_LEVEL'] as const;
 export const SILOS_IMPORT_BOOLEAN_OPTIONS = ['Sí', 'No'] as const;
 
 export interface SilosImportWorkbookRow {
   silo_name: string;
   measurement_method: string;
+  calibration_curve_name?: string | null;
+  reading_uom?: string | null;
   allowed_products?: string[] | null;
   is_active: boolean;
 }
@@ -33,6 +35,8 @@ type ColumnDefinition = {
 export interface SilosImportWorkbookExportRow {
   silo_name: string;
   measurement_method: string;
+  calibration_curve_name: string;
+  reading_uom: string;
   allowed_products: string;
   is_active: string;
 }
@@ -40,6 +44,8 @@ export interface SilosImportWorkbookExportRow {
 export const SILOS_IMPORT_COLUMNS: ColumnDefinition[] = [
   { key: 'silo_name', label: 'Nombre del silo', width: 28 },
   { key: 'measurement_method', label: 'Metodo de medicion', width: 24 },
+  { key: 'calibration_curve_name', label: 'Nombre de curva', width: 34 },
+  { key: 'reading_uom', label: 'Unidad de lectura', width: 18 },
   { key: 'allowed_products', label: 'Productos permitidos', width: 44 },
   { key: 'is_active', label: 'Activo', width: 12 },
 ];
@@ -70,7 +76,9 @@ function booleanLabel(value: boolean | null | undefined) {
 function toExportRows(rows: SilosImportWorkbookRow[]): SilosImportWorkbookExportRow[] {
   return rows.map((row) => ({
     silo_name: row.silo_name || '',
-    measurement_method: row.measurement_method || 'FEET_TO_CUBIC_YARDS',
+    measurement_method: row.measurement_method || 'SILO_LEVEL',
+    calibration_curve_name: row.calibration_curve_name || '',
+    reading_uom: row.reading_uom || '',
     allowed_products: Array.isArray(row.allowed_products) ? row.allowed_products.join(' | ') : '',
     is_active: booleanLabel(row.is_active),
   }));
@@ -99,9 +107,11 @@ function buildInstructionRows(meta: SilosImportMeta, productOptions: string[]) {
     ['Reglas generales', ''],
     ['1', 'No cambies los encabezados de la hoja Datos.'],
     ['2', 'Solo importa archivos generados por el sistema para este mismo modulo.'],
-    ['3', 'Productos permitidos acepta varios nombres separados por |.'],
-    ['4', 'Cada producto permitido debe existir como Aceite o Producto activo en la planta.'],
-    ['5', 'Activo acepta Sí o No.'],
+    ['3', 'Nombre de curva debe existir en Catalogos > Curvas de conversion para esta planta.'],
+    ['4', 'Unidad de lectura se sincroniza desde la curva seleccionada.'],
+    ['5', 'Productos permitidos acepta varios nombres separados por |.'],
+    ['6', 'Cada producto permitido debe existir como Aceite o Producto activo en la planta.'],
+    ['7', 'Activo acepta Sí o No.'],
     ['', ''],
     ['Valores permitidos', ''],
     ['Metodo de medicion', SILOS_IMPORT_METHOD_OPTIONS.join(', ')],

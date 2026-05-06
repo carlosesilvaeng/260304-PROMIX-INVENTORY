@@ -39,7 +39,7 @@ function getSiloInventoryBehavior(entry: any) {
     ? `Productos permitidos: ${entry.allowed_products.join(', ')}.`
     : 'Producto definido según silo/configuración.';
 
-  return `Captura lectura del silo y el sistema calcula resultado. ${allowedProducts}`;
+  return `Captura nivel del silo y usa curva de conversión para calcular volumen disponible. ${allowedProducts}`;
 }
 
 function getAdditiveInventoryBehavior(entry: any) {
@@ -102,6 +102,62 @@ function stringifyValue(value: unknown) {
   return String(value);
 }
 
+function getCalibrationTablePointCount(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 0;
+  return Object.keys(value as Record<string, number>).length;
+}
+
+function getCalibrationTableSummary(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '-';
+  const entries = Object.entries(value as Record<string, number>)
+    .map(([level, amount]) => ({ level: Number(level), amount: Number(amount) }))
+    .filter((point) => Number.isFinite(point.level) && Number.isFinite(point.amount))
+    .sort((left, right) => left.level - right.level);
+
+  if (entries.length === 0) return '-';
+  const first = entries[0];
+  const last = entries[entries.length - 1];
+  return `${entries.length} punto${entries.length === 1 ? '' : 's'} · ${first.level}→${last.level}`;
+}
+
+function findCurveForTable(config: PlantConfigPackage, table: unknown) {
+  if (!table || typeof table !== 'object' || Array.isArray(table)) return null;
+  const tableSignature = JSON.stringify(table);
+  const curves = Object.values(config.calibration_curves || {});
+  return curves.find((curve: any) => JSON.stringify(curve?.data_points || {}) === tableSignature) || null;
+}
+
+function buildTablePointRows(options: {
+  owner: string;
+  table: unknown;
+  curve?: any;
+}) {
+  const curvePoints = Array.isArray(options.curve?.points) ? options.curve.points : [];
+  if (curvePoints.length > 0) {
+    return curvePoints
+      .slice()
+      .sort((left: any, right: any) => Number(left.point_key) - Number(right.point_key))
+      .map((point: any) => [
+        options.owner,
+        point.point_key,
+        point.available_gallons ?? point.point_value,
+        point.consumed_gallons ?? '-',
+        point.percentage ?? '-',
+        point.status || '-',
+      ]);
+  }
+
+  if (!options.table || typeof options.table !== 'object' || Array.isArray(options.table)) {
+    return [];
+  }
+
+  return Object.entries(options.table as Record<string, number>)
+    .map(([level, amount]) => ({ level: Number(level), amount }))
+    .filter((point) => Number.isFinite(point.level))
+    .sort((left, right) => left.level - right.level)
+    .map((point) => [options.owner, point.level, point.amount, '-', '-', '-']);
+}
+
 function buildGeneralInfoSection(plant: Plant): SectionDefinition {
   return {
     title: 'Datos generales',
@@ -155,10 +211,13 @@ function buildAggregatesSection(config: PlantConfigPackage): SectionDefinition {
 function buildSilosSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Silos',
-    headers: ['Nombre', 'Método', 'Productos permitidos', 'Cómo se usa en inventario'],
+    headers: ['Nombre', 'Método', 'Unidad lectura', 'Curva', 'Puntos', 'Productos permitidos', 'Cómo se usa en inventario'],
     rows: (config.silos || []).map((entry: any) => [
       entry.silo_name || entry.name,
       entry.measurement_method,
+      entry.reading_uom,
+      entry.calibration_curve_name || findCurveForTable(config, entry.conversion_table)?.curve_name || '-',
+      getCalibrationTableSummary(entry.conversion_table),
       entry.allowed_products,
       getSiloInventoryBehavior(entry),
     ]),
@@ -168,7 +227,7 @@ function buildSilosSection(config: PlantConfigPackage): SectionDefinition {
 function buildAdditivesSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Aditivos',
-    headers: ['Nombre', 'Tipo', 'Marca', 'Unidad', 'Método', 'Tanque', 'Unidad lectura', 'Requiere foto', 'Curva/Tabla', 'Cómo se usa en inventario'],
+    headers: ['Nombre', 'Tipo', 'Marca', 'Unidad', 'Método', 'Tanque', 'Unidad lectura', 'Requiere foto', 'Curva', 'Puntos', 'Cómo se usa en inventario'],
     rows: (config.additives || []).map((entry: any) => [
       entry.additive_name || entry.product_name,
       entry.additive_type,
@@ -178,7 +237,8 @@ function buildAdditivesSection(config: PlantConfigPackage): SectionDefinition {
       entry.tank_name,
       entry.reading_uom,
       entry.requires_photo,
-      entry.calibration_curve_name || entry.conversion_table,
+      entry.calibration_curve_name || findCurveForTable(config, entry.conversion_table)?.curve_name || '-',
+      getCalibrationTableSummary(entry.conversion_table),
       getAdditiveInventoryBehavior(entry),
     ]),
   };
@@ -188,14 +248,14 @@ function buildDieselSection(config: PlantConfigPackage): SectionDefinition {
   const diesel = config.diesel;
   return {
     title: 'Diesel',
-    headers: ['Método', 'Unidad lectura', 'Capacidad tanque', 'Inventario inicial', 'Curva', 'Tabla calibración', 'Cómo se usa en inventario'],
+    headers: ['Método', 'Unidad lectura', 'Capacidad tanque', 'Inventario inicial', 'Curva', 'Puntos', 'Cómo se usa en inventario'],
     rows: diesel ? [[
       diesel.measurement_method,
       diesel.reading_uom,
       diesel.tank_capacity_gallons,
       diesel.initial_inventory_gallons,
-      diesel.calibration_curve_name,
-      diesel.calibration_table,
+      diesel.calibration_curve_name || findCurveForTable(config, diesel.calibration_table)?.curve_name || '-',
+      getCalibrationTableSummary(diesel.calibration_table),
       getDieselInventoryBehavior(),
     ]] : [],
   };
@@ -204,7 +264,7 @@ function buildDieselSection(config: PlantConfigPackage): SectionDefinition {
 function buildProductsSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Aceites y productos',
-    headers: ['Nombre', 'Categoría', 'Modo medición', 'Unidad', 'Unidad lectura', 'Capacidad tanque', 'Volumen unidad', 'Requiere foto', 'Notas', 'Tabla calibración', 'Cómo se usa en inventario'],
+    headers: ['Nombre', 'Categoría', 'Modo medición', 'Unidad', 'Unidad lectura', 'Capacidad tanque', 'Volumen unidad', 'Requiere foto', 'Notas', 'Puntos calibración', 'Cómo se usa en inventario'],
     rows: (config.products || []).map((entry: any) => [
       entry.product_name,
       entry.category,
@@ -215,9 +275,61 @@ function buildProductsSection(config: PlantConfigPackage): SectionDefinition {
       entry.unit_volume,
       entry.requires_photo,
       entry.notes,
-      entry.calibration_table,
+      getCalibrationTableSummary(entry.calibration_table),
       getProductInventoryBehavior(entry),
     ]),
+  };
+}
+
+function buildCalibrationCurvesSection(config: PlantConfigPackage): SectionDefinition {
+  const curves = Object.values(config.calibration_curves || {})
+    .filter((curve: any, index, all) => curve?.id && all.findIndex((item: any) => item?.id === curve.id) === index)
+    .sort((left: any, right: any) => String(left.curve_name || '').localeCompare(String(right.curve_name || ''), 'es'));
+
+  return {
+    title: 'Curvas de conversión',
+    headers: ['Curva', 'Método', 'Unidad lectura', 'Puntos', 'Rango nivel'],
+    rows: curves.map((curve: any) => {
+      const points = Array.isArray(curve.points) ? curve.points : [];
+      const sortedLevels = points.map((point: any) => Number(point.point_key)).filter(Number.isFinite).sort((left, right) => left - right);
+      const first = sortedLevels[0];
+      const last = sortedLevels[sortedLevels.length - 1];
+      return [
+        curve.curve_name,
+        curve.measurement_type,
+        curve.reading_uom,
+        points.length || getCalibrationTablePointCount(curve.data_points),
+        first === undefined ? '-' : `${first} → ${last}`,
+      ];
+    }),
+  };
+}
+
+function buildCalibrationCurvePointsSection(config: PlantConfigPackage): SectionDefinition {
+  const curves = Object.values(config.calibration_curves || {})
+    .filter((curve: any, index, all) => curve?.id && all.findIndex((item: any) => item?.id === curve.id) === index)
+    .sort((left: any, right: any) => String(left.curve_name || '').localeCompare(String(right.curve_name || ''), 'es'));
+
+  return {
+    title: 'Puntos de curvas',
+    headers: ['Curva', 'Nivel', 'Disponible', 'Consumido', 'Porcentaje', 'Status'],
+    rows: curves.flatMap((curve: any) => buildTablePointRows({
+      owner: curve.curve_name,
+      table: curve.data_points,
+      curve,
+    })),
+  };
+}
+
+function buildProductTankPointsSection(config: PlantConfigPackage): SectionDefinition {
+  const tankProducts = (config.products || []).filter((entry: any) => String(entry?.measure_mode || '').toUpperCase() === 'TANK_READING');
+  return {
+    title: 'Puntos tanques de productos',
+    headers: ['Producto', 'Nivel', 'Valor', 'Galones consumidos', 'Porcentaje', 'Status'],
+    rows: tankProducts.flatMap((entry: any) => buildTablePointRows({
+      owner: entry.product_name,
+      table: entry.calibration_table,
+    })),
   };
 }
 
@@ -254,6 +366,9 @@ function createSections(plant: Plant, config: PlantConfigPackage) {
     buildAdditivesSection(config),
     buildDieselSection(config),
     buildProductsSection(config),
+    buildCalibrationCurvesSection(config),
+    buildCalibrationCurvePointsSection(config),
+    buildProductTankPointsSection(config),
     buildUtilitiesSection(config),
     buildPettyCashSection(config),
   ];

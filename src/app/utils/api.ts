@@ -1071,6 +1071,8 @@ export interface SilosImportRowPayload {
   row_number: number;
   silo_name: string;
   measurement_method: string;
+  calibration_curve_name: string;
+  reading_uom: string;
   allowed_products: string;
   is_active: string;
 }
@@ -1133,6 +1135,9 @@ export async function updatePlantSilos(
     silo_name: string;
     is_active: boolean;
     measurement_method?: string;
+    calibration_curve_name?: string | null;
+    reading_uom?: string | null;
+    conversion_table?: Record<string, number> | null;
     allowed_products?: string[];
   }[]
 ): Promise<ApiResponse> {

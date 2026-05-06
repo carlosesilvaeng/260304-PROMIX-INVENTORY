@@ -163,6 +163,8 @@ CREATE TABLE IF NOT EXISTS plant_silos_config (
   silo_name TEXT NOT NULL,
   measurement_method TEXT NOT NULL,
   calibration_curve_name TEXT,
+  reading_uom TEXT,
+  conversion_table JSONB,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -751,7 +753,8 @@ BEGIN
 
   IF jsonb_array_length(v_silos) > 0 THEN
     INSERT INTO public.plant_silos_config (
-      id, plant_id, silo_name, measurement_method, calibration_curve_name, sort_order, is_active
+      id, plant_id, silo_name, measurement_method, calibration_curve_name, reading_uom,
+      conversion_table, sort_order, is_active
     )
     SELECT
       COALESCE(row_data.id, gen_random_uuid()::text),
@@ -759,6 +762,8 @@ BEGIN
       row_data.silo_name,
       row_data.measurement_method,
       row_data.calibration_curve_name,
+      row_data.reading_uom,
+      row_data.conversion_table,
       COALESCE(row_data.sort_order, 0),
       COALESCE(row_data.is_active, true)
     FROM jsonb_to_recordset(v_silos) AS row_data(
@@ -767,6 +772,8 @@ BEGIN
       silo_name text,
       measurement_method text,
       calibration_curve_name text,
+      reading_uom text,
+      conversion_table jsonb,
       sort_order integer,
       is_active boolean
     );
@@ -1085,7 +1092,8 @@ BEGIN
 
   IF jsonb_array_length(v_silos) > 0 THEN
     INSERT INTO public.plant_silos_config (
-      id, plant_id, silo_name, measurement_method, calibration_curve_name, sort_order, is_active
+      id, plant_id, silo_name, measurement_method, calibration_curve_name, reading_uom,
+      conversion_table, sort_order, is_active
     )
     SELECT
       COALESCE(row_data.id, gen_random_uuid()::text),
@@ -1093,10 +1101,13 @@ BEGIN
       row_data.silo_name,
       row_data.measurement_method,
       row_data.calibration_curve_name,
+      row_data.reading_uom,
+      row_data.conversion_table,
       COALESCE(row_data.sort_order, 0),
       COALESCE(row_data.is_active, true)
     FROM jsonb_to_recordset(v_silos) AS row_data(
-      id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text, sort_order integer, is_active boolean
+      id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text,
+      reading_uom text, conversion_table jsonb, sort_order integer, is_active boolean
     )
     ON CONFLICT (id) DO UPDATE
     SET
@@ -1104,6 +1115,8 @@ BEGIN
       silo_name = EXCLUDED.silo_name,
       measurement_method = EXCLUDED.measurement_method,
       calibration_curve_name = EXCLUDED.calibration_curve_name,
+      reading_uom = EXCLUDED.reading_uom,
+      conversion_table = EXCLUDED.conversion_table,
       sort_order = EXCLUDED.sort_order,
       is_active = EXCLUDED.is_active;
 
@@ -1111,7 +1124,8 @@ BEGIN
     WHERE silo_config_id IN (
       SELECT row_data.id
       FROM jsonb_to_recordset(v_silos) AS row_data(
-        id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text, sort_order integer, is_active boolean
+        id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text,
+        reading_uom text, conversion_table jsonb, sort_order integer, is_active boolean
       )
     );
   END IF;

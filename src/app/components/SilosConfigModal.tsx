@@ -2,14 +2,17 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
+import { Select } from './Select';
 import { Alert } from './Alert';
 import { Modal } from './Modal';
 import {
   executePlantSilosImport,
+  getCalibrationCurvesCatalog,
   getPlantConfig,
   getPlantSilos,
   previewPlantSilosImport,
   updatePlantSilos,
+  type CalibrationCurveCatalogItem,
   type SilosImportPreviewResponse,
 } from '../utils/api';
 import type { Plant } from '../types';
@@ -26,6 +29,9 @@ interface SiloEntry {
   silo_name: string;
   is_active: boolean;
   measurement_method: string;
+  calibration_curve_name?: string | null;
+  reading_uom?: string | null;
+  conversion_table?: Record<string, number> | null;
   allowed_products: string[];
 }
 
@@ -37,6 +43,8 @@ interface SilosImportPayload {
     row_number: number;
     silo_name: string;
     measurement_method: string;
+    calibration_curve_name: string;
+    reading_uom: string;
     allowed_products: string;
     is_active: string;
   }>;
@@ -52,15 +60,30 @@ function createEmptySilo(): SiloEntry {
   return {
     silo_name: '',
     is_active: true,
-    measurement_method: 'FEET_TO_CUBIC_YARDS',
+    measurement_method: 'SILO_LEVEL',
+    calibration_curve_name: null,
+    reading_uom: null,
+    conversion_table: null,
     allowed_products: [],
   };
+}
+
+function buildCurvePointRows(table: Record<string, number> | null | undefined) {
+  return Object.entries(table || {})
+    .map(([level, value]) => ({
+      level: Number(level),
+      available: Number(value),
+    }))
+    .filter((row) => Number.isFinite(row.level) && Number.isFinite(row.available))
+    .sort((a, b) => a.level - b.level);
 }
 
 function toWorkbookRows(rows: SiloEntry[]): SilosImportWorkbookRow[] {
   return rows.map((row) => ({
     silo_name: row.silo_name.trim(),
-    measurement_method: row.measurement_method || 'FEET_TO_CUBIC_YARDS',
+    measurement_method: row.measurement_method || 'SILO_LEVEL',
+    calibration_curve_name: row.calibration_curve_name || '',
+    reading_uom: row.reading_uom || '',
     allowed_products: row.allowed_products || [],
     is_active: row.is_active,
   }));
@@ -71,6 +94,8 @@ function toImportPayloadRows(fileRows: Awaited<ReturnType<typeof parseSilosImpor
     row_number: row.row_number,
     silo_name: row.silo_name,
     measurement_method: row.measurement_method,
+    calibration_curve_name: row.calibration_curve_name,
+    reading_uom: row.reading_uom,
     allowed_products: row.allowed_products,
     is_active: row.is_active,
   }));
@@ -79,6 +104,7 @@ function toImportPayloadRows(fileRows: Awaited<ReturnType<typeof parseSilosImpor
 export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalProps) {
   const [silos, setSilos] = useState<SiloEntry[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
+  const [curveItems, setCurveItems] = useState<CalibrationCurveCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,15 +121,18 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getPlantSilos(plant.id), getPlantConfig(plant.id)])
-      .then(([silosResponse, configResponse]) => {
+    Promise.all([getPlantSilos(plant.id), getPlantConfig(plant.id), getCalibrationCurvesCatalog(plant.id)])
+      .then(([silosResponse, configResponse, curvesResponse]) => {
         if (silosResponse.success) {
           setSilos(
             (silosResponse.data ?? []).map((s: any) => ({
               id: s.id,
               silo_name: s.silo_name || '',
               is_active: s.is_active ?? true,
-              measurement_method: s.measurement_method || 'FEET_TO_CUBIC_YARDS',
+              measurement_method: s.measurement_method || 'SILO_LEVEL',
+              calibration_curve_name: s.calibration_curve_name || null,
+              reading_uom: s.reading_uom || null,
+              conversion_table: s.conversion_table || null,
               allowed_products: s.allowed_products ?? [],
             }))
           );
@@ -117,6 +146,12 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
               .map((product: any) => String(product.product_name || '').trim())
               .filter(Boolean)
           );
+        }
+
+        if (curvesResponse.success) {
+          setCurveItems(curvesResponse.data ?? []);
+        } else {
+          setError(curvesResponse.error ?? 'Error cargando curvas de conversión');
         }
       })
       .catch(() => setError('Error de conexión'))
@@ -132,6 +167,24 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
     setSilos((prev) => prev.map((silo, rowIndex) => (rowIndex === index ? { ...silo, ...updates } : silo)));
   };
 
+  const siloCurveOptions = useMemo(() => {
+    const siloCurves = curveItems.filter((curve) => {
+      const method = String(curve.measurement_type || '').trim().toUpperCase();
+      return method === 'SILO_LEVEL' || String(curve.curve_name || '').trim().toUpperCase().startsWith('SILO');
+    });
+    return siloCurves.length > 0 ? siloCurves : curveItems;
+  }, [curveItems]);
+
+  const handleCurveChange = (index: number, curveName: string) => {
+    const selectedCurve = curveItems.find((curve) => curve.curve_name === curveName);
+    updateSilo(index, {
+      measurement_method: 'SILO_LEVEL',
+      calibration_curve_name: selectedCurve?.curve_name || null,
+      reading_uom: selectedCurve?.reading_uom || null,
+      conversion_table: selectedCurve?.data_points || null,
+    });
+  };
+
   const validateSilos = () => {
     const normalizedNames = new Set<string>();
 
@@ -142,6 +195,8 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
       if (!normalizedName) return `Todos los silos deben tener un nombre`;
       if (normalizedNames.has(normalizedName)) return `Hay nombres de silos repetidos. Revisa "${label}"`;
       normalizedNames.add(normalizedName);
+      if (!silo.calibration_curve_name?.trim()) return `${label}: debes seleccionar una curva de conversión`;
+      if (!silo.reading_uom?.trim()) return `${label}: la curva seleccionada debe tener unidad de lectura`;
     }
 
     return null;
@@ -163,7 +218,10 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
           id: silo.id,
           silo_name: silo.silo_name.trim(),
           is_active: silo.is_active,
-          measurement_method: silo.measurement_method || 'FEET_TO_CUBIC_YARDS',
+          measurement_method: silo.measurement_method || 'SILO_LEVEL',
+          calibration_curve_name: silo.calibration_curve_name || null,
+          reading_uom: silo.reading_uom || null,
+          conversion_table: silo.conversion_table || null,
           allowed_products: silo.allowed_products ?? [],
         }))
       );
@@ -367,8 +425,8 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
                     <li>Cada silo puede limitar qué productos aparecen durante el inventario.</li>
                     <li>La plantilla usa la misma estructura para exportar, editar e importar.</li>
+                    <li>Cada silo usa una curva de conversión para calcular volumen disponible desde el nivel.</li>
                     <li>Productos permitidos se separan con <strong>|</strong> y deben existir como aceites/productos activos.</li>
-                    <li>La curva por defecto solo se autoasigna si la planta tiene exactamente una curva cuyo nombre empiece por <strong>SILO</strong>.</li>
                   </ul>
                 </div>
 
@@ -395,7 +453,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                         <Input
                           label="Nombre del Silo"
                           value={silo.silo_name}
@@ -405,9 +463,26 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                         />
                         <Input
                           label="Método"
-                          value={silo.measurement_method}
-                          onChange={(e) => updateSilo(index, { measurement_method: e.target.value })}
-                          placeholder="FEET_TO_CUBIC_YARDS"
+                          value={silo.measurement_method || 'SILO_LEVEL'}
+                          disabled
+                        />
+                        <Select
+                          label="Curva de conversión"
+                          value={silo.calibration_curve_name || ''}
+                          onChange={(e) => handleCurveChange(index, e.target.value)}
+                          options={[
+                            { value: '', label: '-- Selecciona curva --' },
+                            ...siloCurveOptions.map((curve) => ({
+                              value: curve.curve_name,
+                              label: `${curve.curve_name}${curve.reading_uom ? ` (${curve.reading_uom})` : ''}`,
+                            })),
+                          ]}
+                          required
+                        />
+                        <Input
+                          label="Unidad de lectura"
+                          value={silo.reading_uom || ''}
+                          disabled
                         />
                         <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
                           <input
@@ -418,6 +493,50 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                           Activo
                         </label>
                       </div>
+
+                      {silo.calibration_curve_name && (
+                        <div className="mt-4 rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
+                          <div className="max-h-[260px] overflow-auto">
+                            <table className="w-full min-w-[540px] text-sm">
+                              <thead className="bg-[#EEF0F2] text-[#5F6773]">
+                                <tr>
+                                  <th className="px-3 py-2 text-left">Nivel</th>
+                                  <th className="px-3 py-2 text-left">Vol. disponible</th>
+                                  <th className="px-3 py-2 text-left">Vol. consumido</th>
+                                  <th className="px-3 py-2 text-left">%</th>
+                                  <th className="px-3 py-2 text-left">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {buildCurvePointRows(silo.conversion_table).map((point, pointIndex, points) => {
+                                  const maxAvailable = points[points.length - 1]?.available || 0;
+                                  const consumed = Math.max(0, maxAvailable - point.available);
+                                  const percentage = maxAvailable > 0 ? (point.available / maxAvailable) * 100 : 0;
+                                  return (
+                                    <tr key={`${point.level}-${pointIndex}`} className="border-t border-[#E4E4E4]">
+                                      <td className="px-3 py-2 text-[#3B3A36]">{point.level}</td>
+                                      <td className="px-3 py-2 text-[#3B3A36]">{point.available}</td>
+                                      <td className="px-3 py-2 text-[#3B3A36]">{consumed}</td>
+                                      <td className="px-3 py-2 text-[#3B3A36]">{percentage.toFixed(1)}</td>
+                                      <td className="px-3 py-2 text-[#1D6F42]">OK</td>
+                                    </tr>
+                                  );
+                                })}
+                                {buildCurvePointRows(silo.conversion_table).length === 0 && (
+                                  <tr>
+                                    <td className="px-3 py-3 text-[#5F6773]" colSpan={5}>
+                                      La curva seleccionada no tiene puntos.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="mt-2 text-xs text-[#5F6773]">
+                            Tabla sincronizada con la curva seleccionada. Para cambiar puntos, actualiza Catálogos &gt; Curvas de conversión.
+                          </p>
+                        </div>
+                      )}
 
                       {silo.allowed_products.length > 0 && (
                         <p className="mt-3 text-sm text-[#5F6773]">

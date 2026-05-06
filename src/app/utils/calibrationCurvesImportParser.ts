@@ -47,8 +47,12 @@ function ensureHeaders(actual: string[], expected: string[], sheetName: string) 
 function findHeaderRow(rows: unknown[][], requiredHeaders: string[]) {
   return rows.findIndex((row) => {
     const normalized = row.map((value) => toCellString(value).toLowerCase());
-    return requiredHeaders.every((header) => normalized.includes(header.toLowerCase()));
+    return requiredHeaders.every((header) => normalized.some((value) => value.includes(header.toLowerCase())));
   });
+}
+
+function findHeaderIndex(headers: string[], aliases: string[]) {
+  return headers.findIndex((header) => aliases.some((alias) => header === alias || header.includes(alias)));
 }
 
 function getMetadataValue(rows: unknown[][], label: string) {
@@ -81,7 +85,7 @@ function parseSingleSheetTankCurve(workbook: any): ParsedCalibrationCurvesImport
       blankrows: false,
       raw: false,
     });
-    const headerRowIndex = findHeaderRow(rows, ['Nivel (in)', 'Galones disponibles', 'Galones consumidos', 'porcentaje', 'status']);
+    const headerRowIndex = findHeaderRow(rows, ['Nivel', 'porcentaje', 'status']);
     if (headerRowIndex < 0) continue;
 
     const plantName = getMetadataValue(rows, 'Planta');
@@ -89,10 +93,11 @@ function parseSingleSheetTankCurve(workbook: any): ParsedCalibrationCurvesImport
     const curveName = tankName.trim().replace(/\s+/g, '_').toUpperCase();
     const headers = rows[headerRowIndex].map((value) => toCellString(value).toLowerCase());
     const levelIndex = headers.findIndex((header) => header.startsWith('nivel'));
-    const availableIndex = headers.indexOf('galones disponibles');
-    const consumedIndex = headers.indexOf('galones consumidos');
-    const percentageIndex = headers.indexOf('porcentaje');
-    const statusIndex = headers.indexOf('status');
+    const availableIndex = findHeaderIndex(headers, ['galones disponibles', 'volumen disponible', 'volume disponible', 'vol. disponible']);
+    const consumedIndex = findHeaderIndex(headers, ['galones consumidos', 'volumen consumido', 'volume consumido', 'vol. consumido']);
+    const percentageIndex = findHeaderIndex(headers, ['porcentaje', '%']);
+    const statusIndex = findHeaderIndex(headers, ['status']);
+    if ([levelIndex, availableIndex, consumedIndex, percentageIndex, statusIndex].some((index) => index < 0)) continue;
 
     const points = rows.slice(headerRowIndex + 1).map((rowValues, index) => {
       const point_key = toCellString(rowValues[levelIndex]);
@@ -126,7 +131,9 @@ function parseSingleSheetTankCurve(workbook: any): ParsedCalibrationCurvesImport
       curves: [{
         row_number: 3,
         curve_name: curveName,
-        measurement_type: 'TANK_LEVEL',
+        measurement_type: headers[availableIndex]?.includes('volumen') || headers[availableIndex]?.includes('volume') || headers[availableIndex]?.includes('vol.')
+          ? 'SILO_LEVEL'
+          : 'TANK_LEVEL',
         reading_uom: 'inches',
       }],
       points,

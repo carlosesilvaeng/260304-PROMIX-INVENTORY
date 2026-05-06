@@ -186,6 +186,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       silo_config_id: silo.id,
       silo_name: silo.silo_name,
       measurement_method: silo.measurement_method,
+      calibration_curve_name: silo.calibration_curve_name || null,
+      reading_uom: silo.reading_uom || null,
+      conversion_table: silo.conversion_table || null,
       allowed_products: silo.allowed_products || [], // Products allowed for this silo
       product_id: null, // To be selected by manager
       product_name: null, // To be selected by manager
@@ -652,6 +655,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
                 allowed_products: siloConfig?.allowed_products || [],
                 silo_name: siloConfig?.silo_name || entry.silo_name,
                 measurement_method: siloConfig?.measurement_method || entry.measurement_method,
+                calibration_curve_name: siloConfig?.calibration_curve_name || entry.calibration_curve_name,
+                reading_uom: siloConfig?.reading_uom || entry.reading_uom,
+                conversion_table: siloConfig?.conversion_table || entry.conversion_table,
               };
             });
           }
@@ -714,6 +720,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
                 ...entry,
                 silo_name: freshSilo.silo_name || entry.silo_name,
                 measurement_method: freshSilo.measurement_method || entry.measurement_method,
+                calibration_curve_name: freshSilo.calibration_curve_name || entry.calibration_curve_name,
+                reading_uom: freshSilo.reading_uom || entry.reading_uom,
+                conversion_table: freshSilo.conversion_table || entry.conversion_table,
                 allowed_products: freshSilo.allowed_products || entry.allowed_products || [],
                 product_in_silo: entry.product_in_silo || entry.product_name || freshSilo.product_in_silo,
               };
