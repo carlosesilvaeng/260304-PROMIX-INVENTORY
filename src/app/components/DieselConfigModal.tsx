@@ -67,6 +67,88 @@ function stringifyTable(value: Record<string, number> | null | undefined) {
   return JSON.stringify(value, null, 2);
 }
 
+function getCurvePreviewPoints(curve: CalibrationCurveCatalogItem | null | undefined, fallbackText?: string) {
+  if (curve?.points?.length) {
+    return [...curve.points].sort((left, right) => left.point_key - right.point_key);
+  }
+
+  const dataPoints = curve?.data_points || (() => {
+    try {
+      return fallbackText ? JSON.parse(fallbackText) as Record<string, number> : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  return Object.entries(dataPoints || {})
+    .map(([point_key, point_value]) => ({
+      point_key: Number(point_key),
+      point_value: Number(point_value),
+      available_gallons: Number(point_value),
+      consumed_gallons: null,
+      percentage: null,
+      status: null,
+    }))
+    .filter((point) => Number.isFinite(point.point_key) && Number.isFinite(point.point_value))
+    .sort((left, right) => left.point_key - right.point_key);
+}
+
+function CurvePreviewTable({
+  curve,
+  fallbackText,
+}: {
+  curve: CalibrationCurveCatalogItem | null | undefined;
+  fallbackText?: string;
+}) {
+  const points = getCurvePreviewPoints(curve, fallbackText);
+
+  if (!curve && points.length === 0) {
+    return (
+      <div className="rounded border border-[#D7D9DE] bg-white px-3 py-4 text-sm text-[#5F6773]">
+        Selecciona una curva para ver sus puntos.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded border border-[#D7D9DE] bg-white">
+      <div className="flex items-center justify-between border-b border-[#E4E4E4] px-3 py-2">
+        <span className="text-sm font-medium text-[#3B3A36]">Tabla de calibración</span>
+        <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+          {points.length} punto{points.length === 1 ? '' : 's'}
+        </span>
+      </div>
+      <div className="max-h-64 overflow-auto">
+        <table className="w-full min-w-[680px]">
+          <thead className="bg-[#F2F3F5]">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Nivel</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones disponibles</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones consumidos</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">%</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((point) => (
+              <tr key={`${point.point_key}-${point.point_value}`} className="border-t border-[#F2F3F5]">
+                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.point_key}</td>
+                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.available_gallons ?? point.point_value}</td>
+                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.consumed_gallons ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.percentage ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.status || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t border-[#E4E4E4] px-3 py-2 text-xs text-[#5F6773]">
+        Para modificar estos puntos, actualiza la curva en Catálogos.
+      </p>
+    </div>
+  );
+}
+
 function toWorkbookRows(form: DieselConfigForm): DieselImportWorkbookRow[] {
   if (
     !form.measurement_method.trim() &&
@@ -180,6 +262,11 @@ export function DieselConfigModal({
     [curveItems]
   );
 
+  const selectedCurve = useMemo(
+    () => curveItems.find((curve) => curve.curve_name === form.calibration_curve_name) || null,
+    [curveItems, form.calibration_curve_name]
+  );
+
   const handleCurveChange = (curveName: string) => {
     const selectedCurve = curveItems.find((curve) => curve.curve_name === curveName) || null;
     setForm((prev) => ({
@@ -228,17 +315,8 @@ export function DieselConfigModal({
       }
     }
 
-    if (!form.calibration_table_text.trim()) {
-      return 'La tabla de calibración es requerida';
-    }
-
-    try {
-      const parsed = JSON.parse(form.calibration_table_text);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
-        return 'La tabla de calibración debe ser un objeto JSON válido';
-      }
-    } catch {
-      return 'La tabla de calibración no tiene JSON válido';
+    if (!selectedCurve || Object.keys(selectedCurve.data_points || {}).length === 0) {
+      return 'La curva seleccionada no tiene puntos de calibración';
     }
 
     return null;
@@ -262,7 +340,7 @@ export function DieselConfigModal({
         reading_uom: form.reading_uom.trim(),
         tank_capacity_gallons: Number(form.tank_capacity_gallons),
         initial_inventory_gallons: form.initial_inventory_gallons.trim() ? Number(form.initial_inventory_gallons) : 0,
-        calibration_table: JSON.parse(form.calibration_table_text),
+        calibration_table: selectedCurve?.data_points || JSON.parse(form.calibration_table_text),
         is_active: form.is_active,
       });
 
@@ -465,7 +543,7 @@ export function DieselConfigModal({
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
                     <li>La plantilla de diesel maneja una sola fila por planta.</li>
                     <li>Capacidad del tanque debe ser mayor que cero.</li>
-                    <li>La tabla de calibración debe venir como JSON válido.</li>
+                    <li>La tabla de calibración se sincroniza desde la curva seleccionada.</li>
                   </ul>
                 </div>
 
@@ -517,22 +595,7 @@ export function DieselConfigModal({
                   </label>
                 </div>
 
-                <div>
-                  <label className="mb-1.5 block text-[#3B3A36]">
-                    Tabla de calibración JSON
-                    <span className="ml-1 text-[#C94A4A]">*</span>
-                  </label>
-                  <textarea
-                    value={form.calibration_table_text}
-                    readOnly
-                    rows={10}
-                    className="w-full rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 font-mono text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
-                    placeholder='{"0": 0, "8": 400, "16": 832}'
-                  />
-                  <p className="mt-1 text-xs text-[#5F6773]">
-                    Vista sincronizada con la curva seleccionada. Para cambiarla, actualiza el catálogo de curvas o elige otra curva.
-                  </p>
-                </div>
+                <CurvePreviewTable curve={selectedCurve} fallbackText={form.calibration_table_text} />
               </div>
             )}
           </div>
