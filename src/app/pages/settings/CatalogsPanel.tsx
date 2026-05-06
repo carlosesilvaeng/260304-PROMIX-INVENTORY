@@ -885,8 +885,8 @@ function CurvePointsEditor({
   };
 
   return (
-    <div className="space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
-      <div className="grid grid-cols-[0.75fr_1fr_1fr_0.8fr_0.9fr_auto] gap-2 text-xs font-medium text-[#5F6773]">
+    <div className="max-w-[720px] space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
+      <div className="grid grid-cols-[72px_112px_112px_72px_96px_28px] gap-1.5 text-xs font-medium text-[#5F6773]">
         <span>Nivel</span>
         <span>Gal. disponibles</span>
         <span>Gal. consumidos</span>
@@ -895,40 +895,40 @@ function CurvePointsEditor({
         <span />
       </div>
       {points.map((point) => (
-        <div key={point.id} className="grid grid-cols-[0.75fr_1fr_1fr_0.8fr_0.9fr_auto] gap-2">
+        <div key={point.id} className="grid grid-cols-[72px_112px_112px_72px_96px_28px] gap-1.5">
           <input
             type="text"
             value={point.point_key}
             onChange={(e) => handlePointChange(point.id, 'point_key', e.target.value)}
-            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.available_gallons}
             onChange={(e) => handlePointChange(point.id, 'available_gallons', e.target.value)}
-            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.consumed_gallons}
             onChange={(e) => handlePointChange(point.id, 'consumed_gallons', e.target.value)}
-            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.percentage}
             onChange={(e) => handlePointChange(point.id, 'percentage', e.target.value)}
-            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.status}
             onChange={(e) => handlePointChange(point.id, 'status', e.target.value)}
-            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="OK"
           />
           <Button variant="ghost" size="sm" onClick={() => handleRemovePoint(point.id)}>
