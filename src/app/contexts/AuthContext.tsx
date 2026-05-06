@@ -61,6 +61,7 @@ export interface Plant {
   name: string;
   code: string;
   location: string;
+  layoutImageUrl?: string | null;
   methods: {
     hasConeMeasurement: boolean;
     hasCajonMeasurement: boolean;
@@ -321,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: p.name,
           code: p.code,
           location: p.location,
+          layoutImageUrl: p.layout_image_url || null,
           methods: {
             hasConeMeasurement: p.has_cone_measurement,
             hasCajonMeasurement: p.has_cajon_measurement,
@@ -442,6 +444,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     callAPI(`/plants/${plant.id}`, 'PUT', {
       name: plant.name,
       location: plant.location,
+      layout_image_url: plant.layoutImageUrl || null,
       petty_cash_established: plant.pettyCashEstablished,
       has_cone_measurement: plant.methods.hasConeMeasurement,
       has_cajon_measurement: plant.methods.hasCajonMeasurement,

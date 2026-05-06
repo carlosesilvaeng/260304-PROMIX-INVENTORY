@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS plants (
   location TEXT,
   has_cone_measurement BOOLEAN NOT NULL DEFAULT true,
   has_cajon_measurement BOOLEAN NOT NULL DEFAULT true,
+  layout_image_url TEXT,
   petty_cash_established NUMERIC(12,2) NOT NULL DEFAULT 0,
   cajones JSONB NOT NULL DEFAULT '[]'::jsonb,
   silos JSONB NOT NULL DEFAULT '[]'::jsonb,

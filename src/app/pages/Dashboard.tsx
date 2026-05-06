@@ -11,6 +11,7 @@ import { getSectionTranslation } from '../utils/sectionTranslations';
 import { validateAllSections } from '../utils/validation';
 import { PromixLogo } from '../components/PromixLogo';
 import { getRoleLabelKey, isPlantManagerLike } from '../utils/permissions';
+import { ZoomIn, X } from 'lucide-react';
 
 interface DashboardProps {
   onNavigate: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
@@ -27,6 +28,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
   const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
   const [startingInventory, setStartingInventory] = React.useState(false);
+  const [layoutZoomOpen, setLayoutZoomOpen] = React.useState(false);
   const autoResumeKeyRef = React.useRef<string | null>(null);
 
   const MONTH_TO_NUM: Record<string, string> = {
@@ -282,6 +284,52 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
     ? t('dashboard.viewFeedback')
     : t('dashboard.reviewAndApprove');
 
+  const plantLayout = currentPlant?.layoutImageUrl ? (
+    <>
+      <div className="mt-10">
+        <button
+          type="button"
+          onClick={() => setLayoutZoomOpen(true)}
+          className="group block w-full text-left"
+          aria-label={`Ampliar layout de ${currentPlant.name}`}
+        >
+          <div className="relative mx-auto max-w-4xl overflow-hidden rounded border border-[#C5C6C7] bg-white shadow-sm">
+            <img
+              src={currentPlant.layoutImageUrl}
+              alt={`Layout de planta ${currentPlant.name}`}
+              className="h-auto max-h-[520px] w-full object-contain"
+            />
+            <div className="absolute right-3 top-3 inline-flex items-center gap-2 rounded bg-white/95 px-3 py-2 text-sm font-medium text-[#3B3A36] shadow transition-colors group-hover:bg-[#2475C7] group-hover:text-white">
+              <ZoomIn size={16} aria-hidden="true" />
+              Ampliar
+            </div>
+          </div>
+          <p className="mt-3 text-center text-lg font-semibold text-[#3B3A36]">Layout de planta</p>
+        </button>
+      </div>
+
+      {layoutZoomOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 p-4 md:p-8">
+          <button
+            type="button"
+            onClick={() => setLayoutZoomOpen(false)}
+            className="absolute right-4 top-4 z-10 rounded-full bg-white p-2 text-[#3B3A36] shadow hover:bg-[#F2F3F5]"
+            aria-label="Cerrar layout ampliado"
+          >
+            <X size={24} aria-hidden="true" />
+          </button>
+          <div className="flex h-full w-full items-center justify-center overflow-auto">
+            <img
+              src={currentPlant.layoutImageUrl}
+              alt={`Layout ampliado de planta ${currentPlant.name}`}
+              className="max-h-none max-w-none rounded bg-white object-contain shadow-2xl md:max-h-full md:max-w-full"
+            />
+          </div>
+        </div>
+      )}
+    </>
+  ) : null;
+
   // If Admin/Super Admin without plant selected, show welcome screen
   if (!currentPlant && (user?.role === 'admin' || user?.role === 'super_admin')) {
     return (
@@ -454,6 +502,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </p>
             )}
           </Card>
+          {plantLayout}
         </div>
       </div>
     );
@@ -466,6 +515,8 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
         <PromixLogo size="lg" />
       </div>
       
+      {plantLayout}
+
       {/* Summary Cards - First Row: Progress, Sections, Date, Status */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

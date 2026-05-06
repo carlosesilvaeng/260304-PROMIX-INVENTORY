@@ -1543,6 +1543,91 @@ app.get("/make-server/plants", async (c) => {
   }
 });
 
+// Plant layout image endpoints (admin/super_admin only)
+app.post("/make-server/plants/:plantId/layout", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden: admin role required' }, 403);
+    }
+
+    const plantId = c.req.param('plantId');
+    const { base64, filename } = await c.req.json();
+
+    if (!base64 || !base64.startsWith('data:image/jpeg')) {
+      return c.json({ success: false, error: 'El layout debe ser una imagen JPG.' }, 400);
+    }
+
+    const [header, raw] = base64.split(',');
+    const contentType = header.replace('data:', '').replace(';base64', '');
+    const binaryStr = atob(raw);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    if (bytes.length > 5 * 1024 * 1024) {
+      return c.json({ success: false, error: 'Layout demasiado grande (máx 5 MB).' }, 400);
+    }
+
+    const supabase = db.getSupabaseClient();
+    const safeName = (filename || 'layout').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
+    const folder = plantId.replace(/[^a-z0-9_]/gi, '_');
+    const storagePath = `plant-layouts/${folder}/${Date.now()}-${safeName}.jpg`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('inventory-photos')
+      .upload(storagePath, bytes, { contentType, upsert: false });
+
+    if (uploadError) {
+      console.error(`[POST /plants/${plantId}/layout] Storage error:`, uploadError.message);
+      return c.json({ success: false, error: uploadError.message }, 500);
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('inventory-photos')
+      .getPublicUrl(uploadData.path);
+
+    const layoutImageUrl = urlData.publicUrl;
+    const { error: updateError } = await supabase
+      .from('plants')
+      .update({ layout_image_url: layoutImageUrl, updated_at: new Date().toISOString() })
+      .eq('id', plantId);
+
+    if (updateError) throw updateError;
+
+    console.log(`✅ [POST /plants/${plantId}/layout] Uploaded by ${user.email}`);
+    return c.json({ success: true, data: { layout_image_url: layoutImageUrl } });
+  } catch (error) {
+    console.error("❌ Error uploading plant layout:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.delete("/make-server/plants/:plantId/layout", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden: admin role required' }, 403);
+    }
+
+    const plantId = c.req.param('plantId');
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('plants')
+      .update({ layout_image_url: null, updated_at: new Date().toISOString() })
+      .eq('id', plantId);
+
+    if (error) throw error;
+
+    console.log(`✅ [DELETE /plants/${plantId}/layout] Removed by ${user.email}`);
+    return c.json({ success: true, data: { layout_image_url: null } });
+  } catch (error) {
+    console.error("❌ Error deleting plant layout:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // PUT /plants/:plantId — update plant metadata (admin/super_admin only)
 app.put("/make-server/plants/:plantId", async (c) => {
   try {
@@ -1557,7 +1642,7 @@ app.put("/make-server/plants/:plantId", async (c) => {
 
     // Only allow safe fields to be updated
     const allowed = ['name', 'location', 'petty_cash_established',
-                     'has_cone_measurement', 'has_cajon_measurement', 'is_active'];
+                     'has_cone_measurement', 'has_cajon_measurement', 'is_active', 'layout_image_url'];
     const update: Record<string, any> = {};
     for (const key of allowed) {
       if (key in body) update[key] = body[key];

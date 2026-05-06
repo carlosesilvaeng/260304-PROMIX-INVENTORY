@@ -1,4 +1,4 @@
-import { AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { AlertTriangle, FileImage, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,7 +12,8 @@ import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
 import { DataControlPanel } from './settings/DataControlPanel';
-import { getPlantConfigurationCounts } from '../utils/api';
+import { deletePlantLayoutImage, getPlantConfigurationCounts, uploadPlantLayoutImage } from '../utils/api';
+import { compressImage } from '../utils/imageCompression';
 import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
 import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
@@ -56,6 +57,11 @@ export function Settings() {
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
   const [editingDiesel, setEditingDiesel] = useState<Plant | null>(null);
   const [editingProducts, setEditingProducts] = useState<Plant | null>(null);
+  const [editingLayout, setEditingLayout] = useState<Plant | null>(null);
+  const [layoutUploading, setLayoutUploading] = useState(false);
+  const [layoutDeleting, setLayoutDeleting] = useState(false);
+  const [layoutMessage, setLayoutMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [layoutPreviewUrl, setLayoutPreviewUrl] = useState<string | null>(null);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showCreatePlantModal, setShowCreatePlantModal] = useState(false);
@@ -238,6 +244,78 @@ export function Settings() {
       });
     } finally {
       setExportingPlantsConfig(false);
+    }
+  };
+
+  const openLayoutModal = (plant: Plant) => {
+    setEditingLayout(plant);
+    setLayoutPreviewUrl(plant.layoutImageUrl || null);
+    setLayoutMessage(null);
+  };
+
+  const handleLayoutFileSelected = async (file: File | null) => {
+    if (!editingLayout || !file) return;
+
+    const isJpeg = file.type === 'image/jpeg' || /\.(jpe?g)$/i.test(file.name);
+    if (!isJpeg) {
+      setLayoutMessage({ type: 'error', message: 'Selecciona una imagen JPG para el layout.' });
+      return;
+    }
+
+    setLayoutUploading(true);
+    setLayoutMessage(null);
+
+    try {
+      const compressed = await compressImage(file, {
+        maxWidth: 2400,
+        maxHeight: 1800,
+        quality: 0.88,
+        mimeType: 'image/jpeg',
+      });
+      const response = await uploadPlantLayoutImage(editingLayout.id, {
+        base64: compressed,
+        filename: file.name,
+      });
+
+      if (!response.success || !response.data?.layout_image_url) {
+        throw new Error(response.error || 'No se pudo guardar el layout de la planta.');
+      }
+
+      setLayoutPreviewUrl(response.data.layout_image_url);
+      setLayoutMessage({ type: 'success', message: 'Layout guardado exitosamente.' });
+      await refreshPlants();
+      handleSave();
+    } catch (error: any) {
+      console.error('❌ Error guardando layout:', error);
+      setLayoutMessage({ type: 'error', message: error?.message || 'No se pudo guardar el layout.' });
+    } finally {
+      setLayoutUploading(false);
+    }
+  };
+
+  const handleDeleteLayout = async () => {
+    if (!editingLayout) return;
+    const confirmed = window.confirm(`¿Eliminar el layout de "${editingLayout.name}"?`);
+    if (!confirmed) return;
+
+    setLayoutDeleting(true);
+    setLayoutMessage(null);
+
+    try {
+      const response = await deletePlantLayoutImage(editingLayout.id);
+      if (!response.success) {
+        throw new Error(response.error || 'No se pudo eliminar el layout.');
+      }
+
+      setLayoutPreviewUrl(null);
+      setLayoutMessage({ type: 'success', message: 'Layout eliminado.' });
+      await refreshPlants();
+      handleSave();
+    } catch (error: any) {
+      console.error('❌ Error eliminando layout:', error);
+      setLayoutMessage({ type: 'error', message: error?.message || 'No se pudo eliminar el layout.' });
+    } finally {
+      setLayoutDeleting(false);
     }
   };
 
@@ -465,6 +543,18 @@ export function Settings() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openLayoutModal(plant)}
+                              className="min-w-[92px] flex-col gap-0.5 px-2 py-2 leading-tight"
+                            >
+                              <FileImage size={22} aria-hidden="true" />
+                              <span className="text-xs font-medium">Layout</span>
+                              <span className={`text-xs font-semibold ${plant.layoutImageUrl ? 'text-[#2E7D4F]' : 'text-[#9D9B9A]'}`}>
+                                {plant.layoutImageUrl ? 'Cargado' : 'Sin JPG'}
+                              </span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="min-w-[110px] self-center"
                               onClick={() => setViewingPlantDetails(plant)}
                             >
@@ -606,6 +696,91 @@ export function Settings() {
           }}
           onClose={() => setEditingProducts(null)}
         />
+      )}
+
+      {editingLayout && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[92vh] overflow-y-auto">
+            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-start gap-4 sticky top-0 bg-white">
+              <div>
+                <h3 className="text-xl font-bold text-[#3B3A36]">Layout de planta</h3>
+                <p className="text-sm text-[#5F6773] mt-1">{editingLayout.name} • Solo imágenes JPG</p>
+              </div>
+              <button
+                onClick={() => setEditingLayout(null)}
+                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                aria-label="Cerrar"
+              >
+                <span className="text-2xl text-[#5F6773]">×</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {layoutMessage && (
+                <Alert
+                  type={layoutMessage.type}
+                  message={layoutMessage.message}
+                  onClose={() => setLayoutMessage(null)}
+                  autoClose={layoutMessage.type === 'success'}
+                />
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center justify-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-4 py-2 text-[#3B3A36] font-medium hover:bg-[#E4E4E4] transition-colors cursor-pointer">
+                  <FileImage size={18} aria-hidden="true" />
+                  <span>{layoutUploading ? 'Cargando...' : layoutPreviewUrl ? 'Cambiar JPG' : 'Cargar JPG'}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,.jpg,.jpeg"
+                    className="sr-only"
+                    disabled={layoutUploading || layoutDeleting}
+                    onChange={(event) => {
+                      handleLayoutFileSelected(event.target.files?.[0] || null);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+                {layoutPreviewUrl && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteLayout}
+                    loading={layoutDeleting}
+                    disabled={layoutUploading}
+                  >
+                    <Trash2 size={18} aria-hidden="true" />
+                    Eliminar
+                  </Button>
+                )}
+              </div>
+
+              <div className="border border-[#E4E4E4] rounded-lg bg-[#F7F8FA] min-h-[280px] flex items-center justify-center overflow-hidden">
+                {layoutPreviewUrl ? (
+                  <img
+                    src={layoutPreviewUrl}
+                    alt={`Layout de ${editingLayout.name}`}
+                    className="max-h-[58vh] w-full object-contain"
+                  />
+                ) : (
+                  <div className="text-center p-8">
+                    <FileImage size={46} className="mx-auto text-[#9D9B9A] mb-3" aria-hidden="true" />
+                    <p className="text-[#3B3A36] font-medium">No hay layout cargado</p>
+                    <p className="text-sm text-[#5F6773] mt-1">Carga un JPG para que aparezca en Inicio.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5]">
+              <Button
+                variant="secondary"
+                onClick={() => setEditingLayout(null)}
+                className="w-full"
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* Plant Details Modal */}

@@ -303,6 +303,19 @@ export async function getPlantConfigurationCounts(): Promise<ApiResponse<PlantCo
   return apiRequest('/plants/config-counts');
 }
 
+export async function uploadPlantLayoutImage(
+  plantId: string,
+  payload: { base64: string; filename: string }
+): Promise<ApiResponse<{ layout_image_url: string }>> {
+  return apiRequest(`/plants/${plantId}/layout`, 'POST', payload);
+}
+
+export async function deletePlantLayoutImage(
+  plantId: string
+): Promise<ApiResponse<{ layout_image_url: null }>> {
+  return apiRequest(`/plants/${plantId}/layout`, 'DELETE');
+}
+
 // ============================================================================
 // INVENTORY MONTH API
 // ============================================================================
