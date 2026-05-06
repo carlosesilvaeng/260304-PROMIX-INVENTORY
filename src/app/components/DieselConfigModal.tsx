@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileSpreadsheet, Upload } from 'lucide-react';
+import { Download, FileSpreadsheet, Trash2, Upload } from 'lucide-react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -195,6 +195,7 @@ export function DieselConfigModal({
   const [form, setForm] = useState<DieselConfigForm>(createEmptyForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportingTemplate, setExportingTemplate] = useState(false);
   const [exportingCurrent, setExportingCurrent] = useState(false);
@@ -335,7 +336,7 @@ export function DieselConfigModal({
     try {
       const response = await updatePlantDieselConfigEntry(plant.id, {
         ...(form.id ? { id: form.id } : {}),
-        measurement_method: form.measurement_method.trim(),
+        measurement_method: 'TANK_LEVEL',
         calibration_curve_name: form.calibration_curve_name?.trim() || null,
         reading_uom: form.reading_uom.trim(),
         tank_capacity_gallons: Number(form.tank_capacity_gallons),
@@ -354,6 +355,33 @@ export function DieselConfigModal({
       setError('Error de conexión guardando diesel');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteConfig = async () => {
+    if (!form.id) return;
+
+    const confirmed = window.confirm(
+      'Esto eliminará la configuración activa de Diesel para esta planta. Los reportes históricos no se eliminan.'
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const response = await updatePlantDieselConfigEntry(plant.id, null);
+      if (!response.success) {
+        setError(response.error ?? 'Error eliminando diesel');
+        return;
+      }
+
+      setForm(createEmptyForm());
+      onSaved();
+    } catch {
+      setError('Error de conexión eliminando diesel');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -486,6 +514,18 @@ export function DieselConfigModal({
               </div>
 
               <div className="flex flex-wrap gap-2 lg:justify-end">
+                {form.id && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleDeleteConfig}
+                    loading={deleting}
+                    disabled={loading || saving || previewingImport || executingImport}
+                    className="border-[#C94A4A] bg-[#FDECEC] text-[#A53333] hover:bg-[#F9D8D8]"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    Eliminar configuración
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={handleDownloadBlankTemplate}
@@ -550,9 +590,9 @@ export function DieselConfigModal({
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input
                     label="Método"
-                    value={form.measurement_method}
-                    onChange={(e) => setForm((prev) => ({ ...prev, measurement_method: e.target.value }))}
-                    placeholder="Ej: TANK_LEVEL"
+                    value="TANK_LEVEL"
+                    disabled
+                    helperText="Método fijo para diesel con curva de calibración."
                     required
                   />
                   <Input
@@ -601,10 +641,10 @@ export function DieselConfigModal({
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
-            <Button variant="ghost" onClick={onClose} disabled={saving || previewingImport || executingImport}>
+            <Button variant="ghost" onClick={onClose} disabled={saving || deleting || previewingImport || executingImport}>
               Salir
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={loading || previewingImport || executingImport}>
+            <Button onClick={handleSave} loading={saving} disabled={loading || deleting || previewingImport || executingImport}>
               Guardar Configuración
             </Button>
           </div>
