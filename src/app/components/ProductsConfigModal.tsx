@@ -77,6 +77,143 @@ function stringifyTable(value: Record<string, number> | null | undefined) {
   return JSON.stringify(value, null, 2);
 }
 
+function parseCalibrationTableText(value: string) {
+  if (!value.trim()) return [];
+  const parsed = JSON.parse(value) as Record<string, number>;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('La tabla debe tener puntos de lectura');
+  }
+
+  return Object.entries(parsed)
+    .map(([level, amount]) => ({
+      id: `${level}-${amount}`,
+      level: String(level),
+      amount: String(amount),
+    }))
+    .filter((point) => point.level.trim() || point.amount.trim())
+    .sort((left, right) => Number(left.level) - Number(right.level));
+}
+
+function buildCalibrationTableText(points: Array<{ level: string; amount: string }>) {
+  const normalized = points
+    .map((point, index) => {
+      const level = point.level.trim();
+      const amount = point.amount.trim();
+      if (!level && !amount) return null;
+      if (!level || !amount) {
+        throw new Error(`Completa Nivel y Valor en el punto ${index + 1}`);
+      }
+
+      const numericLevel = Number(level);
+      const numericAmount = Number(amount);
+      if (!Number.isFinite(numericLevel)) {
+        throw new Error(`Nivel inválido en el punto ${index + 1}`);
+      }
+      if (!Number.isFinite(numericAmount)) {
+        throw new Error(`Valor inválido en el punto ${index + 1}`);
+      }
+
+      return { level: numericLevel, amount: numericAmount };
+    })
+    .filter((point): point is { level: number; amount: number } => point !== null)
+    .sort((left, right) => left.level - right.level);
+
+  if (normalized.length === 0) {
+    throw new Error('La tabla de calibración debe tener al menos un punto');
+  }
+
+  for (let index = 1; index < normalized.length; index += 1) {
+    if (normalized[index - 1].level === normalized[index].level) {
+      throw new Error(`Nivel duplicado: ${normalized[index].level}`);
+    }
+  }
+
+  return JSON.stringify(
+    normalized.reduce((acc: Record<string, number>, point) => {
+      acc[String(point.level)] = point.amount;
+      return acc;
+    }, {}),
+  );
+}
+
+function ProductCalibrationTableEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const points = useMemo(() => {
+    try {
+      const parsedPoints = parseCalibrationTableText(value);
+      return parsedPoints.length ? parsedPoints : [{ id: crypto.randomUUID(), level: '0', amount: '0' }];
+    } catch {
+      return [{ id: crypto.randomUUID(), level: '', amount: '' }];
+    }
+  }, [value]);
+
+  const emitChange = (nextPoints: Array<{ id: string; level: string; amount: string }>) => {
+    try {
+      onChange(buildCalibrationTableText(nextPoints));
+    } catch {
+      const draft = nextPoints.reduce((acc: Record<string, number | string>, point) => {
+        if (point.level.trim()) acc[point.level.trim()] = point.amount;
+        return acc;
+      }, {});
+      onChange(JSON.stringify(draft));
+    }
+  };
+
+  return (
+    <div className="max-w-[360px] space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
+      <div className="grid grid-cols-[96px_160px_28px] gap-1.5 text-xs font-medium text-[#5F6773]">
+        <span>Nivel</span>
+        <span>Valor</span>
+        <span />
+      </div>
+      {points.map((point) => (
+        <div key={point.id} className="grid grid-cols-[96px_160px_28px] gap-1.5">
+          <input
+            type="text"
+            value={point.level}
+            onChange={(event) => {
+              emitChange(points.map((item) => (item.id === point.id ? { ...item, level: event.target.value } : item)));
+            }}
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="0"
+          />
+          <input
+            type="text"
+            value={point.amount}
+            onChange={(event) => {
+              emitChange(points.map((item) => (item.id === point.id ? { ...item, amount: event.target.value } : item)));
+            }}
+            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="0"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => emitChange(points.filter((item) => item.id !== point.id))}
+          >
+            ✕
+          </Button>
+        </div>
+      ))}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-[#5F6773]">{points.length} punto{points.length === 1 ? '' : 's'} en edición</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => emitChange([...points, { id: crypto.randomUUID(), level: '', amount: '' }])}
+        >
+          + Punto
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function toWorkbookRows(rows: ProductConfigRow[]): ProductsImportWorkbookRow[] {
   return rows.map((row) => ({
     product_name: row.product_name.trim(),
@@ -194,9 +331,9 @@ export function ProductsConfigModal({
         if (!row.reading_uom?.trim()) return `${label}: la unidad de lectura es requerida`;
         if (!row.calibration_table_text.trim()) return `${label}: la tabla de calibración es requerida`;
         try {
-          JSON.parse(row.calibration_table_text);
-        } catch {
-          return `${label}: la tabla de calibración no tiene JSON válido`;
+          buildCalibrationTableText(parseCalibrationTableText(row.calibration_table_text));
+        } catch (validationError) {
+          return `${label}: ${validationError instanceof Error ? validationError.message : 'la tabla de calibración tiene puntos inválidos'}`;
         }
       }
 
@@ -540,17 +677,14 @@ export function ProductsConfigModal({
                               placeholder="500"
                             />
                           </div>
-                          <div>
-                            <label className="mb-1.5 block text-[#3B3A36]">
-                              Tabla de calibración JSON
+                          <div className="space-y-2">
+                            <label className="block text-[#3B3A36]">
+                              Tabla de calibración
                               <span className="ml-1 text-[#C94A4A]">*</span>
                             </label>
-                            <textarea
+                            <ProductCalibrationTableEditor
                               value={row.calibration_table_text}
-                              onChange={(e) => updateRow(index, { calibration_table_text: e.target.value })}
-                              rows={6}
-                              className="w-full rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 font-mono text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
-                              placeholder='{"0": 0, "6": 25, "12": 52}'
+                              onChange={(value) => updateRow(index, { calibration_table_text: value })}
                             />
                           </div>
                         </div>
