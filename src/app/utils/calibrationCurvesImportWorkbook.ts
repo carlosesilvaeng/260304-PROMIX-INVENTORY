@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import type { Plant } from '../contexts/AuthContext';
 
 export const CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION = '3.0';
@@ -53,25 +54,6 @@ export const CALIBRATION_CURVES_IMPORT_POINT_COLUMNS: ColumnDefinition[] = [
   { key: 'status', label: 'Status', width: 18 },
 ];
 
-const SECTION_FILL = {
-  type: 'pattern',
-  pattern: 'solid',
-  fgColor: { argb: 'DCEBFA' },
-} as const;
-
-const HEADER_FILL = {
-  type: 'pattern',
-  pattern: 'solid',
-  fgColor: { argb: 'EEF4FB' },
-} as const;
-
-const THIN_BORDER = {
-  top: { style: 'thin' },
-  left: { style: 'thin' },
-  bottom: { style: 'thin' },
-  right: { style: 'thin' },
-} as const;
-
 function sortPoints(points: CalibrationCurveWorkbookPoint[]) {
   return [...points].sort((left, right) => left.point_key - right.point_key);
 }
@@ -109,19 +91,10 @@ function buildInstructionRows(meta: CalibrationCurvesImportMeta) {
   ];
 }
 
-function writeHeaders(worksheet: any, columns: ColumnDefinition[]) {
-  worksheet.properties.defaultRowHeight = 22;
-  worksheet.columns = columns.map((column) => ({ key: column.key, width: column.width }));
-
-  const headerRow = worksheet.getRow(1);
-  columns.forEach((column, index) => {
-    const cell = headerRow.getCell(index + 1);
-    cell.value = column.label;
-    cell.font = { bold: true, color: { argb: '1F2937' } };
-    cell.fill = HEADER_FILL;
-    cell.border = THIN_BORDER;
-    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-  });
+function createSheet(rows: (string | number | null | undefined)[][], columns: ColumnDefinition[]) {
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet['!cols'] = columns.map((column) => ({ wch: column.width }));
+  return worksheet;
 }
 
 export async function downloadCalibrationCurvesImportWorkbook(options: {
@@ -129,11 +102,12 @@ export async function downloadCalibrationCurvesImportWorkbook(options: {
   rows: CalibrationCurvesImportWorkbookRow[];
   templateType: 'blank' | 'current_config';
 }) {
-  const ExcelJS = await import('exceljs');
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'PROMIX Plant Inventory';
-  workbook.created = new Date();
-  workbook.modified = new Date();
+  const workbook = XLSX.utils.book_new();
+  workbook.Props = {
+    Title: 'PROMIX Curvas de conversión',
+    Author: 'PROMIX Plant Inventory',
+    CreatedDate: new Date(),
+  };
 
   const meta: CalibrationCurvesImportMeta = {
     template_type: options.templateType,
@@ -144,82 +118,66 @@ export async function downloadCalibrationCurvesImportWorkbook(options: {
     generated_at: new Date().toISOString(),
   };
 
-  const curvesSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_CURVES_SHEET, {
-    views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }],
-  });
-  writeHeaders(curvesSheet, CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS);
+  const curveRows = [
+    CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS.map((column) => column.label),
+    ...options.rows.map((rowValues) => [
+      rowValues.curve_name || '',
+      rowValues.measurement_type || '',
+      rowValues.reading_uom || '',
+    ]),
+  ];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    createSheet(curveRows, CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS),
+    CALIBRATION_CURVES_IMPORT_CURVES_SHEET,
+  );
 
-  options.rows.forEach((rowValues, rowIndex) => {
-    const row = curvesSheet.getRow(rowIndex + 2);
-    row.getCell(1).value = rowValues.curve_name || '';
-    row.getCell(2).value = rowValues.measurement_type || '';
-    row.getCell(3).value = rowValues.reading_uom || '';
-    for (let columnIndex = 1; columnIndex <= 3; columnIndex += 1) {
-      row.getCell(columnIndex).border = THIN_BORDER;
-      row.getCell(columnIndex).alignment = { vertical: 'top', wrapText: true };
-    }
-  });
+  const pointRows = [
+    CALIBRATION_CURVES_IMPORT_POINT_COLUMNS.map((column) => column.label),
+    ...options.rows.flatMap((curve) => sortPoints(curve.points || []).map((point) => [
+      curve.curve_name || '',
+      point.point_key,
+      point.available_gallons ?? point.point_value,
+      point.consumed_gallons ?? '',
+      point.percentage ?? '',
+      point.status || '',
+    ])),
+  ];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    createSheet(pointRows, CALIBRATION_CURVES_IMPORT_POINT_COLUMNS),
+    CALIBRATION_CURVES_IMPORT_POINTS_SHEET,
+  );
 
-  const pointsSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_POINTS_SHEET, {
-    views: [{ showGridLines: false, state: 'frozen', ySplit: 1 }],
-  });
-  writeHeaders(pointsSheet, CALIBRATION_CURVES_IMPORT_POINT_COLUMNS);
+  const instructionRows = [
+    [`Importacion de curvas - ${meta.plant_name}`, ''],
+    ...buildInstructionRows(meta),
+  ];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    createSheet(instructionRows, [
+      { key: 'label', label: 'Campo', width: 24 },
+      { key: 'value', label: 'Valor', width: 90 },
+    ]),
+    CALIBRATION_CURVES_IMPORT_INSTRUCTIONS_SHEET,
+  );
 
-  let pointRowIndex = 2;
-  options.rows.forEach((curve) => {
-    sortPoints(curve.points || []).forEach((point) => {
-      const row = pointsSheet.getRow(pointRowIndex);
-      row.getCell(1).value = curve.curve_name || '';
-      row.getCell(2).value = point.point_key;
-      row.getCell(3).value = point.available_gallons ?? point.point_value;
-      row.getCell(4).value = point.consumed_gallons ?? '';
-      row.getCell(5).value = point.percentage ?? '';
-      row.getCell(6).value = point.status || '';
-      for (let columnIndex = 1; columnIndex <= 6; columnIndex += 1) {
-        row.getCell(columnIndex).border = THIN_BORDER;
-        row.getCell(columnIndex).alignment = { vertical: 'top', wrapText: true };
-      }
-      pointRowIndex += 1;
-    });
-  });
+  const metaRows = Object.entries(meta).map(([key, value]) => [key, value]);
+  XLSX.utils.book_append_sheet(
+    workbook,
+    createSheet(metaRows, [
+      { key: 'key', label: 'Key', width: 24 },
+      { key: 'value', label: 'Value', width: 48 },
+    ]),
+    CALIBRATION_CURVES_IMPORT_META_SHEET,
+  );
+  const metaSheetIndex = workbook.SheetNames.indexOf(CALIBRATION_CURVES_IMPORT_META_SHEET);
+  workbook.Workbook = workbook.Workbook || {};
+  workbook.Workbook.Sheets = workbook.Workbook.Sheets || [];
+  workbook.Workbook.Sheets[metaSheetIndex] = { Hidden: 1 };
 
-  const instructionSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_INSTRUCTIONS_SHEET, {
-    views: [{ showGridLines: false }],
-  });
-  instructionSheet.columns = [{ width: 24 }, { width: 90 }];
-  instructionSheet.getCell('A1').value = `Importacion de curvas - ${meta.plant_name}`;
-  instructionSheet.getCell('A1').font = { bold: true, size: 14, color: { argb: '1F2937' } };
-  instructionSheet.mergeCells('A1:B1');
-  instructionSheet.getCell('A1').fill = SECTION_FILL;
-  instructionSheet.getCell('A1').border = THIN_BORDER;
-  instructionSheet.getCell('B1').border = THIN_BORDER;
-
-  buildInstructionRows(meta).forEach((rowValues, rowIndex) => {
-    const row = instructionSheet.getRow(rowIndex + 2);
-    rowValues.forEach((value, valueIndex) => {
-      const cell = row.getCell(valueIndex + 1);
-      cell.value = value;
-      cell.border = THIN_BORDER;
-      cell.alignment = { vertical: 'top', wrapText: true };
-      if (rowIndex === 0 || rowValues[1] === '') {
-        cell.font = { bold: true, color: { argb: '1F2937' } };
-      }
-    });
-  });
-
-  const metaSheet = workbook.addWorksheet(CALIBRATION_CURVES_IMPORT_META_SHEET, {
-    state: 'hidden',
-    views: [{ showGridLines: false }],
-  });
-  metaSheet.columns = [{ width: 24 }, { width: 48 }];
-  Object.entries(meta).forEach(([key, value], index) => {
-    const row = metaSheet.getRow(index + 1);
-    row.getCell(1).value = key;
-    row.getCell(2).value = value;
-  });
-
-  const buffer = await workbook.xlsx.writeBuffer();
+  const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   const date = new Date().toISOString().slice(0, 10);
   const suffix = options.templateType === 'blank' ? 'plantilla' : 'curvas-actuales';
-  downloadBuffer(buffer as ArrayBuffer, `PROMIX-Curvas-${options.plant.code}-${suffix}-${date}.xlsx`);
+  downloadBuffer(buffer, `PROMIX-Curvas-${options.plant.code}-${suffix}-${date}.xlsx`);
 }
