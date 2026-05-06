@@ -771,13 +771,31 @@ type EditableCurvePoint = {
   id: string;
   point_key: string;
   point_value: string;
+  available_gallons: string;
+  consumed_gallons: string;
+  percentage: string;
+  status: string;
 };
 
-function createEditableCurvePoint(point?: { point_key?: number; point_value?: number }): EditableCurvePoint {
+type CurvePointPayload = {
+  point_key: number;
+  point_value: number;
+  available_gallons?: number | null;
+  consumed_gallons?: number | null;
+  percentage?: number | null;
+  status?: string | null;
+};
+
+function createEditableCurvePoint(point?: Partial<CurvePointPayload>): EditableCurvePoint {
+  const availableGallons = point?.available_gallons ?? point?.point_value;
   return {
     id: crypto.randomUUID(),
     point_key: point?.point_key !== undefined ? String(point.point_key) : '',
-    point_value: point?.point_value !== undefined ? String(point.point_value) : '',
+    point_value: availableGallons !== undefined && availableGallons !== null ? String(availableGallons) : '',
+    available_gallons: availableGallons !== undefined && availableGallons !== null ? String(availableGallons) : '',
+    consumed_gallons: point?.consumed_gallons !== undefined && point.consumed_gallons !== null ? String(point.consumed_gallons) : '',
+    percentage: point?.percentage !== undefined && point.percentage !== null ? String(point.percentage) : '',
+    status: point?.status || '',
   };
 }
 
@@ -785,27 +803,42 @@ function normalizeCurvePoints(points: EditableCurvePoint[]) {
   const normalized = points
     .map((point, index) => {
       const rawKey = point.point_key.trim();
-      const rawValue = point.point_value.trim();
-      if (!rawKey && !rawValue) return null;
-      if (!rawKey || !rawValue) {
-        throw new Error(`Completa Key y Value en el punto ${index + 1}`);
+      const rawAvailableGallons = (point.available_gallons || point.point_value).trim();
+      const rawConsumedGallons = point.consumed_gallons.trim();
+      const rawPercentage = point.percentage.trim().replace('%', '');
+      const rawStatus = point.status.trim();
+      if (![rawKey, rawAvailableGallons, rawConsumedGallons, rawPercentage, rawStatus].some(Boolean)) return null;
+      if (!rawKey || !rawAvailableGallons) {
+        throw new Error(`Completa Nivel y Galones disponibles en el punto ${index + 1}`);
       }
 
       const pointKey = Number(rawKey);
-      const pointValue = Number(rawValue);
+      const availableGallons = Number(rawAvailableGallons);
+      const consumedGallons = rawConsumedGallons ? Number(rawConsumedGallons) : null;
+      const percentage = rawPercentage ? Number(rawPercentage) : null;
       if (!Number.isFinite(pointKey)) {
-        throw new Error(`Key inválido en el punto ${index + 1}`);
+        throw new Error(`Nivel inválido en el punto ${index + 1}`);
       }
-      if (!Number.isFinite(pointValue)) {
-        throw new Error(`Value inválido en el punto ${index + 1}`);
+      if (!Number.isFinite(availableGallons)) {
+        throw new Error(`Galones disponibles inválidos en el punto ${index + 1}`);
+      }
+      if (consumedGallons !== null && !Number.isFinite(consumedGallons)) {
+        throw new Error(`Galones consumidos inválidos en el punto ${index + 1}`);
+      }
+      if (percentage !== null && !Number.isFinite(percentage)) {
+        throw new Error(`Porcentaje inválido en el punto ${index + 1}`);
       }
 
       return {
         point_key: pointKey,
-        point_value: pointValue,
+        point_value: availableGallons,
+        available_gallons: availableGallons,
+        consumed_gallons: consumedGallons,
+        percentage,
+        status: rawStatus || null,
       };
     })
-    .filter((point): point is { point_key: number; point_value: number } => point !== null)
+    .filter((point): point is CurvePointPayload => point !== null)
     .sort((left, right) => left.point_key - right.point_key);
 
   if (normalized.length === 0) {
@@ -814,14 +847,14 @@ function normalizeCurvePoints(points: EditableCurvePoint[]) {
 
   for (let index = 1; index < normalized.length; index += 1) {
     if (normalized[index - 1].point_key === normalized[index].point_key) {
-      throw new Error(`Key duplicado: ${normalized[index].point_key}`);
+      throw new Error(`Nivel duplicado: ${normalized[index].point_key}`);
     }
   }
 
   return normalized;
 }
 
-function formatCurvePointSummary(points: Array<{ point_key: number; point_value: number }>) {
+function formatCurvePointSummary(points: CurvePointPayload[]) {
   if (!points.length) return '0 puntos';
   const sorted = [...points].sort((left, right) => left.point_key - right.point_key);
   const first = sorted[0]?.point_key;
@@ -839,7 +872,7 @@ function CurvePointsEditor({
   points: EditableCurvePoint[];
   onChange: (points: EditableCurvePoint[]) => void;
 }) {
-  const handlePointChange = (id: string, field: 'point_key' | 'point_value', value: string) => {
+  const handlePointChange = (id: string, field: keyof Omit<EditableCurvePoint, 'id' | 'point_value'>, value: string) => {
     onChange(points.map((point) => (point.id === id ? { ...point, [field]: value } : point)));
   };
 
@@ -853,13 +886,16 @@ function CurvePointsEditor({
 
   return (
     <div className="space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-[#5F6773]">
-        <span>Key</span>
-        <span>Value</span>
+      <div className="grid grid-cols-[0.75fr_1fr_1fr_0.8fr_0.9fr_auto] gap-2 text-xs font-medium text-[#5F6773]">
+        <span>Nivel</span>
+        <span>Gal. disponibles</span>
+        <span>Gal. consumidos</span>
+        <span>%</span>
+        <span>Status</span>
         <span />
       </div>
       {points.map((point) => (
-        <div key={point.id} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+        <div key={point.id} className="grid grid-cols-[0.75fr_1fr_1fr_0.8fr_0.9fr_auto] gap-2">
           <input
             type="text"
             value={point.point_key}
@@ -869,10 +905,31 @@ function CurvePointsEditor({
           />
           <input
             type="text"
-            value={point.point_value}
-            onChange={(e) => handlePointChange(point.id, 'point_value', e.target.value)}
+            value={point.available_gallons}
+            onChange={(e) => handlePointChange(point.id, 'available_gallons', e.target.value)}
             className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="0"
+          />
+          <input
+            type="text"
+            value={point.consumed_gallons}
+            onChange={(e) => handlePointChange(point.id, 'consumed_gallons', e.target.value)}
+            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="0"
+          />
+          <input
+            type="text"
+            value={point.percentage}
+            onChange={(e) => handlePointChange(point.id, 'percentage', e.target.value)}
+            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="0"
+          />
+          <input
+            type="text"
+            value={point.status}
+            onChange={(e) => handlePointChange(point.id, 'status', e.target.value)}
+            className="rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            placeholder="OK"
           />
           <Button variant="ghost" size="sm" onClick={() => handleRemovePoint(point.id)}>
             ✕
@@ -913,13 +970,13 @@ function CalibrationCurvesTable({
     curve_name: string;
     measurement_type: string;
     reading_uom: string;
-    points: Array<{ point_key: number; point_value: number }>;
+    points: CurvePointPayload[];
   }) => Promise<void>;
   onUpdate: (id: string, payload: {
     curve_name: string;
     measurement_type: string;
     reading_uom: string;
-    points: Array<{ point_key: number; point_value: number }>;
+    points: CurvePointPayload[];
   }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
@@ -1748,7 +1805,7 @@ export function CatalogsPanel() {
 
     try {
       const parsed = await parseCalibrationCurvesImportFile(file);
-      if (parsed.meta.plant_id !== selectedCurvePlant.id) {
+      if (parsed.meta.plant_id && parsed.meta.plant_id !== selectedCurvePlant.id) {
         throw new Error(`La plantilla corresponde a la planta "${parsed.meta.plant_name || parsed.meta.plant_id}" y no a la planta seleccionada.`);
       }
 
@@ -1767,6 +1824,10 @@ export function CatalogsPanel() {
           curve_name: point.curve_name,
           point_key: point.point_key,
           point_value: point.point_value,
+          available_gallons: point.available_gallons,
+          consumed_gallons: point.consumed_gallons,
+          percentage: point.percentage,
+          status: point.status,
         })),
       };
 
@@ -1872,7 +1933,7 @@ export function CatalogsPanel() {
     curve_name: string;
     measurement_type: string;
     reading_uom: string;
-    points: Array<{ point_key: number; point_value: number }>;
+    points: CurvePointPayload[];
   }) => {
     const res = await createCalibrationCurveCatalogItem(payload);
     if (res.success) await loadCurves(payload.plant_id);
@@ -1885,7 +1946,7 @@ export function CatalogsPanel() {
       curve_name: string;
       measurement_type: string;
       reading_uom: string;
-      points: Array<{ point_key: number; point_value: number }>;
+      points: CurvePointPayload[];
     }
   ) => {
     const res = await updateCalibrationCurveCatalogItem(id, payload);

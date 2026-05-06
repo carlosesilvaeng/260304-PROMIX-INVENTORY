@@ -21,6 +21,10 @@ export interface ParsedCalibrationCurvesImportPointRow {
   curve_name: string;
   point_key: string;
   point_value: string;
+  available_gallons: string;
+  consumed_gallons: string;
+  percentage: string;
+  status: string;
 }
 
 export interface ParsedCalibrationCurvesImportFile {
@@ -40,13 +44,108 @@ function ensureHeaders(actual: string[], expected: string[], sheetName: string) 
   }
 }
 
+function findHeaderRow(rows: unknown[][], requiredHeaders: string[]) {
+  return rows.findIndex((row) => {
+    const normalized = row.map((value) => toCellString(value).toLowerCase());
+    return requiredHeaders.every((header) => normalized.includes(header.toLowerCase()));
+  });
+}
+
+function getMetadataValue(rows: unknown[][], label: string) {
+  const labelKey = label.toLowerCase();
+  for (let rowIndex = 0; rowIndex < rows.length - 1; rowIndex += 1) {
+    const row = rows[rowIndex];
+    const columnIndex = row.findIndex((value) => toCellString(value).toLowerCase() === labelKey);
+    if (columnIndex >= 0) {
+      const nextRowValue = toCellString(rows[rowIndex + 1]?.[columnIndex]);
+      const sameRowValue = toCellString(row[columnIndex + 1]);
+      return nextRowValue || sameRowValue;
+    }
+  }
+  return '';
+}
+
+function normalizePercentCell(value: unknown) {
+  const rawValue = toCellString(value);
+  if (!rawValue) return '';
+  if (rawValue.endsWith('%')) return rawValue.slice(0, -1).trim();
+  return rawValue;
+}
+
+function parseSingleSheetTankCurve(workbook: any): ParsedCalibrationCurvesImportFile | null {
+  const XLSX = workbook.__xlsx;
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
+      header: 1,
+      blankrows: false,
+      raw: false,
+    });
+    const headerRowIndex = findHeaderRow(rows, ['Nivel (in)', 'Galones disponibles', 'Galones consumidos', 'porcentaje', 'status']);
+    if (headerRowIndex < 0) continue;
+
+    const plantName = getMetadataValue(rows, 'Planta');
+    const tankName = getMetadataValue(rows, 'Nombre') || sheetName.trim();
+    const curveName = tankName.trim().replace(/\s+/g, '_').toUpperCase();
+    const headers = rows[headerRowIndex].map((value) => toCellString(value).toLowerCase());
+    const levelIndex = headers.findIndex((header) => header.startsWith('nivel'));
+    const availableIndex = headers.indexOf('galones disponibles');
+    const consumedIndex = headers.indexOf('galones consumidos');
+    const percentageIndex = headers.indexOf('porcentaje');
+    const statusIndex = headers.indexOf('status');
+
+    const points = rows.slice(headerRowIndex + 1).map((rowValues, index) => {
+      const point_key = toCellString(rowValues[levelIndex]);
+      const available_gallons = toCellString(rowValues[availableIndex]);
+      const consumed_gallons = toCellString(rowValues[consumedIndex]);
+      const percentage = normalizePercentCell(rowValues[percentageIndex]);
+      const status = toCellString(rowValues[statusIndex]);
+      return {
+        row_number: headerRowIndex + index + 2,
+        curve_name: curveName,
+        point_key,
+        point_value: available_gallons,
+        available_gallons,
+        consumed_gallons,
+        percentage,
+        status,
+      };
+    }).filter((point) => [point.point_key, point.available_gallons, point.consumed_gallons, point.percentage, point.status].some(Boolean));
+
+    if (points.length === 0) continue;
+
+    return {
+      meta: {
+        template_type: 'blank',
+        module: CALIBRATION_CURVES_IMPORT_MODULE,
+        template_version: CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION,
+        plant_id: '',
+        plant_name: plantName,
+        generated_at: '',
+      },
+      curves: [{
+        row_number: 3,
+        curve_name: curveName,
+        measurement_type: 'TANK_LEVEL',
+        reading_uom: 'inches',
+      }],
+      points,
+    };
+  }
+
+  return null;
+}
+
 export async function parseCalibrationCurvesImportFile(file: File): Promise<ParsedCalibrationCurvesImportFile> {
   const XLSX = await import('xlsx');
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
+  (workbook as any).__xlsx = XLSX;
 
   const curvesSheet = workbook.Sheets[CALIBRATION_CURVES_IMPORT_CURVES_SHEET];
   if (!curvesSheet) {
+    const singleSheetCurve = parseSingleSheetTankCurve(workbook);
+    if (singleSheetCurve) return singleSheetCurve;
     throw new Error(`El archivo no contiene la hoja "${CALIBRATION_CURVES_IMPORT_CURVES_SHEET}".`);
   }
 
@@ -97,15 +196,23 @@ export async function parseCalibrationCurvesImportFile(file: File): Promise<Pars
   pointRowsRaw.slice(1).forEach((rowValues, index) => {
     const curve_name = toCellString(rowValues[0]);
     const point_key = toCellString(rowValues[1]);
-    const point_value = toCellString(rowValues[2]);
+    const available_gallons = toCellString(rowValues[2]);
+    const consumed_gallons = toCellString(rowValues[3]);
+    const percentage = normalizePercentCell(rowValues[4]);
+    const status = toCellString(rowValues[5]);
+    const point_value = available_gallons;
 
-    if (![curve_name, point_key, point_value].some(Boolean)) return;
+    if (![curve_name, point_key, available_gallons, consumed_gallons, percentage, status].some(Boolean)) return;
 
     points.push({
       row_number: index + 2,
       curve_name,
       point_key,
       point_value,
+      available_gallons,
+      consumed_gallons,
+      percentage,
+      status,
     });
   });
 

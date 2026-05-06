@@ -131,6 +131,10 @@ CREATE TABLE IF NOT EXISTS calibration_curve_points (
   curve_id TEXT NOT NULL REFERENCES calibration_curves(id) ON DELETE CASCADE,
   point_key NUMERIC NOT NULL,
   point_value NUMERIC NOT NULL,
+  available_gallons NUMERIC,
+  consumed_gallons NUMERIC,
+  percentage NUMERIC,
+  status TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (curve_id, point_key)

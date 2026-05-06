@@ -1,6 +1,6 @@
 import type { Plant } from '../contexts/AuthContext';
 
-export const CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION = '2.0';
+export const CALIBRATION_CURVES_IMPORT_TEMPLATE_VERSION = '3.0';
 export const CALIBRATION_CURVES_IMPORT_MODULE = 'calibration_curves';
 export const CALIBRATION_CURVES_IMPORT_CURVES_SHEET = 'Curvas';
 export const CALIBRATION_CURVES_IMPORT_POINTS_SHEET = 'Puntos';
@@ -10,6 +10,10 @@ export const CALIBRATION_CURVES_IMPORT_META_SHEET = 'Meta';
 export interface CalibrationCurveWorkbookPoint {
   point_key: number;
   point_value: number;
+  available_gallons?: number | null;
+  consumed_gallons?: number | null;
+  percentage?: number | null;
+  status?: string | null;
 }
 
 export interface CalibrationCurvesImportWorkbookRow {
@@ -42,8 +46,11 @@ export const CALIBRATION_CURVES_IMPORT_CURVE_COLUMNS: ColumnDefinition[] = [
 
 export const CALIBRATION_CURVES_IMPORT_POINT_COLUMNS: ColumnDefinition[] = [
   { key: 'curve_name', label: 'Nombre de curva', width: 30 },
-  { key: 'point_key', label: 'Key', width: 16 },
-  { key: 'point_value', label: 'Value', width: 16 },
+  { key: 'point_key', label: 'Nivel', width: 14 },
+  { key: 'available_gallons', label: 'Galones disponibles', width: 22 },
+  { key: 'consumed_gallons', label: 'Galones consumidos', width: 22 },
+  { key: 'percentage', label: 'Porcentaje', width: 16 },
+  { key: 'status', label: 'Status', width: 18 },
 ];
 
 const SECTION_FILL = {
@@ -95,8 +102,8 @@ function buildInstructionRows(meta: CalibrationCurvesImportMeta) {
     ['3', 'La importación trabaja en modo upsert por Nombre de curva.'],
     ['4', 'Cada curva en la hoja Curvas debe tener al menos un punto en la hoja Puntos.'],
     ['5', 'Cada fila de la hoja Puntos debe referenciar una curva existente en la hoja Curvas.'],
-    ['6', 'Key y Value deben ser numéricos.'],
-    ['7', 'No se permiten Keys duplicados dentro de la misma curva.'],
+    ['6', 'Nivel y Galones disponibles deben ser numéricos.'],
+    ['7', 'No se permiten niveles duplicados dentro de la misma curva.'],
     ['8', 'La importación no elimina curvas faltantes del archivo.'],
     ['9', 'Si una curva ya es usada por diesel o aditivos, el preview avisará y esas configuraciones se resincronizarán con la nueva tabla al ejecutar la importación.'],
   ];
@@ -164,8 +171,11 @@ export async function downloadCalibrationCurvesImportWorkbook(options: {
       const row = pointsSheet.getRow(pointRowIndex);
       row.getCell(1).value = curve.curve_name || '';
       row.getCell(2).value = point.point_key;
-      row.getCell(3).value = point.point_value;
-      for (let columnIndex = 1; columnIndex <= 3; columnIndex += 1) {
+      row.getCell(3).value = point.available_gallons ?? point.point_value;
+      row.getCell(4).value = point.consumed_gallons ?? '';
+      row.getCell(5).value = point.percentage ?? '';
+      row.getCell(6).value = point.status || '';
+      for (let columnIndex = 1; columnIndex <= 6; columnIndex += 1) {
         row.getCell(columnIndex).border = THIN_BORDER;
         row.getCell(columnIndex).alignment = { vertical: 'top', wrapText: true };
       }

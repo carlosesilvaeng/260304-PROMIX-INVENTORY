@@ -213,6 +213,10 @@ export interface PlantConfigurationCountsRow {
 export interface CalibrationCurvePointInput {
   point_key: number;
   point_value: number;
+  available_gallons?: number | null;
+  consumed_gallons?: number | null;
+  percentage?: number | null;
+  status?: string | null;
 }
 
 interface CalibrationCurveRow {
@@ -515,6 +519,10 @@ interface CalibrationCurvesImportInput {
     curve_name?: string;
     point_key?: string | number;
     point_value?: string | number;
+    available_gallons?: string | number;
+    consumed_gallons?: string | number;
+    percentage?: string | number;
+    status?: string;
   }>;
 }
 
@@ -791,6 +799,10 @@ function normalizeCalibrationCurvesImportPayload(input: CalibrationCurvesImportI
           curve_name: String(point?.curve_name || ''),
           point_key: String(point?.point_key ?? ''),
           point_value: String(point?.point_value ?? ''),
+          available_gallons: String(point?.available_gallons ?? point?.point_value ?? ''),
+          consumed_gallons: String(point?.consumed_gallons ?? ''),
+          percentage: String(point?.percentage ?? ''),
+          status: String(point?.status ?? ''),
         }))
       : [],
   };
@@ -847,7 +859,7 @@ function validateAggregatesImportPayload(input: ReturnType<typeof normalizeAggre
     throw new Error('Solo se admite el modulo aggregates en esta version.');
   }
 
-  if (input.template_version !== '2.0') {
+  if (input.template_version !== '1.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
@@ -955,7 +967,7 @@ function validateCalibrationCurvesImportPayload(input: ReturnType<typeof normali
     throw new Error('Solo se admite el modulo calibration_curves en esta version.');
   }
 
-  if (input.template_version !== '2.0') {
+  if (input.template_version !== '3.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
@@ -1040,6 +1052,10 @@ interface RawCalibrationCurvePointRecord {
   curve_id: string;
   point_key: string | number;
   point_value: string | number;
+  available_gallons?: string | number | null;
+  consumed_gallons?: string | number | null;
+  percentage?: string | number | null;
+  status?: string | null;
 }
 
 function parseCalibrationCurvePointNumber(value: unknown, label: string) {
@@ -1050,13 +1066,21 @@ function parseCalibrationCurvePointNumber(value: unknown, label: string) {
   return parsed;
 }
 
+function parseOptionalCalibrationCurvePointNumber(value: unknown, label: string) {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return null;
+  }
+  const normalizedValue = typeof value === 'string' ? value.replace('%', '').trim() : value;
+  return parseCalibrationCurvePointNumber(normalizedValue, label);
+}
+
 function sortCalibrationCurvePoints(points: CalibrationCurvePointInput[]) {
   return [...points].sort((left, right) => left.point_key - right.point_key);
 }
 
 function buildCalibrationCurveDataPoints(points: CalibrationCurvePointInput[]) {
   return sortCalibrationCurvePoints(points).reduce((acc: Record<string, number>, point) => {
-    acc[String(point.point_key)] = point.point_value;
+    acc[String(point.point_key)] = point.available_gallons ?? point.point_value;
     return acc;
   }, {});
 }
@@ -1068,15 +1092,22 @@ function normalizeCalibrationCurvePoints(
   const normalized = Array.isArray(points)
     ? points
         .map((point) => ({
-          point_key: parseCalibrationCurvePointNumber(point?.point_key, 'Key'),
-          point_value: parseCalibrationCurvePointNumber(point?.point_value, 'Value'),
+          point_key: parseCalibrationCurvePointNumber(point?.point_key, 'Nivel'),
+          point_value: parseCalibrationCurvePointNumber(point?.point_value, 'Galones disponibles'),
+          available_gallons: parseOptionalCalibrationCurvePointNumber(
+            (point as any)?.available_gallons ?? point?.point_value,
+            'Galones disponibles',
+          ),
+          consumed_gallons: parseOptionalCalibrationCurvePointNumber((point as any)?.consumed_gallons, 'Galones consumidos'),
+          percentage: parseOptionalCalibrationCurvePointNumber((point as any)?.percentage, 'Porcentaje'),
+          status: normalizeCatalogOptionalText((point as any)?.status),
         }))
     : [];
 
   const seenKeys = new Set<number>();
   for (const point of normalized) {
     if (seenKeys.has(point.point_key)) {
-      throw new Error(`Key duplicado: ${point.point_key}`);
+      throw new Error(`Nivel duplicado: ${point.point_key}`);
     }
     seenKeys.add(point.point_key);
   }
@@ -1107,7 +1138,7 @@ async function listCalibrationCurvePointsByCurveIds(curveIds: string[]) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('calibration_curve_points')
-    .select('curve_id, point_key, point_value')
+    .select('curve_id, point_key, point_value, available_gallons, consumed_gallons, percentage, status')
     .in('curve_id', curveIds)
     .order('point_key', { ascending: true });
 
@@ -1117,8 +1148,12 @@ async function listCalibrationCurvePointsByCurveIds(curveIds: string[]) {
     const curveId = String((row as RawCalibrationCurvePointRecord).curve_id || '');
     const existing = acc.get(curveId) || [];
     existing.push({
-      point_key: parseCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).point_key, 'Key'),
-      point_value: parseCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).point_value, 'Value'),
+      point_key: parseCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).point_key, 'Nivel'),
+      point_value: parseCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).point_value, 'Galones disponibles'),
+      available_gallons: parseOptionalCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).available_gallons, 'Galones disponibles'),
+      consumed_gallons: parseOptionalCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).consumed_gallons, 'Galones consumidos'),
+      percentage: parseOptionalCalibrationCurvePointNumber((row as RawCalibrationCurvePointRecord).percentage, 'Porcentaje'),
+      status: normalizeCatalogOptionalText((row as RawCalibrationCurvePointRecord).status),
     });
     acc.set(curveId, existing);
     return acc;
@@ -1246,7 +1281,11 @@ async function replaceCalibrationCurvePoints(curveId: string, points: Calibratio
     .insert(normalizedPoints.map((point) => ({
       curve_id: curveId,
       point_key: point.point_key,
-      point_value: point.point_value,
+      point_value: point.available_gallons ?? point.point_value,
+      available_gallons: point.available_gallons ?? point.point_value,
+      consumed_gallons: point.consumed_gallons ?? null,
+      percentage: point.percentage ?? null,
+      status: normalizeCatalogOptionalText(point.status),
     })));
 
   if (insertError) throw insertError;
@@ -4557,23 +4596,40 @@ export async function previewCalibrationCurvesImport(plantId: string, input: Cal
 
     let pointKey: number | null = null;
     let pointValue: number | null = null;
+    let consumedGallons: number | null = null;
+    let percentage: number | null = null;
 
     try {
-      pointKey = parseCalibrationCurvePointNumber(rawPoint.point_key, 'Key');
+      pointKey = parseCalibrationCurvePointNumber(rawPoint.point_key, 'Nivel');
     } catch (error: any) {
-      rowErrors.push({ column: 'Key', message: error.message });
+      rowErrors.push({ column: 'Nivel', message: error.message });
     }
 
     try {
-      pointValue = parseCalibrationCurvePointNumber(rawPoint.point_value, 'Value');
+      pointValue = parseCalibrationCurvePointNumber(
+        rawPoint.available_gallons || rawPoint.point_value,
+        'Galones disponibles',
+      );
     } catch (error: any) {
-      rowErrors.push({ column: 'Value', message: error.message });
+      rowErrors.push({ column: 'Galones disponibles', message: error.message });
+    }
+
+    try {
+      consumedGallons = parseOptionalCalibrationCurvePointNumber(rawPoint.consumed_gallons, 'Galones consumidos');
+    } catch (error: any) {
+      rowErrors.push({ column: 'Galones consumidos', message: error.message });
+    }
+
+    try {
+      percentage = parseOptionalCalibrationCurvePointNumber(rawPoint.percentage, 'Porcentaje');
+    } catch (error: any) {
+      rowErrors.push({ column: 'Porcentaje', message: error.message });
     }
 
     if (curveName && pointKey !== null) {
       const seenPointKeys = pointKeysByCurveKey.get(curveKey) || new Map<number, number>();
       if (seenPointKeys.has(pointKey)) {
-        rowErrors.push({ column: 'Key', message: `duplicado dentro de la curva; tambien aparece en la fila ${seenPointKeys.get(pointKey)}` });
+        rowErrors.push({ column: 'Nivel', message: `duplicado dentro de la curva; tambien aparece en la fila ${seenPointKeys.get(pointKey)}` });
       } else {
         seenPointKeys.set(pointKey, rowNumber);
         pointKeysByCurveKey.set(curveKey, seenPointKeys);
@@ -4592,6 +4648,10 @@ export async function previewCalibrationCurvesImport(plantId: string, input: Cal
     existingPoints.push({
       point_key: pointKey!,
       point_value: pointValue!,
+      available_gallons: pointValue!,
+      consumed_gallons: consumedGallons,
+      percentage,
+      status: normalizeCatalogOptionalText(rawPoint.status),
     });
     pointsByCurveKey.set(curveKey, existingPoints);
   });

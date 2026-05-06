@@ -572,6 +572,10 @@ export interface CalibrationCurveCatalogItem {
   points: Array<{
     point_key: number;
     point_value: number;
+    available_gallons?: number | null;
+    consumed_gallons?: number | null;
+    percentage?: number | null;
+    status?: string | null;
   }>;
   point_count: number;
   data_points: Record<string, number>;
@@ -589,6 +593,10 @@ export interface CalibrationCurvesImportPointPayload {
   curve_name: string;
   point_key: string;
   point_value: string;
+  available_gallons?: string;
+  consumed_gallons?: string;
+  percentage?: string;
+  status?: string;
 }
 
 export interface CalibrationCurvesImportPreviewResponse {
@@ -882,6 +890,10 @@ export async function createCalibrationCurveCatalogItem(data: {
   points: Array<{
     point_key: number;
     point_value: number;
+    available_gallons?: number | null;
+    consumed_gallons?: number | null;
+    percentage?: number | null;
+    status?: string | null;
   }>;
   data_points?: Record<string, number>;
 }): Promise<ApiResponse<CalibrationCurveCatalogItem>> {
@@ -898,6 +910,10 @@ export async function updateCalibrationCurveCatalogItem(
     points?: Array<{
       point_key: number;
       point_value: number;
+      available_gallons?: number | null;
+      consumed_gallons?: number | null;
+      percentage?: number | null;
+      status?: string | null;
     }>;
     data_points?: Record<string, number>;
   }

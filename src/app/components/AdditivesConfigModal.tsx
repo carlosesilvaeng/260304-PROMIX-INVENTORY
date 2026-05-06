@@ -25,6 +25,14 @@ interface CalibrationCurveItem {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  points?: Array<{
+    point_key: number;
+    point_value: number;
+    available_gallons?: number | null;
+    consumed_gallons?: number | null;
+    percentage?: number | null;
+    status?: string | null;
+  }>;
   data_points: Record<string, number>;
 }
 
@@ -40,11 +48,9 @@ interface AdditiveConfigRow {
   requires_photo: boolean;
   tank_name?: string | null;
   reading_uom?: string | null;
-  conversion_table_text: string;
+  conversion_table: Record<string, number>;
   is_active: boolean;
 }
-
-const EMPTY_TANK_TABLE = '{\n  "0": 0\n}';
 
 function createEmptyRow(): AdditiveConfigRow {
   return {
@@ -58,18 +64,80 @@ function createEmptyRow(): AdditiveConfigRow {
     requires_photo: false,
     tank_name: null,
     reading_uom: null,
-    conversion_table_text: '',
+    conversion_table: {},
     is_active: true,
   };
 }
 
-function stringifyConversionTable(value: Record<string, number> | null | undefined) {
-  if (!value || Object.keys(value).length === 0) return '';
-  return JSON.stringify(value, null, 2);
-}
-
 function buildAdditiveLabel(item: AdditiveCatalogItem) {
   return item.marca?.trim() ? `${item.nombre} — ${item.marca}` : item.nombre;
+}
+
+function getCurvePreviewPoints(curve: CalibrationCurveItem | null | undefined) {
+  if (!curve) return [];
+  if (curve.points?.length) {
+    return [...curve.points].sort((left, right) => left.point_key - right.point_key);
+  }
+  return Object.entries(curve.data_points || {})
+    .map(([point_key, point_value]) => ({
+      point_key: Number(point_key),
+      point_value: Number(point_value),
+      available_gallons: Number(point_value),
+      consumed_gallons: null,
+      percentage: null,
+      status: null,
+    }))
+    .filter((point) => Number.isFinite(point.point_key) && Number.isFinite(point.point_value))
+    .sort((left, right) => left.point_key - right.point_key);
+}
+
+function CurvePreviewTable({ curve }: { curve: CalibrationCurveItem | null | undefined }) {
+  const points = getCurvePreviewPoints(curve);
+  if (!curve) {
+    return (
+      <div className="rounded border border-[#D7D9DE] bg-white px-3 py-4 text-sm text-[#5F6773]">
+        Selecciona una curva para ver sus puntos.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded border border-[#D7D9DE] bg-white">
+      <div className="flex items-center justify-between border-b border-[#E4E4E4] px-3 py-2">
+        <span className="text-sm font-medium text-[#3B3A36]">Tabla de conversión</span>
+        <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+          {points.length} punto{points.length === 1 ? '' : 's'}
+        </span>
+      </div>
+      <div className="max-h-64 overflow-auto">
+        <table className="w-full min-w-[680px]">
+          <thead className="bg-[#F2F3F5]">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Nivel</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones disponibles</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones consumidos</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">%</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((point) => (
+              <tr key={`${point.point_key}-${point.point_value}`} className="border-t border-[#F2F3F5]">
+                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.point_key}</td>
+                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.available_gallons ?? point.point_value}</td>
+                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.consumed_gallons ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.percentage ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.status || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t border-[#E4E4E4] px-3 py-2 text-xs text-[#5F6773]">
+        Para modificar estos puntos, actualiza la curva en Catálogos.
+      </p>
+    </div>
+  );
 }
 
 export function AdditivesConfigModal({
@@ -136,10 +204,7 @@ export function AdditivesConfigModal({
             requires_photo: entry.requires_photo ?? false,
             tank_name: entry.tank_name || null,
             reading_uom: entry.reading_uom || matchedCurve?.reading_uom || null,
-            conversion_table_text:
-              stringifyConversionTable(entry.conversion_table) ||
-              stringifyConversionTable(matchedCurve?.data_points) ||
-              '',
+            conversion_table: entry.conversion_table || matchedCurve?.data_points || {},
             is_active: entry.is_active ?? true,
           } as AdditiveConfigRow;
         });
@@ -181,10 +246,7 @@ export function AdditivesConfigModal({
       tank_name: nextType === 'TANK' ? currentRow.tank_name || '' : null,
       reading_uom: nextType === 'TANK' ? currentRow.reading_uom || 'inches' : null,
       calibration_curve_name: nextType === 'TANK' ? currentRow.calibration_curve_name || null : null,
-      conversion_table_text:
-        nextType === 'TANK'
-          ? currentRow.conversion_table_text || EMPTY_TANK_TABLE
-          : '',
+      conversion_table: nextType === 'TANK' ? currentRow.conversion_table || {} : {},
     });
   };
 
@@ -194,9 +256,7 @@ export function AdditivesConfigModal({
     updateRow(index, {
       calibration_curve_name: curveName || null,
       reading_uom: selectedCurve?.reading_uom || rows[index].reading_uom || 'inches',
-      conversion_table_text: selectedCurve
-        ? stringifyConversionTable(selectedCurve.data_points)
-        : rows[index].conversion_table_text,
+      conversion_table: selectedCurve ? selectedCurve.data_points : {},
     });
   };
 
@@ -252,17 +312,9 @@ export function AdditivesConfigModal({
           return `${label}: la unidad de lectura es requerida`;
         }
 
-        if (!row.conversion_table_text.trim()) {
-          return `${label}: la tabla de conversión es requerida`;
-        }
-
-        try {
-          const parsed = JSON.parse(row.conversion_table_text);
-          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
-            return `${label}: la tabla de conversión debe ser un JSON con puntos de lectura`;
-          }
-        } catch {
-          return `${label}: la tabla de conversión no tiene JSON válido`;
+        const selectedCurve = curveItems.find((curve) => curve.curve_name === row.calibration_curve_name);
+        if (!selectedCurve || Object.keys(selectedCurve.data_points || {}).length === 0) {
+          return `${label}: la curva seleccionada no tiene puntos de conversión`;
         }
       }
     }
@@ -293,7 +345,9 @@ export function AdditivesConfigModal({
         requires_photo: row.requires_photo,
         tank_name: row.additive_type === 'TANK' ? row.tank_name?.trim() || null : null,
         reading_uom: row.additive_type === 'TANK' ? row.reading_uom?.trim() || null : null,
-        conversion_table: row.additive_type === 'TANK' ? JSON.parse(row.conversion_table_text) : null,
+        conversion_table: row.additive_type === 'TANK'
+          ? curveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.conversion_table
+          : null,
         sort_order: index,
         is_active: row.is_active,
       }));
@@ -455,22 +509,9 @@ export function AdditivesConfigModal({
                             required
                           />
                         </div>
-                        <div>
-                          <label className="mb-1.5 block text-[#3B3A36]">
-                            Tabla de conversión JSON
-                            <span className="ml-1 text-[#C94A4A]">*</span>
-                          </label>
-                          <textarea
-                            value={row.conversion_table_text}
-                            readOnly
-                            rows={6}
-                            className="w-full rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 font-mono text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
-                            placeholder={EMPTY_TANK_TABLE}
-                          />
-                          <p className="mt-1 text-xs text-[#5F6773]">
-                            Vista sincronizada con la curva seleccionada. Para cambiar tabla o unidad, actualiza el catálogo de curvas o elige otra curva.
-                          </p>
-                        </div>
+                        <CurvePreviewTable
+                          curve={curveItems.find((curve) => curve.curve_name === row.calibration_curve_name)}
+                        />
                       </div>
                     )}
                   </div>
