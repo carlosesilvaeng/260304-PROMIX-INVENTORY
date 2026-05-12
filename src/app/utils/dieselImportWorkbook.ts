@@ -1,6 +1,6 @@
 import type { Plant } from '../contexts/AuthContext';
 
-export const DIESEL_IMPORT_TEMPLATE_VERSION = '1.0';
+export const DIESEL_IMPORT_TEMPLATE_VERSION = '2.0';
 export const DIESEL_IMPORT_MODULE = 'diesel';
 export const DIESEL_IMPORT_SHEET_NAME = 'Datos';
 export const DIESEL_IMPORT_INSTRUCTIONS_SHEET = 'Instrucciones';
@@ -14,7 +14,8 @@ export interface DieselImportWorkbookRow {
   reading_uom: string;
   tank_capacity_gallons: number | string | null;
   initial_inventory_gallons?: number | string | null;
-  calibration_table: Record<string, number> | null;
+  depth_inches?: number | string | null;
+  volume_gallons?: number | string | null;
   is_active: boolean;
 }
 
@@ -35,21 +36,21 @@ type ColumnDefinition = {
 
 export interface DieselImportWorkbookExportRow {
   measurement_method: string;
-  calibration_curve_name: string;
   reading_uom: string;
   tank_capacity_gallons: string;
   initial_inventory_gallons: string;
-  calibration_table_json: string;
+  depth_inches: string;
+  volume_gallons: string;
   is_active: string;
 }
 
 export const DIESEL_IMPORT_COLUMNS: ColumnDefinition[] = [
   { key: 'measurement_method', label: 'Metodo', width: 20 },
-  { key: 'calibration_curve_name', label: 'Nombre de curva', width: 26 },
   { key: 'reading_uom', label: 'Unidad de lectura', width: 18 },
   { key: 'tank_capacity_gallons', label: 'Capacidad del tanque', width: 20 },
   { key: 'initial_inventory_gallons', label: 'Inventario inicial', width: 18 },
-  { key: 'calibration_table_json', label: 'Tabla calibracion JSON', width: 40 },
+  { key: 'depth_inches', label: 'PROF. H (in)', width: 16 },
+  { key: 'volume_gallons', label: 'VOL. (GAL)', width: 16 },
   { key: 'is_active', label: 'Activo', width: 12 },
 ];
 
@@ -81,19 +82,14 @@ function stringifyNumber(value: number | string | null | undefined) {
   return String(value);
 }
 
-function stringifyTable(value: Record<string, number> | null | undefined) {
-  if (!value || Object.keys(value).length === 0) return '';
-  return JSON.stringify(value, null, 2);
-}
-
 function toExportRows(rows: DieselImportWorkbookRow[]): DieselImportWorkbookExportRow[] {
   return rows.map((row) => ({
     measurement_method: row.measurement_method || 'TANK_LEVEL',
-    calibration_curve_name: row.calibration_curve_name || '',
     reading_uom: row.reading_uom || '',
     tank_capacity_gallons: stringifyNumber(row.tank_capacity_gallons),
     initial_inventory_gallons: stringifyNumber(row.initial_inventory_gallons),
-    calibration_table_json: stringifyTable(row.calibration_table),
+    depth_inches: stringifyNumber(row.depth_inches),
+    volume_gallons: stringifyNumber(row.volume_gallons),
     is_active: booleanLabel(row.is_active),
   }));
 }
@@ -120,13 +116,12 @@ function buildInstructionRows(meta: DieselImportMeta) {
     ['', ''],
     ['Reglas generales', ''],
     ['1', 'No cambies los encabezados de la hoja Datos.'],
-    ['2', 'La plantilla de diesel solo admite una fila por planta.'],
-    ['3', 'Nombre de curva es requerido y debe existir en el catálogo de curvas de esta planta.'],
-    ['4', 'Si el archivo trae una unidad o tabla distinta, el sistema usará la definida en la curva seleccionada.'],
-    ['5', 'Capacidad del tanque debe ser mayor que cero.'],
-    ['6', 'Inventario inicial no puede ser negativo.'],
-    ['7', 'Tabla calibracion JSON debe ser un objeto JSON valido.'],
-    ['8', 'Activo acepta Sí o No.'],
+    ['2', 'Cada fila representa un punto de la tabla técnica del tanque.'],
+    ['3', 'PROF. H (in) y VOL. (GAL) son requeridos en cada fila.'],
+    ['4', 'Capacidad del tanque debe ser mayor que cero; si se deja vacía, se usa el mayor VOL. (GAL).'],
+    ['5', 'Inventario inicial no puede ser negativo.'],
+    ['6', 'Activo acepta Sí o No.'],
+    ['7', 'También se puede importar una tabla técnica externa con hoja Tabla y columnas PROF. H (in), VOL. (GAL).'],
     ['', ''],
     ['Valores permitidos', ''],
     ['Metodo', DIESEL_IMPORT_METHOD_OPTIONS.join(', ')],

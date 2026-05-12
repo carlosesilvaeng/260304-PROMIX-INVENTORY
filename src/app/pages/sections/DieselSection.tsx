@@ -6,9 +6,102 @@ import { StandardInput, ReadOnlyField, FormSection } from '../../components/Stan
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
-import { hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveDieselEntry } from '../../utils/api';
+
+function getCalibrationDepthRange(calibrationTable: Record<string, number> | null | undefined) {
+  const depths = Object.keys(calibrationTable || {})
+    .map((key) => Number(key))
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+
+  return {
+    min: depths[0] ?? 0,
+    max: depths[depths.length - 1] ?? 0,
+    count: depths.length,
+  };
+}
+
+function TankLevelGraphic({
+  reading,
+  calculatedGallons,
+  tankCapacity,
+  readingUom,
+  calibrationTable,
+  plantName,
+}: {
+  reading: number;
+  calculatedGallons: number;
+  tankCapacity: number;
+  readingUom: string;
+  calibrationTable: Record<string, number> | null | undefined;
+  plantName?: string;
+}) {
+  const depthRange = getCalibrationDepthRange(calibrationTable);
+  const maxDepth = depthRange.max || 1;
+  const fillPercentByDepth = Math.max(0, Math.min(100, (Number(reading || 0) / maxDepth) * 100));
+  const volumePercent = tankCapacity > 0
+    ? Math.max(0, Math.min(100, (Number(calculatedGallons || 0) / tankCapacity) * 100))
+    : 0;
+  const waterY = 260 - (fillPercentByDepth / 100) * 220;
+
+  return (
+    <div className="mx-auto max-w-3xl rounded-lg border border-[#E2E8F0] bg-white p-5 shadow-sm">
+      <div className="text-center">
+        <h3 className="text-2xl font-bold text-[#2F4052]">Monitoreo de Tanque</h3>
+        <p className="mt-1 text-sm font-medium text-[#7A858C]">
+          {plantName || 'Planta'} | Prof. máx. {maxDepth.toLocaleString()} {readingUom} | Cap. {tankCapacity.toLocaleString()} GAL
+        </p>
+      </div>
+
+      <div className="mt-4 flex justify-center">
+        <svg className="h-auto w-full max-w-[360px]" viewBox="0 0 320 320" role="img" aria-label="Nivel visual del tanque diesel">
+          <defs>
+            <clipPath id="dieselTankCircle">
+              <circle cx="160" cy="160" r="110" />
+            </clipPath>
+            <linearGradient id="dieselWaterFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#4AB1E8" />
+              <stop offset="100%" stopColor="#2475C7" />
+            </linearGradient>
+          </defs>
+          <circle cx="160" cy="160" r="110" fill="#EFF4F7" />
+          <g clipPath="url(#dieselTankCircle)">
+            <rect x="48" y={waterY} width="224" height="240" fill="url(#dieselWaterFill)" />
+            <rect x="48" y={waterY} width="224" height="10" fill="#76C8F0" opacity="0.7" />
+          </g>
+          <circle cx="160" cy="160" r="110" fill="none" stroke="#2F4052" strokeWidth="10" />
+        </svg>
+      </div>
+
+      <div className="mt-3 text-center">
+        <p className="text-sm font-bold text-[#2F4052]">Profundidad Medida ({readingUom}):</p>
+        <p className="mx-auto mt-2 w-36 rounded border border-[#B8C1C7] bg-white px-4 py-2 text-2xl font-semibold text-[#2F4052]">
+          {Number(reading || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </p>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">Volumen actual</p>
+          <p className="mt-2 text-2xl font-bold text-[#2F4052]">
+            {Number(calculatedGallons || 0).toLocaleString()} GAL
+          </p>
+        </div>
+        <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">% de llenado</p>
+          <p className="mt-2 text-2xl font-bold text-[#2F4052]">
+            {volumePercent.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-xs text-[#8A969D]">
+        Los valores se calculan mediante interpolación basada en la tabla técnica de {tankCapacity.toLocaleString()} GAL.
+      </p>
+    </div>
+  );
+}
 
 export function DieselSection() {
   const { currentPlant } = useAuth();
@@ -159,33 +252,21 @@ export function DieselSection() {
     try {
       console.log('[DieselSection] Saving entry:', diesel);
 
-      if (!hasCalibrationPoints(diesel.calibration_table)) {
-        throw new Error('Falta tabla de calibración para calcular la lectura del tanque de diesel.');
-      }
-
-      const readingValue = Number(diesel.reading_inches ?? diesel.reading ?? 0) || 0;
-      const calculatedGallons = convertDieselReadingToGallons(readingValue, diesel.calibration_table);
-      const consumptionGallons = calculateDieselConsumption(
-        diesel.beginning_inventory ?? 0,
-        diesel.purchases_gallons ?? 0,
-        calculatedGallons
-      );
-
       const entryToSave = {
         inventory_month_id: prefillData.inventoryMonth.id,
         diesel_config_id: diesel.diesel_config_id || null,
         plant_id: diesel.plant_id || currentPlant?.id || null,
         unit: diesel.unit || 'gallons',
         reading_uom: diesel.reading_uom || 'inches',
-        reading_inches: readingValue,
-        reading: readingValue,
-        calculated_gallons: calculatedGallons,
+        reading_inches: diesel.reading_inches ?? 0,
+        reading: diesel.reading_inches ?? diesel.reading ?? 0,
+        calculated_gallons: diesel.calculated_gallons ?? 0,
         calibration_table: diesel.calibration_table || null,
         tank_capacity_gallons: diesel.tank_capacity_gallons ?? 0,
         beginning_inventory: diesel.beginning_inventory ?? 0,
         purchases_gallons: diesel.purchases_gallons ?? 0,
-        ending_inventory: calculatedGallons,
-        consumption_gallons: consumptionGallons,
+        ending_inventory: diesel.ending_inventory ?? 0,
+        consumption_gallons: diesel.consumption_gallons ?? 0,
         photo_url: diesel.photo_url || null,
         notes: diesel.notes || '',
       };
@@ -242,6 +323,10 @@ export function DieselSection() {
     return diesel.reading_inches > 0 || diesel.purchases_gallons > 0;
   };
 
+  const numericReading = Number(diesel.reading_inches ?? diesel.reading ?? 0) || 0;
+  const numericCalculatedGallons = Number(diesel.calculated_gallons ?? diesel.ending_inventory ?? 0) || 0;
+  const numericTankCapacity = Number(diesel.tank_capacity_gallons ?? 0) || 0;
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -284,6 +369,15 @@ export function DieselSection() {
       {/* MAIN FORM */}
       <Card className="p-6">
         <div className="space-y-6">
+          <TankLevelGraphic
+            reading={numericReading}
+            calculatedGallons={numericCalculatedGallons}
+            tankCapacity={numericTankCapacity}
+            readingUom={diesel.reading_uom || 'inches'}
+            calibrationTable={diesel.calibration_table}
+            plantName={currentPlant?.name}
+          />
+
           {/* PREVIOUS MONTH CARRY-OVER */}
           {prefillData.previousMonth && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

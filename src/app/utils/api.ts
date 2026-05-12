@@ -1211,7 +1211,8 @@ export interface DieselImportRowPayload {
   reading_uom: string;
   tank_capacity_gallons: string;
   initial_inventory_gallons: string;
-  calibration_table_json: string;
+  depth_inches: string;
+  volume_gallons: string;
   is_active: string;
 }
 

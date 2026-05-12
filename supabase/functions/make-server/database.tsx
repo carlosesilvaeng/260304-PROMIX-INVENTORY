@@ -382,7 +382,8 @@ interface DieselImportInput {
     reading_uom?: string;
     tank_capacity_gallons?: string;
     initial_inventory_gallons?: string;
-    calibration_table_json?: string;
+    depth_inches?: string;
+    volume_gallons?: string;
     is_active?: string;
   }>;
 }
@@ -735,7 +736,8 @@ function normalizeDieselImportPayload(input: DieselImportInput) {
           reading_uom: String(row?.reading_uom || ''),
           tank_capacity_gallons: String(row?.tank_capacity_gallons || ''),
           initial_inventory_gallons: String(row?.initial_inventory_gallons || ''),
-          calibration_table_json: String(row?.calibration_table_json || ''),
+          depth_inches: String(row?.depth_inches || ''),
+          volume_gallons: String(row?.volume_gallons || ''),
           is_active: String(row?.is_active || ''),
         }))
       : [],
@@ -866,7 +868,7 @@ function validateAggregatesImportPayload(input: ReturnType<typeof normalizeAggre
     throw new Error('Solo se admite el modulo aggregates en esta version.');
   }
 
-  if (input.template_version !== '1.0') {
+  if (input.template_version !== '2.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
@@ -3704,38 +3706,28 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
   const warnings: string[] = [];
   const normalizedRows: NormalizedDieselImportRow[] = [];
 
-  if (payload.rows.length > 1) {
-    payload.rows.slice(1).forEach((row, index) => {
-      errors.push({
-        row: row.row_number || index + 3,
-        column: 'Fila',
-        message: 'la plantilla de diesel solo admite una fila por planta',
-      });
-    });
-  }
-
   const rawRow = payload.rows[0];
   if (rawRow) {
     const rowNumber = rawRow.row_number || 2;
     const rowErrors: Array<{ column: string; message: string }> = [];
     const measurementMethod = rawRow.measurement_method.trim().toUpperCase() || 'TANK_LEVEL';
-    const readingUom = rawRow.reading_uom.trim();
+    const readingUom = rawRow.reading_uom.trim() || 'inches';
     const calibrationCurveName = rawRow.calibration_curve_name.trim() || null;
     const matchedCurve = calibrationCurveName ? curvesByName[normalizeCurveNameKey(calibrationCurveName)] || null : null;
 
     if (measurementMethod && !DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS.includes(measurementMethod as any)) {
       rowErrors.push({ column: 'Metodo', message: `valor invalido. Usa ${DIESEL_IMPORT_ALLOWED_MEASUREMENT_METHODS.join(', ')}` });
     }
-    if (!calibrationCurveName) {
-      rowErrors.push({ column: 'Nombre de curva', message: 'es requerido y debe existir en el catálogo de curvas de esta planta' });
-    } else if (!matchedCurve) {
+    if (calibrationCurveName && !matchedCurve) {
       rowErrors.push({ column: 'Nombre de curva', message: `"${calibrationCurveName}" no existe en el catálogo de curvas de esta planta` });
     }
 
     let tankCapacity: number | null = null;
     let initialInventory: number | null = null;
     let isActive = true;
-    let calibrationTable: Record<string, number> | null = null;
+    const calibrationTable: Record<string, number> = {};
+    const seenDepths = new Map<number, number>();
+    const pointErrorCountStart = errors.length;
 
     try {
       tankCapacity = parseNullableNumberString(rawRow.tank_capacity_gallons);
@@ -3755,20 +3747,68 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
       rowErrors.push({ column: 'Activo', message: previewError.message });
     }
 
-    try {
-      calibrationTable = parseCalibrationTableJson(rawRow.calibration_table_json);
-    } catch (previewError: any) {
-      rowErrors.push({ column: 'Tabla calibracion JSON', message: previewError.message });
+    payload.rows.forEach((pointRow) => {
+      const pointRowNumber = pointRow.row_number || rowNumber;
+      const pointErrors: Array<{ column: string; message: string }> = [];
+      let depth: number | null = null;
+      let volume: number | null = null;
+
+      try {
+        depth = parseNullableNumberString(pointRow.depth_inches);
+      } catch (previewError: any) {
+        pointErrors.push({ column: 'PROF. H (in)', message: previewError.message });
+      }
+
+      try {
+        volume = parseNullableNumberString(pointRow.volume_gallons);
+      } catch (previewError: any) {
+        pointErrors.push({ column: 'VOL. (GAL)', message: previewError.message });
+      }
+
+      if (depth === null) pointErrors.push({ column: 'PROF. H (in)', message: 'es requerido' });
+      else if (depth < 0) pointErrors.push({ column: 'PROF. H (in)', message: 'no puede ser negativo' });
+
+      if (volume === null) pointErrors.push({ column: 'VOL. (GAL)', message: 'es requerido' });
+      else if (volume < 0) pointErrors.push({ column: 'VOL. (GAL)', message: 'no puede ser negativo' });
+
+      if (depth !== null && seenDepths.has(depth)) {
+        pointErrors.push({ column: 'PROF. H (in)', message: `duplicado; tambien aparece en la fila ${seenDepths.get(depth)}` });
+      }
+
+      if (pointErrors.length > 0) {
+        pointErrors.forEach((pointError) => {
+          errors.push({
+            row: pointRowNumber,
+            column: pointError.column,
+            message: pointError.message,
+          });
+        });
+        return;
+      }
+
+      seenDepths.set(depth!, pointRowNumber);
+      calibrationTable[String(depth)] = volume!;
+    });
+
+    const pointValues = Object.values(calibrationTable);
+    const inferredCapacity = pointValues.length ? Math.max(...pointValues) : null;
+    if (tankCapacity === null && inferredCapacity !== null) {
+      tankCapacity = inferredCapacity;
+      warnings.push(`Fila ${rowNumber}: se usará ${inferredCapacity} GAL como capacidad del tanque porque el archivo no trae capacidad explícita.`);
     }
 
     if (tankCapacity === null) {
-      rowErrors.push({ column: 'Capacidad del tanque', message: 'es requerida' });
+      rowErrors.push({ column: 'Capacidad del tanque', message: 'es requerida o debe inferirse desde VOL. (GAL)' });
     } else if (tankCapacity <= 0) {
       rowErrors.push({ column: 'Capacidad del tanque', message: 'debe ser mayor que cero' });
     }
 
     if (initialInventory !== null && initialInventory < 0) {
       rowErrors.push({ column: 'Inventario inicial', message: 'no puede ser negativo' });
+    }
+
+    if (Object.keys(calibrationTable).length === 0) {
+      rowErrors.push({ column: 'Tabla técnica', message: 'debe incluir al menos un punto PROF. H (in) / VOL. (GAL)' });
     }
 
     const curveReadingUom = normalizeCatalogOptionalText(matchedCurve?.reading_uom);
@@ -3780,11 +3820,7 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
       warnings.push(`Fila ${rowNumber}: la unidad de lectura del archivo no coincide con la curva "${matchedCurve.curve_name}". Se usará "${curveReadingUom}".`);
     }
 
-    if (matchedCurve && calibrationTable && !areCalibrationTablesEquivalent(calibrationTable, matchedCurve.data_points)) {
-      warnings.push(`Fila ${rowNumber}: la tabla JSON del archivo no coincide con la curva "${matchedCurve.curve_name}". Se usará la tabla definida en el catálogo de curvas.`);
-    }
-
-    if (rowErrors.length > 0) {
+    if (rowErrors.length > 0 || errors.length > pointErrorCountStart) {
       rowErrors.forEach((rowError) => {
         errors.push({
           row: rowNumber,
@@ -3796,11 +3832,11 @@ export async function previewDieselImport(plantId: string, input: DieselImportIn
       normalizedRows.push({
         row_number: rowNumber,
         measurement_method: 'TANK_LEVEL',
-        calibration_curve_name: matchedCurve!.curve_name,
-        reading_uom: curveReadingUom!,
+        calibration_curve_name: matchedCurve?.curve_name || calibrationCurveName,
+        reading_uom: matchedCurve ? curveReadingUom! : readingUom,
         tank_capacity_gallons: tankCapacity!,
         initial_inventory_gallons: initialInventory,
-        calibration_table: matchedCurve!.data_points,
+        calibration_table: calibrationTable,
         is_active: isActive,
         action: existingRow?.id ? 'update' : 'create',
         existing_id: existingRow?.id,

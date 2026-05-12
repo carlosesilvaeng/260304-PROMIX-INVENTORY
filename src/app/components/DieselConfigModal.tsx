@@ -45,7 +45,8 @@ interface DieselImportPayload {
     reading_uom: string;
     tank_capacity_gallons: string;
     initial_inventory_gallons: string;
-    calibration_table_json: string;
+    depth_inches: string;
+    volume_gallons: string;
     is_active: string;
   }>;
 }
@@ -105,7 +106,7 @@ function CurvePreviewTable({
   if (!curve && points.length === 0) {
     return (
       <div className="rounded border border-[#D7D9DE] bg-white px-3 py-4 text-sm text-[#5F6773]">
-        Selecciona una curva para ver sus puntos.
+        Importa una tabla técnica o selecciona una curva para ver sus puntos.
       </div>
     );
   }
@@ -143,7 +144,7 @@ function CurvePreviewTable({
         </table>
       </div>
       <p className="border-t border-[#E4E4E4] px-3 py-2 text-xs text-[#5F6773]">
-        Para modificar estos puntos, actualiza la curva en Catálogos.
+        Estos puntos vienen de la tabla técnica guardada para diesel o de la curva seleccionada.
       </p>
     </div>
   );
@@ -159,15 +160,37 @@ function toWorkbookRows(form: DieselConfigForm): DieselImportWorkbookRow[] {
     return [];
   }
 
-  return [{
+  const calibrationTable = form.calibration_table_text.trim()
+    ? JSON.parse(form.calibration_table_text) as Record<string, number>
+    : {};
+  const points = Object.entries(calibrationTable)
+    .map(([depth, volume]) => ({ depth: Number(depth), volume: Number(volume) }))
+    .filter((point) => Number.isFinite(point.depth) && Number.isFinite(point.volume))
+    .sort((left, right) => left.depth - right.depth);
+
+  if (points.length === 0) {
+    return [{
+      measurement_method: form.measurement_method.trim() || 'TANK_LEVEL',
+      calibration_curve_name: form.calibration_curve_name?.trim() || null,
+      reading_uom: form.reading_uom.trim() || 'inches',
+      tank_capacity_gallons: form.tank_capacity_gallons.trim() || null,
+      initial_inventory_gallons: form.initial_inventory_gallons.trim() || null,
+      depth_inches: null,
+      volume_gallons: null,
+      is_active: form.is_active,
+    }];
+  }
+
+  return points.map((point, index) => ({
     measurement_method: form.measurement_method.trim() || 'TANK_LEVEL',
     calibration_curve_name: form.calibration_curve_name?.trim() || null,
-    reading_uom: form.reading_uom.trim(),
-    tank_capacity_gallons: form.tank_capacity_gallons.trim() || null,
-    initial_inventory_gallons: form.initial_inventory_gallons.trim() || null,
-    calibration_table: form.calibration_table_text.trim() ? JSON.parse(form.calibration_table_text) : null,
+    reading_uom: form.reading_uom.trim() || 'inches',
+    tank_capacity_gallons: index === 0 ? form.tank_capacity_gallons.trim() || null : '',
+    initial_inventory_gallons: index === 0 ? form.initial_inventory_gallons.trim() || null : '',
+    depth_inches: point.depth,
+    volume_gallons: point.volume,
     is_active: form.is_active,
-  }];
+  }));
 }
 
 function toImportPayloadRows(fileRows: Awaited<ReturnType<typeof parseDieselImportFile>>['rows']): DieselImportPayload['rows'] {
@@ -178,7 +201,8 @@ function toImportPayloadRows(fileRows: Awaited<ReturnType<typeof parseDieselImpo
     reading_uom: row.reading_uom,
     tank_capacity_gallons: row.tank_capacity_gallons,
     initial_inventory_gallons: row.initial_inventory_gallons,
-    calibration_table_json: row.calibration_table_json,
+    depth_inches: row.depth_inches,
+    volume_gallons: row.volume_gallons,
     is_active: row.is_active,
   }));
 }
@@ -288,11 +312,7 @@ export function DieselConfigModal({
       return 'El método de medición es requerido';
     }
 
-    if (!form.calibration_curve_name?.trim()) {
-      return 'Debes seleccionar una curva de conversión';
-    }
-
-    if (!curveItems.some((curve) => curve.curve_name === form.calibration_curve_name)) {
+    if (form.calibration_curve_name?.trim() && !curveItems.some((curve) => curve.curve_name === form.calibration_curve_name)) {
       return 'La curva seleccionada ya no existe en el catálogo de esta planta';
     }
 
@@ -316,8 +336,16 @@ export function DieselConfigModal({
       }
     }
 
-    if (!selectedCurve || Object.keys(selectedCurve.data_points || {}).length === 0) {
-      return 'La curva seleccionada no tiene puntos de calibración';
+    const calibrationTable = selectedCurve?.data_points || (() => {
+      try {
+        return JSON.parse(form.calibration_table_text) as Record<string, number>;
+      } catch {
+        return {};
+      }
+    })();
+
+    if (Object.keys(calibrationTable || {}).length === 0) {
+      return 'La tabla técnica debe tener puntos de profundidad y volumen';
     }
 
     return null;
@@ -442,7 +470,7 @@ export function DieselConfigModal({
 
     try {
       const parsed = await parseDieselImportFile(file);
-      if (parsed.meta.plant_id !== plant.id) {
+      if (parsed.meta.plant_id && parsed.meta.plant_id !== plant.id) {
         throw new Error(`La plantilla corresponde a la planta ${parsed.meta.plant_name}. Descarga una plantilla para ${plant.name}.`);
       }
 
@@ -581,9 +609,9 @@ export function DieselConfigModal({
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
                   <p className="font-semibold">Cómo funciona esta configuración</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-blue-800">
-                    <li>La plantilla de diesel maneja una sola fila por planta.</li>
-                    <li>Capacidad del tanque debe ser mayor que cero.</li>
-                    <li>La tabla de calibración se sincroniza desde la curva seleccionada.</li>
+                    <li>La plantilla de diesel importa la tabla técnica por filas de PROF. H (in) y VOL. (GAL).</li>
+                    <li>También puedes importar directamente un Excel técnico con hoja Tabla como el archivo de Guaynabo.</li>
+                    <li>La capacidad del tanque se puede inferir desde el mayor volumen de la tabla.</li>
                   </ul>
                 </div>
 
@@ -622,8 +650,7 @@ export function DieselConfigModal({
                     value={form.calibration_curve_name || ''}
                     onChange={(e) => handleCurveChange(e.target.value)}
                     options={curveOptions}
-                    helperText="La unidad de lectura y la tabla se sincronizan desde la curva seleccionada."
-                    required
+                    helperText="Opcional. Si importas una tabla técnica, diesel puede trabajar sin curva de catálogo."
                   />
                   <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
                     <input
