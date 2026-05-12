@@ -97,10 +97,13 @@ function parseSingleSheetTankCurve(workbook: any): ParsedCalibrationCurvesImport
     const consumedIndex = findHeaderIndex(headers, ['galones consumidos', 'volumen consumido', 'volume consumido', 'vol. consumido']);
     const percentageIndex = findHeaderIndex(headers, ['porcentaje', '%']);
     const statusIndex = findHeaderIndex(headers, ['status']);
+    const readingIndex = findHeaderIndex(headers, ['lectura', 'reading']);
     if ([levelIndex, availableIndex, consumedIndex, percentageIndex, statusIndex].some((index) => index < 0)) continue;
 
     const points = rows.slice(headerRowIndex + 1).map((rowValues, index) => {
-      const point_key = toCellString(rowValues[levelIndex]);
+      const point_key = readingIndex >= 0
+        ? toCellString(rowValues[readingIndex])
+        : toCellString(rowValues[levelIndex]);
       const available_gallons = toCellString(rowValues[availableIndex]);
       const consumed_gallons = toCellString(rowValues[consumedIndex]);
       const percentage = normalizePercentCell(rowValues[percentageIndex]);
