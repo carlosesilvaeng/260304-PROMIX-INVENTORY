@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
-import { Select } from '../../components/Select';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
@@ -14,39 +13,72 @@ interface SilosSectionProps {
   onBack?: () => void;
 }
 
+const CEMENT_SACK_WEIGHT_LBS = 94;
+const LBS_PER_METRIC_TON = 2204.62;
+
 function roundTo(value: number, decimals = 2) {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
 }
 
-function getProductOptions(entry: any, configuredProducts: any[] | undefined) {
-  const allowedProducts = (entry.allowed_products || [])
-    .map((product: string) => String(product || '').trim())
-    .filter(Boolean);
-  const fallbackProducts = (configuredProducts || [])
-    .map((product: any) => String(product.product_name || product.name || '').trim())
-    .filter(Boolean);
-
-  return Array.from(new Set(allowedProducts.length > 0 ? allowedProducts : fallbackProducts));
+function normalizeCalibrationPoints(points: any[] | null | undefined) {
+  return (points || [])
+    .map((point) => ({
+      reading: Number(point.point_key),
+      status: String(point.status || '').trim() || null,
+    }))
+    .filter((point) => Number.isFinite(point.reading))
+    .sort((left, right) => left.reading - right.reading);
 }
 
-function getSiloVolumeMetrics(entry: any) {
+function getStatusForReading(points: ReturnType<typeof normalizeCalibrationPoints>, reading: number) {
+  if (points.length === 0) return null;
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+
+  if (reading <= firstPoint.reading) return firstPoint.status;
+  if (reading >= lastPoint.reading) return lastPoint.status;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const lowerPoint = points[index];
+    const upperPoint = points[index + 1];
+
+    if (reading === upperPoint.reading) return upperPoint.status;
+    if (reading >= lowerPoint.reading && reading <= upperPoint.reading) {
+      return lowerPoint.status || upperPoint.status;
+    }
+  }
+
+  return null;
+}
+
+function getSiloVolumeMetrics(entry: any, calibrationCurves: Record<string, any> | undefined) {
   const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
   const conversionTable = entry.conversion_table || {};
-  const availableVolume = hasCalibrationPoints(conversionTable)
+  const sacks = hasCalibrationPoints(conversionTable)
     ? convertReadingToVolume(reading, conversionTable)
     : Number(entry.calculated_volume ?? entry.calculated_result_cy ?? 0) || 0;
+  const lbs = roundTo(sacks * CEMENT_SACK_WEIGHT_LBS);
+  const metricTons = roundTo(lbs / LBS_PER_METRIC_TON);
+  const curve = entry.calibration_curve_name
+    ? calibrationCurves?.[entry.calibration_curve_name]
+    : null;
+  const status = getStatusForReading(normalizeCalibrationPoints(curve?.points), reading);
   const maxVolume = Math.max(
     0,
     ...Object.values(conversionTable)
       .map((value) => Number(value))
       .filter((value) => Number.isFinite(value))
   );
-  const volumePercentage = maxVolume > 0 ? roundTo((availableVolume / maxVolume) * 100) : null;
+  const volumePercentage = maxVolume > 0 ? roundTo((sacks / maxVolume) * 100) : null;
 
   return {
-    availableVolume,
+    sacks,
+    lbs,
+    metricTons,
     volumePercentage,
+    status,
   };
 }
 
@@ -63,10 +95,12 @@ function getSiloLevelColor(percentage: number) {
 
 function SiloLevelIndicator({
   percentage,
-  availableVolume,
+  sacks,
+  status,
 }: {
   percentage: number | null | undefined;
-  availableVolume: number;
+  sacks: number;
+  status: string | null | undefined;
 }) {
   const safePercentage = clampPercentage(percentage);
   const fillColor = getSiloLevelColor(safePercentage);
@@ -89,7 +123,10 @@ function SiloLevelIndicator({
             {percentage === null || percentage === undefined ? '-' : `${safePercentage.toFixed(2)}%`}
           </p>
           <p className="mt-2 text-sm font-semibold" style={{ color: fillColor }}>
-            {availableVolume.toFixed(2)} yd³ disponibles
+            {sacks.toFixed(2)} sacos
+          </p>
+          <p className="mt-1 truncate text-sm font-semibold" style={{ color: fillColor }}>
+            {status || '-'}
           </p>
         </div>
       </div>
@@ -184,14 +221,6 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
     const updates: any = { [field]: value };
 
-    // If product selection changes, update product_name and product_id when available.
-    if (field === 'product_name') {
-      const selectedProduct = prefillData.config?.products?.find((product: any) => product.product_name === value);
-      updates.product_name = value;
-      updates.product_in_silo = value || null;
-      updates.product_id = selectedProduct?.id || null;
-    }
-
     // Auto-calculate available volume based on the configured silo curve.
     if (field === 'reading_value') {
       const readingNum = typeof value === 'string' ? parseFloat(value) : value;
@@ -235,9 +264,9 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           silo_name: entry.silo_name,
           measurement_method: entry.measurement_method,
           allowed_products: entry.allowed_products || [],
-          product_id: entry.product_id || null,
-          product_name: entry.product_name || null,
-          product_in_silo: entry.product_in_silo || entry.product_name || null,
+          product_id: null,
+          product_name: null,
+          product_in_silo: null,
           reading_uom: entry.reading_uom || null,
           reading_value: readingValue,
           reading: readingValue,
@@ -277,9 +306,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
   // ============================================================================
 
   const isEntryComplete = (entry: any): boolean => {
-    // Must have product selected, reading value, and photo
+    // Must have reading value and photo
     return !!(
-      (entry.product_name || entry.product_in_silo) &&
       entry.reading_value !== null &&
       entry.reading_value !== undefined &&
       entry.photo_url
@@ -355,9 +383,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
             <li><strong>Nombre del Silo 🔒:</strong> Preconfigurado por administrativos</li>
             <li><strong>Unidad de Medida 🔒:</strong> Fija según configuración (no editable)</li>
-            <li><strong>Producto Medido:</strong> Selecciona el producto que se está midiendo en este silo</li>
             <li><strong>Lectura:</strong> Ingresa el valor de la lectura del medidor</li>
-            <li><strong>Resultado:</strong> Se calcula automáticamente basado en la lectura</li>
+            <li><strong>Resultado:</strong> Se calculan automáticamente sacos, libras, toneladas métricas y status</li>
             <li><strong>Evidencia fotográfica:</strong> Requerida para cada silo</li>
           </ul>
         </Card>
@@ -365,8 +392,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         {/* Silos List */}
         <div className="space-y-4">
           {prefillData.silosEntries.map((entry, index) => {
-            const productOptions = getProductOptions(entry, prefillData.config?.products);
-            const siloMetrics = getSiloVolumeMetrics(entry);
+            const siloMetrics = getSiloVolumeMetrics(entry, prefillData.config?.calibration_curves);
 
             return (
               <Card key={entry.id} className="p-6">
@@ -400,37 +426,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 </div>
               </div>
 
-              {/* Product Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                  Producto Medido *
-                </label>
-                <Select
-                  value={entry.product_name || ''}
-                  onChange={(e) => handleFieldChange(entry.id, 'product_name', e.target.value)}
-                  options={[
-                    { value: '', label: '-- Selecciona un producto --' },
-                    ...productOptions.map((product: string) => ({
-                      value: product,
-                      label: product
-                    }))
-                  ]}
-                  required
-                />
-                {productOptions.length === 0 && (
-                  <p className="text-xs text-red-600 mt-1">
-                    No hay productos activos configurados para esta planta.
-                  </p>
-                )}
-                {entry.allowed_products && entry.allowed_products.length > 0 && (
-                  <p className="text-xs text-[#6F767E] mt-1">
-                    Productos permitidos: {entry.allowed_products.join(', ')}
-                  </p>
-                )}
-              </div>
-
               {/* Reading and Result */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-4">
                 {/* Reading - EDITABLE */}
                 <div>
                   <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
@@ -448,14 +445,47 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 {/* Result - AUTO CALCULATED */}
                 <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                    Volumen disponible (yd³) 📊
+                    Sacos disponibles 📊
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {siloMetrics.availableVolume.toFixed(2)} yd³
+                      {siloMetrics.sacks.toFixed(2)} sacos
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Cálculo automático</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                    Libras (lbs)
+                  </label>
+                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
+                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                      {siloMetrics.lbs.toFixed(2)} lbs
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#6F767E] mt-1">Sacos × 94</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                    Toneladas métricas
+                  </label>
+                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
+                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                      {siloMetrics.metricTons.toFixed(2)} t
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#6F767E] mt-1">Lbs ÷ 2204.62</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                    Status
+                  </label>
+                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
+                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                      {siloMetrics.status || '-'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#6F767E] mt-1">Según curva</p>
                 </div>
               </div>
 
@@ -492,7 +522,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 <div className="pt-8">
                   <SiloLevelIndicator
                     percentage={siloMetrics.volumePercentage}
-                    availableVolume={siloMetrics.availableVolume}
+                    sacks={siloMetrics.sacks}
+                    status={siloMetrics.status}
                   />
                 </div>
               </div>
