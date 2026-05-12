@@ -904,7 +904,7 @@ function validateDieselImportPayload(input: ReturnType<typeof normalizeDieselImp
     throw new Error('Solo se admite el modulo diesel en esta version.');
   }
 
-  if (input.template_version !== '1.0') {
+  if (input.template_version !== '2.0') {
     throw new Error('La version de la plantilla no es compatible. Genera una plantilla nueva desde el sistema.');
   }
 
