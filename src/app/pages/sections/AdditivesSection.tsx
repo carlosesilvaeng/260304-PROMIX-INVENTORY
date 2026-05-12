@@ -11,6 +11,133 @@ import { saveAdditivesEntries } from '../../utils/api';
 
 type TabType = 'tanks' | 'manual';
 
+type AdditiveCalibrationPoint = {
+  point_key: number;
+  point_value: number;
+  available_gallons?: number | null;
+  consumed_gallons?: number | null;
+  percentage?: number | null;
+  status?: string | null;
+};
+
+function roundTo(value: number, decimals = 2) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function normalizeAdditiveCalibrationPoints(points: AdditiveCalibrationPoint[] | null | undefined) {
+  return (points || [])
+    .map((point) => ({
+      reading: Number(point.point_key),
+      availableVolume: Number(point.available_gallons ?? point.point_value),
+      consumedVolume: point.consumed_gallons === null || point.consumed_gallons === undefined
+        ? null
+        : Number(point.consumed_gallons),
+      volumePercentage: point.percentage === null || point.percentage === undefined
+        ? null
+        : Number(point.percentage),
+      status: point.status || null,
+    }))
+    .filter((point) => Number.isFinite(point.reading) && Number.isFinite(point.availableVolume))
+    .sort((left, right) => left.reading - right.reading);
+}
+
+function interpolateOptionalNumber(
+  reading: number,
+  lowerReading: number,
+  upperReading: number,
+  lowerValue: number | null,
+  upperValue: number | null
+) {
+  if (lowerValue === null || upperValue === null) return lowerValue ?? upperValue;
+  if (lowerReading === upperReading) return lowerValue;
+  const ratio = (reading - lowerReading) / (upperReading - lowerReading);
+  return roundTo(lowerValue + (upperValue - lowerValue) * ratio);
+}
+
+function getAdditiveTankMetrics(entry: any) {
+  const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
+  const points = normalizeAdditiveCalibrationPoints(entry.calibration_points);
+  const fallbackAvailableVolume = Number(entry.calculated_volume ?? entry.calculated_gallons ?? 0) || 0;
+
+  if (points.length === 0) {
+    return {
+      availableVolume: fallbackAvailableVolume,
+      consumedVolume: null,
+      volumePercentage: null,
+      status: null,
+    };
+  }
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+
+  if (reading <= firstPoint.reading) {
+    return {
+      availableVolume: roundTo(firstPoint.availableVolume),
+      consumedVolume: firstPoint.consumedVolume,
+      volumePercentage: firstPoint.volumePercentage,
+      status: firstPoint.status,
+    };
+  }
+
+  if (reading >= lastPoint.reading) {
+    return {
+      availableVolume: roundTo(lastPoint.availableVolume),
+      consumedVolume: lastPoint.consumedVolume,
+      volumePercentage: lastPoint.volumePercentage,
+      status: lastPoint.status,
+    };
+  }
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const lowerPoint = points[index];
+    const upperPoint = points[index + 1];
+
+    if (reading >= lowerPoint.reading && reading <= upperPoint.reading) {
+      const status = reading === upperPoint.reading
+        ? upperPoint.status
+        : lowerPoint.status || upperPoint.status;
+
+      return {
+        availableVolume: interpolateOptionalNumber(
+          reading,
+          lowerPoint.reading,
+          upperPoint.reading,
+          lowerPoint.availableVolume,
+          upperPoint.availableVolume
+        ) ?? fallbackAvailableVolume,
+        consumedVolume: interpolateOptionalNumber(
+          reading,
+          lowerPoint.reading,
+          upperPoint.reading,
+          lowerPoint.consumedVolume,
+          upperPoint.consumedVolume
+        ),
+        volumePercentage: interpolateOptionalNumber(
+          reading,
+          lowerPoint.reading,
+          upperPoint.reading,
+          lowerPoint.volumePercentage,
+          upperPoint.volumePercentage
+        ),
+        status,
+      };
+    }
+  }
+
+  return {
+    availableVolume: fallbackAvailableVolume,
+    consumedVolume: null,
+    volumePercentage: null,
+    status: null,
+  };
+}
+
+function formatMetricValue(value: number | null | undefined, fallback = '-') {
+  return value === null || value === undefined || !Number.isFinite(value) ? fallback : value.toFixed(2);
+}
+
 export function AdditivesSection() {
   const { currentPlant } = useAuth();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
@@ -285,7 +412,10 @@ export function AdditivesSection() {
               </p>
             </Card>
           ) : (
-            tankEntries.map((entry: any) => (
+            tankEntries.map((entry: any) => {
+              const tankMetrics = getAdditiveTankMetrics(entry);
+
+              return (
               <Card key={entry.id} className="p-6">
                 <div className="space-y-4">
                   {/* HEADER */}
@@ -313,7 +443,7 @@ export function AdditivesSection() {
                   </div>
 
                   {/* READING AND VOLUME */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                     <NumericInput
                       label={`Lectura (${entry.reading_uom || 'inches'})`}
                       value={entry.reading_value || ''}
@@ -324,16 +454,61 @@ export function AdditivesSection() {
                     />
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                        Volumen Calculado ({entry.uom})
+                        Volumen disponible ({entry.uom})
                       </label>
                       <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                         <span className="text-[#2475C7] font-bold text-lg">
-                          {entry.calculated_volume?.toFixed(2) || '0.00'}
+                          {formatMetricValue(tankMetrics.availableVolume, '0.00')}
                         </span>
                         <span className="text-[#5F6773] ml-2 text-sm">{entry.uom}</span>
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">
-                        Calculado automáticamente según tabla de conversión
+                        Inventario tomado según curva de conversión
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                        Volumen consumido ({entry.uom})
+                      </label>
+                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[#3B3A36] font-bold text-lg">
+                          {formatMetricValue(tankMetrics.consumedVolume)}
+                        </span>
+                        {tankMetrics.consumedVolume !== null && tankMetrics.consumedVolume !== undefined && (
+                          <span className="text-[#5F6773] ml-2 text-sm">{entry.uom}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#5F6773] mt-1">
+                        Según curva de calibración
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                        Porcentaje de volumen
+                      </label>
+                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[#3B3A36] font-bold text-lg">
+                          {formatMetricValue(tankMetrics.volumePercentage)}
+                        </span>
+                        {tankMetrics.volumePercentage !== null && tankMetrics.volumePercentage !== undefined && (
+                          <span className="text-[#5F6773] ml-2 text-sm">%</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#5F6773] mt-1">
+                        Según curva de calibración
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                        Status
+                      </label>
+                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[#3B3A36] font-bold truncate">
+                          {tankMetrics.status || '-'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#5F6773] mt-1">
+                        Según lectura del tanque
                       </p>
                     </div>
                   </div>
@@ -363,7 +538,8 @@ export function AdditivesSection() {
                   </div>
                 </div>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
       )}

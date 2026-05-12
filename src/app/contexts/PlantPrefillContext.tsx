@@ -257,6 +257,10 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         requires_photo: aditivo.requires_photo ?? false,
         // Tank-specific fields
         tank_name: aditivo.tank_name || null,
+        calibration_curve_name: aditivo.calibration_curve_name || null,
+        calibration_points: aditivo.calibration_curve_name
+          ? config.calibration_curves?.[aditivo.calibration_curve_name]?.points || null
+          : null,
         reading_uom: aditivo.reading_uom || null,
         reading_value: 0,
         reading: 0,
@@ -842,6 +846,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
               uom: freshAdditive.uom || entry.uom,
               requires_photo: entry.requires_photo ?? freshAdditive.requires_photo,
               tank_name: freshAdditive.tank_name || entry.tank_name,
+              calibration_curve_name: freshAdditive.calibration_curve_name || entry.calibration_curve_name,
+              calibration_points: freshAdditive.calibration_points || entry.calibration_points,
               reading_uom: freshAdditive.reading_uom || entry.reading_uom,
               conversion_table: freshAdditive.conversion_table || entry.conversion_table,
             };
