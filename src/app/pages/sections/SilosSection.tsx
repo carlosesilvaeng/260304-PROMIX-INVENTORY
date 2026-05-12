@@ -14,6 +14,89 @@ interface SilosSectionProps {
   onBack?: () => void;
 }
 
+function roundTo(value: number, decimals = 2) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function getProductOptions(entry: any, configuredProducts: any[] | undefined) {
+  const allowedProducts = (entry.allowed_products || [])
+    .map((product: string) => String(product || '').trim())
+    .filter(Boolean);
+  const fallbackProducts = (configuredProducts || [])
+    .map((product: any) => String(product.product_name || product.name || '').trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(allowedProducts.length > 0 ? allowedProducts : fallbackProducts));
+}
+
+function getSiloVolumeMetrics(entry: any) {
+  const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
+  const conversionTable = entry.conversion_table || {};
+  const availableVolume = hasCalibrationPoints(conversionTable)
+    ? convertReadingToVolume(reading, conversionTable)
+    : Number(entry.calculated_volume ?? entry.calculated_result_cy ?? 0) || 0;
+  const maxVolume = Math.max(
+    0,
+    ...Object.values(conversionTable)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+  );
+  const volumePercentage = maxVolume > 0 ? roundTo((availableVolume / maxVolume) * 100) : null;
+
+  return {
+    availableVolume,
+    volumePercentage,
+  };
+}
+
+function clampPercentage(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
+function getSiloLevelColor(percentage: number) {
+  if (percentage <= 20) return '#E53E3E';
+  if (percentage <= 40) return '#F59E0B';
+  return '#2F855A';
+}
+
+function SiloLevelIndicator({
+  percentage,
+  availableVolume,
+}: {
+  percentage: number | null | undefined;
+  availableVolume: number;
+}) {
+  const safePercentage = clampPercentage(percentage);
+  const fillColor = getSiloLevelColor(safePercentage);
+
+  return (
+    <div className="h-full min-h-[192px] rounded border border-[#9D9B9A] bg-white p-4">
+      <div className="flex h-full items-center gap-4">
+        <div className="relative h-44 w-24 shrink-0 overflow-hidden rounded-md border-2 border-[#3B3A36] bg-[#F2F3F5]">
+          <div
+            className="absolute bottom-0 left-0 right-0 transition-all"
+            style={{ height: `${safePercentage}%`, backgroundColor: fillColor }}
+          />
+          <div className="absolute left-0 right-0 top-1/4 border-t border-[#9D9B9A]" />
+          <div className="absolute left-0 right-0 top-1/2 border-t border-[#9D9B9A]" />
+          <div className="absolute left-0 right-0 top-3/4 border-t border-[#9D9B9A]" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#3B3A36]">Nivel del silo</p>
+          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">
+            {percentage === null || percentage === undefined ? '-' : `${safePercentage.toFixed(2)}%`}
+          </p>
+          <p className="mt-2 text-sm font-semibold" style={{ color: fillColor }}>
+            {availableVolume.toFixed(2)} yd³ disponibles
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SilosSection({ onBack }: SilosSectionProps) {
   const { currentPlant } = useAuth();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
@@ -101,17 +184,20 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
     const updates: any = { [field]: value };
 
-    // If product selection changes, update product_name
+    // If product selection changes, update product_name and product_id when available.
     if (field === 'product_name') {
+      const selectedProduct = prefillData.config?.products?.find((product: any) => product.product_name === value);
       updates.product_name = value;
       updates.product_in_silo = value || null;
+      updates.product_id = selectedProduct?.id || null;
     }
 
+    // Auto-calculate available volume based on the configured silo curve.
     if (field === 'reading_value') {
-      const readingNum = Number(value) || 0;
-      const calculatedVolume = entry.conversion_table
+      const readingNum = typeof value === 'string' ? parseFloat(value) : value;
+      const calculatedVolume = hasCalibrationPoints(entry.conversion_table) && !isNaN(readingNum)
         ? convertReadingToVolume(readingNum, entry.conversion_table)
-        : readingNum;
+        : 0;
       updates.calculated_result_cy = calculatedVolume;
       updates.calculated_volume = calculatedVolume;
     }
@@ -148,18 +234,17 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           silo_config_id: entry.silo_config_id,
           silo_name: entry.silo_name,
           measurement_method: entry.measurement_method,
-          calibration_curve_name: entry.calibration_curve_name || null,
-          reading_uom: entry.reading_uom || null,
-          conversion_table: entry.conversion_table || null,
           allowed_products: entry.allowed_products || [],
           product_id: entry.product_id || null,
           product_name: entry.product_name || null,
           product_in_silo: entry.product_in_silo || entry.product_name || null,
+          reading_uom: entry.reading_uom || null,
           reading_value: readingValue,
           reading: readingValue,
           previous_reading: entry.previous_reading ?? 0,
           calculated_result_cy: calculatedVolume,
           calculated_volume: calculatedVolume,
+          conversion_table: entry.conversion_table || null,
           photo_url: entry.photo_url,
           notes: entry.notes || '',
         };
@@ -177,7 +262,10 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         setSaveMessage({ type: 'error', text: `Error: ${response.error}` });
       }
     } catch (error) {
-      setSaveMessage({ type: 'error', text: 'Error al guardar los datos' });
+      setSaveMessage({
+        type: 'error',
+        text: `Error al guardar: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+      });
       console.error('Save error:', error);
     } finally {
       setSaving(false);
@@ -276,8 +364,12 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
         {/* Silos List */}
         <div className="space-y-4">
-          {prefillData.silosEntries.map((entry, index) => (
-            <Card key={entry.id} className="p-6">
+          {prefillData.silosEntries.map((entry, index) => {
+            const productOptions = getProductOptions(entry, prefillData.config?.products);
+            const siloMetrics = getSiloVolumeMetrics(entry);
+
+            return (
+              <Card key={entry.id} className="p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -318,13 +410,18 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   onChange={(e) => handleFieldChange(entry.id, 'product_name', e.target.value)}
                   options={[
                     { value: '', label: '-- Selecciona un producto --' },
-                    ...(entry.allowed_products || []).map((product: string) => ({
+                    ...productOptions.map((product: string) => ({
                       value: product,
                       label: product
                     }))
                   ]}
                   required
                 />
+                {productOptions.length === 0 && (
+                  <p className="text-xs text-red-600 mt-1">
+                    No hay productos activos configurados para esta planta.
+                  </p>
+                )}
                 {entry.allowed_products && entry.allowed_products.length > 0 && (
                   <p className="text-xs text-[#6F767E] mt-1">
                     Productos permitidos: {entry.allowed_products.join(', ')}
@@ -355,7 +452,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {(entry.calculated_result_cy || 0).toFixed(2)} yd³
+                      {siloMetrics.availableVolume.toFixed(2)} yd³
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Cálculo automático</p>
@@ -377,23 +474,31 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               </div>
 
               {/* Photo Capture */}
-              <div>
-                <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                  Evidencia Fotográfica del Medidor *
-                </label>
-                <PhotoCapture
-                  label=""
-                  onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
-                  currentPhoto={entry.photo_url}
-                />
-                {!entry.photo_url && (
-                  <p className="text-xs text-red-600 mt-2">
-                    ⚠️ La foto del medidor es obligatoria
-                  </p>
-                )}
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+                <div>
+                  <PhotoCapture
+                    label="Evidencia Fotográfica del Medidor"
+                    required
+                    onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
+                    currentPhoto={entry.photo_url}
+                    fit="contain"
+                  />
+                  {!entry.photo_url && (
+                    <p className="text-xs text-red-600 mt-2">
+                      ⚠️ La foto del medidor es obligatoria
+                    </p>
+                  )}
+                </div>
+                <div className="pt-8">
+                  <SiloLevelIndicator
+                    percentage={siloMetrics.volumePercentage}
+                    availableVolume={siloMetrics.availableVolume}
+                  />
+                </div>
               </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         {/* Actions */}

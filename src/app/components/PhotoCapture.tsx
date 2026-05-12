@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from './Button';
 import { compressInventoryPhoto } from '../utils/imageCompression';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,6 +34,11 @@ export function PhotoCapture({
   const [uploading, setUploading] = useState(false);
 
   const busy = compressing || uploading;
+  const imageFitClass = fit === 'contain' ? 'object-contain bg-gray-100' : 'object-cover';
+
+  useEffect(() => {
+    setPreview(currentPhoto);
+  }, [currentPhoto]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,7 +152,7 @@ export function PhotoCapture({
             <img
               src={preview}
               alt="Captura"
-              className={`w-full h-48 object-${fit} rounded border-2 border-[#9D9B9A]${fit === 'contain' ? ' bg-gray-100' : ''}`}
+              className={`w-full h-48 ${imageFitClass} rounded border-2 border-[#9D9B9A]`}
             />
             <button
               onClick={handleRemove}
