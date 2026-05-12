@@ -54,15 +54,6 @@ function shouldInvertAdditiveTankCurve(points: ReturnType<typeof normalizeAdditi
   return firstPoint.availableVolume < lastPoint.availableVolume;
 }
 
-function getVolumeStatus(availablePercentage: number | null | undefined, fallback: string | null) {
-  if (availablePercentage === null || availablePercentage === undefined || !Number.isFinite(availablePercentage)) {
-    return fallback;
-  }
-
-  if (availablePercentage <= 20) return 'BAJO';
-  return 'OK';
-}
-
 function interpolateOptionalNumber(
   reading: number,
   lowerReading: number,
@@ -105,7 +96,7 @@ function getAdditiveTankMetrics(entry: any) {
       availableVolume: availableVolume === null ? fallbackAvailableVolume : roundTo(availableVolume),
       consumedVolume,
       volumePercentage,
-      status: invertCurve ? getVolumeStatus(volumePercentage, firstPoint.status) : firstPoint.status,
+      status: firstPoint.status,
     };
   }
 
@@ -120,7 +111,7 @@ function getAdditiveTankMetrics(entry: any) {
       availableVolume: availableVolume === null ? fallbackAvailableVolume : roundTo(availableVolume),
       consumedVolume,
       volumePercentage,
-      status: invertCurve ? getVolumeStatus(volumePercentage, lastPoint.status) : lastPoint.status,
+      status: lastPoint.status,
     };
   }
 
@@ -161,7 +152,7 @@ function getAdditiveTankMetrics(entry: any) {
         availableVolume: invertCurve ? rawConsumedVolume ?? fallbackAvailableVolume : rawAvailableVolume,
         consumedVolume: invertCurve ? rawAvailableVolume : rawConsumedVolume,
         volumePercentage,
-        status: invertCurve ? getVolumeStatus(volumePercentage, status) : status,
+        status,
       };
     }
   }
