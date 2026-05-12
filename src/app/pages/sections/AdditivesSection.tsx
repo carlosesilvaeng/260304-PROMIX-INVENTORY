@@ -67,6 +67,31 @@ function interpolateOptionalNumber(
   return roundTo(lowerValue + (upperValue - lowerValue) * ratio);
 }
 
+function getStatusForReading(
+  points: ReturnType<typeof normalizeAdditiveCalibrationPoints>,
+  reading: number,
+) {
+  if (points.length === 0) return null;
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+
+  if (reading <= firstPoint.reading) return firstPoint.status;
+  if (reading >= lastPoint.reading) return lastPoint.status;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const lowerPoint = points[index];
+    const upperPoint = points[index + 1];
+
+    if (reading === upperPoint.reading) return upperPoint.status;
+    if (reading >= lowerPoint.reading && reading <= upperPoint.reading) {
+      return lowerPoint.status || upperPoint.status;
+    }
+  }
+
+  return null;
+}
+
 function getAdditiveTankMetrics(entry: any) {
   const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
   const points = normalizeAdditiveCalibrationPoints(entry.calibration_points);
@@ -84,6 +109,10 @@ function getAdditiveTankMetrics(entry: any) {
 
   const firstPoint = points[0];
   const lastPoint = points[points.length - 1];
+  const statusReading = invertCurve
+    ? firstPoint.reading + lastPoint.reading - reading
+    : reading;
+  const curveStatus = getStatusForReading(points, statusReading);
 
   if (reading <= firstPoint.reading) {
     const availableVolume = invertCurve ? firstPoint.consumedVolume : firstPoint.availableVolume;
@@ -96,7 +125,7 @@ function getAdditiveTankMetrics(entry: any) {
       availableVolume: availableVolume === null ? fallbackAvailableVolume : roundTo(availableVolume),
       consumedVolume,
       volumePercentage,
-      status: firstPoint.status,
+      status: curveStatus,
     };
   }
 
@@ -111,7 +140,7 @@ function getAdditiveTankMetrics(entry: any) {
       availableVolume: availableVolume === null ? fallbackAvailableVolume : roundTo(availableVolume),
       consumedVolume,
       volumePercentage,
-      status: lastPoint.status,
+      status: curveStatus,
     };
   }
 
@@ -120,9 +149,6 @@ function getAdditiveTankMetrics(entry: any) {
     const upperPoint = points[index + 1];
 
     if (reading >= lowerPoint.reading && reading <= upperPoint.reading) {
-      const status = reading === upperPoint.reading
-        ? upperPoint.status
-        : lowerPoint.status || upperPoint.status;
       const rawAvailableVolume = interpolateOptionalNumber(
         reading,
         lowerPoint.reading,
@@ -152,7 +178,7 @@ function getAdditiveTankMetrics(entry: any) {
         availableVolume: invertCurve ? rawConsumedVolume ?? fallbackAvailableVolume : rawAvailableVolume,
         consumedVolume: invertCurve ? rawAvailableVolume : rawConsumedVolume,
         volumePercentage,
-        status,
+        status: curveStatus,
       };
     }
   }
@@ -167,6 +193,51 @@ function getAdditiveTankMetrics(entry: any) {
 
 function formatMetricValue(value: number | null | undefined, fallback = '-') {
   return value === null || value === undefined || !Number.isFinite(value) ? fallback : value.toFixed(2);
+}
+
+function clampPercentage(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
+function getTankLevelColor(percentage: number) {
+  if (percentage <= 20) return '#E53E3E';
+  if (percentage <= 40) return '#F59E0B';
+  return '#2F855A';
+}
+
+function TankLevelIndicator({
+  percentage,
+  status,
+}: {
+  percentage: number | null | undefined;
+  status: string | null | undefined;
+}) {
+  const safePercentage = clampPercentage(percentage);
+  const fillColor = getTankLevelColor(safePercentage);
+
+  return (
+    <div className="h-full min-h-[192px] rounded border border-[#9D9B9A] bg-white p-4">
+      <div className="flex h-full items-center gap-4">
+        <div className="relative h-44 w-24 shrink-0 overflow-hidden rounded-md border-2 border-[#3B3A36] bg-[#F2F3F5]">
+          <div
+            className="absolute bottom-0 left-0 right-0 transition-all"
+            style={{ height: `${safePercentage}%`, backgroundColor: fillColor }}
+          />
+          <div className="absolute left-0 right-0 top-1/4 border-t border-[#9D9B9A]" />
+          <div className="absolute left-0 right-0 top-1/2 border-t border-[#9D9B9A]" />
+          <div className="absolute left-0 right-0 top-3/4 border-t border-[#9D9B9A]" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#3B3A36]">Nivel del tanque</p>
+          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">{safePercentage.toFixed(2)}%</p>
+          <p className="mt-2 truncate text-sm font-semibold" style={{ color: fillColor }}>
+            {status || '-'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function AdditivesSection() {
@@ -559,13 +630,21 @@ export function AdditivesSection() {
 
                   {/* PHOTO */}
                   {entry.requires_photo && (
-                    <PhotoCapture
-                      label="Foto del Medidor"
-                      required
-                      currentPhoto={entry.photo_url}
-                      onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
-                      fit="contain"
-                    />
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+                      <PhotoCapture
+                        label="Foto del Medidor"
+                        required
+                        currentPhoto={entry.photo_url}
+                        onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
+                        fit="contain"
+                      />
+                      <div className="pt-8">
+                        <TankLevelIndicator
+                          percentage={tankMetrics.volumePercentage}
+                          status={tankMetrics.status}
+                        />
+                      </div>
+                    </div>
                   )}
 
                   {/* NOTES */}
