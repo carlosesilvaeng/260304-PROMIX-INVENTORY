@@ -42,18 +42,6 @@ function normalizeAdditiveCalibrationPoints(points: AdditiveCalibrationPoint[] |
     .sort((left, right) => left.reading - right.reading);
 }
 
-function shouldInvertAdditiveTankCurve(points: ReturnType<typeof normalizeAdditiveCalibrationPoints>) {
-  const usablePoints = points.filter((point) => point.consumedVolume !== null);
-  if (usablePoints.length < 2) return false;
-
-  const firstPoint = usablePoints[0];
-  const lastPoint = usablePoints[usablePoints.length - 1];
-
-  // Some additive tank sheets use the reading scale from top-to-bottom, so the
-  // imported "available" series grows with reading and is actually consumed volume.
-  return firstPoint.availableVolume < lastPoint.availableVolume;
-}
-
 function interpolateOptionalNumber(
   reading: number,
   lowerReading: number,
@@ -96,7 +84,6 @@ function getAdditiveTankMetrics(entry: any) {
   const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
   const points = normalizeAdditiveCalibrationPoints(entry.calibration_points);
   const fallbackAvailableVolume = Number(entry.calculated_volume ?? entry.calculated_gallons ?? 0) || 0;
-  const invertCurve = shouldInvertAdditiveTankCurve(points);
 
   if (points.length === 0) {
     return {
@@ -109,37 +96,22 @@ function getAdditiveTankMetrics(entry: any) {
 
   const firstPoint = points[0];
   const lastPoint = points[points.length - 1];
-  const statusReading = invertCurve
-    ? firstPoint.reading + lastPoint.reading - reading
-    : reading;
-  const curveStatus = getStatusForReading(points, statusReading);
+  const curveStatus = getStatusForReading(points, reading);
 
   if (reading <= firstPoint.reading) {
-    const availableVolume = invertCurve ? firstPoint.consumedVolume : firstPoint.availableVolume;
-    const consumedVolume = invertCurve ? firstPoint.availableVolume : firstPoint.consumedVolume;
-    const volumePercentage = invertCurve && firstPoint.volumePercentage !== null
-      ? roundTo(100 - firstPoint.volumePercentage)
-      : firstPoint.volumePercentage;
-
     return {
-      availableVolume: availableVolume === null ? fallbackAvailableVolume : roundTo(availableVolume),
-      consumedVolume,
-      volumePercentage,
+      availableVolume: roundTo(firstPoint.availableVolume),
+      consumedVolume: firstPoint.consumedVolume,
+      volumePercentage: firstPoint.volumePercentage,
       status: curveStatus,
     };
   }
 
   if (reading >= lastPoint.reading) {
-    const availableVolume = invertCurve ? lastPoint.consumedVolume : lastPoint.availableVolume;
-    const consumedVolume = invertCurve ? lastPoint.availableVolume : lastPoint.consumedVolume;
-    const volumePercentage = invertCurve && lastPoint.volumePercentage !== null
-      ? roundTo(100 - lastPoint.volumePercentage)
-      : lastPoint.volumePercentage;
-
     return {
-      availableVolume: availableVolume === null ? fallbackAvailableVolume : roundTo(availableVolume),
-      consumedVolume,
-      volumePercentage,
+      availableVolume: roundTo(lastPoint.availableVolume),
+      consumedVolume: lastPoint.consumedVolume,
+      volumePercentage: lastPoint.volumePercentage,
       status: curveStatus,
     };
   }
@@ -170,14 +142,11 @@ function getAdditiveTankMetrics(entry: any) {
         lowerPoint.volumePercentage,
         upperPoint.volumePercentage
       );
-      const volumePercentage = invertCurve && rawVolumePercentage !== null
-        ? roundTo(100 - rawVolumePercentage)
-        : rawVolumePercentage;
 
       return {
-        availableVolume: invertCurve ? rawConsumedVolume ?? fallbackAvailableVolume : rawAvailableVolume,
-        consumedVolume: invertCurve ? rawAvailableVolume : rawConsumedVolume,
-        volumePercentage,
+        availableVolume: rawAvailableVolume,
+        consumedVolume: rawConsumedVolume,
+        volumePercentage: rawVolumePercentage,
         status: curveStatus,
       };
     }
