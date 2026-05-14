@@ -8,6 +8,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
+import additiveTankMeasurementReference from '../../../assets/additive-tank-measurement-reference.png';
 
 type TabType = 'tanks' | 'manual';
 
@@ -503,8 +504,8 @@ export function AdditivesSection() {
               <Card key={entry.id} className="p-6">
                 <div className="space-y-4">
                   {/* HEADER */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-bold text-[#3B3A36]">
                           {entry.tank_name || entry.product_name}
@@ -523,6 +524,13 @@ export function AdditivesSection() {
                           </p>
                         )}
                       </div>
+                    </div>
+                    <div className="w-full max-w-[360px] shrink-0 self-center lg:self-start">
+                      <img
+                        src={additiveTankMeasurementReference}
+                        alt="Referencia de medición de tanque de aditivo: lectura de abajo hacia arriba"
+                        className="h-auto max-h-[150px] w-full object-contain"
+                      />
                     </div>
                   </div>
 
