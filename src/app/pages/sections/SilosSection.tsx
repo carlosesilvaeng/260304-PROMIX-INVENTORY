@@ -8,6 +8,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveSilosEntries } from '../../utils/api';
+import siloMeasurementReference from '../../../assets/silo-measurement-reference.png';
 
 interface SilosSectionProps {
   onBack?: () => void;
@@ -397,8 +398,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
             return (
               <Card key={entry.id} className="p-6">
               {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div>
+              <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
                   <h3 className="text-lg font-semibold text-[#1A1D1F]">
                     {entry.silo_name}
                   </h3>
@@ -409,20 +410,27 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className="text-sm font-medium text-[#6F767E] bg-gray-100 px-3 py-1 rounded">
-                    Silo #{index + 1}
-                  </span>
-                  {isEntryComplete(entry) && (
-                    <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
-                      ✓ Completo
+                <div className="flex w-full max-w-[520px] shrink-0 flex-col items-end gap-2 self-center lg:self-start">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <span className="text-sm font-medium text-[#6F767E] bg-gray-100 px-3 py-1 rounded">
+                      Silo #{index + 1}
                     </span>
-                  )}
-                  {!entry.photo_url && (
-                    <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                      ⚠️ Falta Foto
-                    </span>
-                  )}
+                    {isEntryComplete(entry) && (
+                      <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+                        ✓ Completo
+                      </span>
+                    )}
+                    {!entry.photo_url && (
+                      <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                        ⚠️ Falta Foto
+                      </span>
+                    )}
+                  </div>
+                  <img
+                    src={siloMeasurementReference}
+                    alt="Referencia de medición de silo: lectura de arriba hacia abajo"
+                    className="h-auto max-h-[210px] w-full object-contain"
+                  />
                 </div>
               </div>
 
