@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { PhotoCapture } from '../../components/PhotoCapture';
-import { StandardInput, ReadOnlyField, FormSection } from '../../components/StandardInput';
+import { StandardInput } from '../../components/StandardInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
@@ -73,13 +73,6 @@ function TankLevelGraphic({
           </g>
           <circle cx="160" cy="160" r="110" fill="none" stroke="#2F4052" strokeWidth="10" />
         </svg>
-      </div>
-
-      <div className="mt-3 text-center">
-        <p className="text-sm font-bold text-[#2F4052]">Profundidad Medida ({readingUom}):</p>
-        <p className="mx-auto mt-2 w-36 rounded border border-[#B8C1C7] bg-white px-4 py-2 text-2xl font-semibold text-[#2F4052]">
-          {Number(reading || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-        </p>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -418,12 +411,6 @@ export function DieselSection() {
                 step={0.01}
                 placeholder="0.00"
                 helperText="Ingresa la lectura del medidor en pulgadas (0 es válido)"
-              />
-              <ReadOnlyField
-                label="Cantidad Calculada"
-                value={(diesel.calculated_gallons || 0).toLocaleString()}
-                unit="galones"
-                icon={<span>🧮</span>}
               />
             </div>
           </div>
