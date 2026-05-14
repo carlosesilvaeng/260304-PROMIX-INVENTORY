@@ -22,6 +22,11 @@ function roundTo(value: number, decimals = 2) {
   return Math.round(value * factor) / factor;
 }
 
+function getReadingFeet(entry: any) {
+  const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
+  return roundTo(reading / 12);
+}
+
 function normalizeCalibrationPoints(points: any[] | null | undefined) {
   return (points || [])
     .map((point) => ({
@@ -435,7 +440,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               </div>
 
               {/* Reading and Result */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-4">
                 {/* Reading - EDITABLE */}
                 <div>
                   <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
@@ -448,6 +453,19 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     className="w-full"
                   />
                   <p className="text-xs text-[#6F767E] mt-1">Ingresa la lectura del medidor</p>
+                </div>
+
+                {/* Feet - AUTO CONVERTED */}
+                <div>
+                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                    Pies
+                  </label>
+                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
+                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                      {getReadingFeet(entry).toFixed(2)} ft
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#6F767E] mt-1">Lectura ÷ 12</p>
                 </div>
 
                 {/* Result - AUTO CALCULATED */}
