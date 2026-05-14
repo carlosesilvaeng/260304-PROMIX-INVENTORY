@@ -35,6 +35,14 @@ interface SiloEntry {
   allowed_products: string[];
 }
 
+interface CurvePointRow {
+  level: number;
+  available: number;
+  consumed: number | null;
+  percentage: number | null;
+  status: string | null;
+}
+
 interface SilosImportPayload {
   module: 'silos';
   template_version: string;
@@ -68,14 +76,65 @@ function createEmptySilo(): SiloEntry {
   };
 }
 
-function buildCurvePointRows(table: Record<string, number> | null | undefined) {
-  return Object.entries(table || {})
+function normalizeCurveName(value: string | null | undefined) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function toFiniteNumber(value: unknown) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function formatCurveValue(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-';
+  return String(value);
+}
+
+function buildCurvePointRows(
+  table: Record<string, number> | null | undefined,
+  points?: CalibrationCurveCatalogItem['points'] | null,
+): CurvePointRow[] {
+  const pointRows = (points || [])
+    .map((point) => {
+      const level = toFiniteNumber(point.point_key);
+      const available = toFiniteNumber(point.available_gallons ?? point.point_value);
+      const consumed = toFiniteNumber(point.consumed_gallons);
+      const percentage = toFiniteNumber(point.percentage);
+
+      if (level === null || available === null) return null;
+
+      return {
+        level,
+        available,
+        consumed,
+        percentage,
+        status: point.status || null,
+      };
+    })
+    .filter((row): row is CurvePointRow => Boolean(row))
+    .sort((a, b) => a.level - b.level);
+
+  if (pointRows.length > 0) return pointRows;
+
+  const fallbackRows = Object.entries(table || {})
     .map(([level, value]) => ({
       level: Number(level),
       available: Number(value),
     }))
     .filter((row) => Number.isFinite(row.level) && Number.isFinite(row.available))
     .sort((a, b) => a.level - b.level);
+
+  const maxAvailable = Math.max(0, ...fallbackRows.map((row) => row.available));
+
+  return fallbackRows.map((row) => {
+    const consumed = maxAvailable > 0 ? Math.max(0, maxAvailable - row.available) : null;
+    return {
+      ...row,
+      consumed,
+      percentage: maxAvailable > 0 && consumed !== null ? consumed / maxAvailable : null,
+      status: 'OK',
+    };
+  });
 }
 
 function toWorkbookRows(rows: SiloEntry[]): SilosImportWorkbookRow[] {
@@ -494,49 +553,51 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                         </label>
                       </div>
 
-                      {silo.calibration_curve_name && (
-                        <div className="mt-4 rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
-                          <div className="max-h-[260px] overflow-auto">
-                            <table className="w-full min-w-[540px] text-sm">
-                              <thead className="bg-[#EEF0F2] text-[#5F6773]">
-                                <tr>
-                                  <th className="px-3 py-2 text-left">Nivel</th>
-                                  <th className="px-3 py-2 text-left">Vol. disponible</th>
-                                  <th className="px-3 py-2 text-left">Vol. consumido</th>
-                                  <th className="px-3 py-2 text-left">%</th>
-                                  <th className="px-3 py-2 text-left">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {buildCurvePointRows(silo.conversion_table).map((point, pointIndex, points) => {
-                                  const maxAvailable = points[points.length - 1]?.available || 0;
-                                  const consumed = Math.max(0, maxAvailable - point.available);
-                                  const percentage = maxAvailable > 0 ? (point.available / maxAvailable) * 100 : 0;
-                                  return (
-                                    <tr key={`${point.level}-${pointIndex}`} className="border-t border-[#E4E4E4]">
-                                      <td className="px-3 py-2 text-[#3B3A36]">{point.level}</td>
-                                      <td className="px-3 py-2 text-[#3B3A36]">{point.available}</td>
-                                      <td className="px-3 py-2 text-[#3B3A36]">{consumed}</td>
-                                      <td className="px-3 py-2 text-[#3B3A36]">{percentage.toFixed(1)}</td>
-                                      <td className="px-3 py-2 text-[#1D6F42]">OK</td>
-                                    </tr>
-                                  );
-                                })}
-                                {buildCurvePointRows(silo.conversion_table).length === 0 && (
+                      {silo.calibration_curve_name && (() => {
+                        const selectedCurve = curveItems.find(
+                          (curve) => normalizeCurveName(curve.curve_name) === normalizeCurveName(silo.calibration_curve_name)
+                        );
+                        const pointRows = buildCurvePointRows(silo.conversion_table, selectedCurve?.points);
+
+                        return (
+                          <div className="mt-4 rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
+                            <div className="max-h-[260px] overflow-auto">
+                              <table className="w-full min-w-[540px] text-sm">
+                                <thead className="bg-[#EEF0F2] text-[#5F6773]">
                                   <tr>
-                                    <td className="px-3 py-3 text-[#5F6773]" colSpan={5}>
-                                      La curva seleccionada no tiene puntos.
-                                    </td>
+                                    <th className="px-3 py-2 text-left">Nivel</th>
+                                    <th className="px-3 py-2 text-left">Vol. disponible</th>
+                                    <th className="px-3 py-2 text-left">Vol. consumido</th>
+                                    <th className="px-3 py-2 text-left">%</th>
+                                    <th className="px-3 py-2 text-left">Status</th>
                                   </tr>
-                                )}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {pointRows.map((point, pointIndex) => (
+                                    <tr key={`${point.level}-${pointIndex}`} className="border-t border-[#E4E4E4]">
+                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.level)}</td>
+                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.available)}</td>
+                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.consumed)}</td>
+                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.percentage)}</td>
+                                      <td className="px-3 py-2 text-[#1D6F42]">{point.status || 'OK'}</td>
+                                    </tr>
+                                  ))}
+                                  {pointRows.length === 0 && (
+                                    <tr>
+                                      <td className="px-3 py-3 text-[#5F6773]" colSpan={5}>
+                                        La curva seleccionada no tiene puntos.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="mt-2 text-xs text-[#5F6773]">
+                              Tabla sincronizada con la curva seleccionada. Para cambiar puntos, actualiza Catálogos &gt; Curvas de conversión.
+                            </p>
                           </div>
-                          <p className="mt-2 text-xs text-[#5F6773]">
-                            Tabla sincronizada con la curva seleccionada. Para cambiar puntos, actualiza Catálogos &gt; Curvas de conversión.
-                          </p>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {silo.allowed_products.length > 0 && (
                         <p className="mt-3 text-sm text-[#5F6773]">
