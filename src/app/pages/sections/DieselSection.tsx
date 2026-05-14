@@ -8,6 +8,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { saveDieselEntry } from '../../utils/api';
+import dieselMeasurementReference from '../../../assets/diesel-measurement-reference.png';
 
 function getCalibrationDepthRange(calibrationTable: Record<string, number> | null | undefined) {
   const depths = Object.keys(calibrationTable || {})
@@ -349,19 +350,26 @@ export function DieselSection() {
       {/* TANK INFO */}
       <Card className="bg-[#F2F3F5] border-[#2475C7]/30">
         <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Capacidad del Tanque</p>
-              <p className="text-2xl font-bold text-[#2475C7]">
-                {diesel.tank_capacity_gallons?.toLocaleString()} galones
-              </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#5F6773]">Capacidad del Tanque</p>
+                <p className="text-2xl font-bold text-[#2475C7]">
+                  {diesel.tank_capacity_gallons?.toLocaleString()} galones
+                </p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-sm font-semibold text-[#5F6773]">Método de Medición</p>
+                <p className="text-lg font-bold text-[#3B3A36]">
+                  Lectura en {diesel.reading_uom}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold text-[#5F6773]">Método de Medición</p>
-              <p className="text-lg font-bold text-[#3B3A36]">
-                Lectura en {diesel.reading_uom}
-              </p>
-            </div>
+            <img
+              src={dieselMeasurementReference}
+              alt="Referencia de medición de diesel: lectura de abajo hacia arriba desde el piso"
+              className="h-auto max-h-[190px] w-full max-w-[520px] shrink-0 self-center object-contain lg:self-start"
+            />
           </div>
         </div>
       </Card>
