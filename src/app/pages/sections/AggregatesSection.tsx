@@ -134,17 +134,20 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
     } else if (entry.measurement_method === 'CONE') {
       // CONE method: calculate when any measurement changes
       if (field.startsWith('cone_')) {
-        const m1 = field === 'cone_m1' ? value : (entry.cone_m1 || 0);
-        const m2 = field === 'cone_m2' ? value : (entry.cone_m2 || 0);
-        const m3 = field === 'cone_m3' ? value : (entry.cone_m3 || 0);
-        const m4 = field === 'cone_m4' ? value : (entry.cone_m4 || 0);
-        const m5 = field === 'cone_m5' ? value : (entry.cone_m5 || 0);
-        const m6 = field === 'cone_m6' ? value : (entry.cone_m6 || 0);
-        const d1 = field === 'cone_d1' ? value : (entry.cone_d1 || 0);
-        const d2 = field === 'cone_d2' ? value : (entry.cone_d2 || 0);
+        const m1 = field === 'cone_m1' ? value : entry.cone_m1;
+        const m2 = field === 'cone_m2' ? value : entry.cone_m2;
+        const m3 = field === 'cone_m3' ? value : entry.cone_m3;
+        const m4 = field === 'cone_m4' ? value : entry.cone_m4;
+        const m5 = field === 'cone_m5' ? value : entry.cone_m5;
+        const m6 = field === 'cone_m6' ? value : entry.cone_m6;
+        const d1 = field === 'cone_d1' ? value : entry.cone_d1;
+        const d2 = field === 'cone_d2' ? value : entry.cone_d2;
         
-        if ([m1, m2, m3, m4, m5, m6, d1, d2].every(v => v !== null && v !== undefined)) {
+        if ([m1, m2, m3, m4, m5, m6, d1, d2].every(v => v !== null && v !== undefined && v !== '')) {
           updates.calculated_volume_cy = calculateConeVolume(m1, m2, m3, m4, m5, m6, d1, d2);
+          updates.unit = volumeUnit;
+        } else {
+          updates.calculated_volume_cy = 0;
           updates.unit = volumeUnit;
         }
       }
@@ -205,7 +208,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
     // For BOX method
     if (entry.measurement_method === 'BOX') {
       // length can be 0 (not used), but must be explicitly set
-      return entry.box_length_ft !== null && entry.box_length_ft !== undefined;
+      return entry.box_length_ft !== null && entry.box_length_ft !== undefined && entry.box_length_ft !== '';
     }
 
     // For CONE method
@@ -214,7 +217,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         entry.cone_m1, entry.cone_m2, entry.cone_m3,
         entry.cone_m4, entry.cone_m5, entry.cone_m6,
         entry.cone_d1, entry.cone_d2,
-      ].every(v => v !== null && v !== undefined);
+      ].every(v => v !== null && v !== undefined && v !== '');
     }
 
     return false;
@@ -353,7 +356,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       </label>
                       <NumericInput
                         value={entry.box_length_ft ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'box_length_ft', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'box_length_ft', value)}
                         placeholder="0.00"
                         className="w-full"
                       />
@@ -382,7 +385,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M1 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m1 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m1', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m1', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -390,7 +393,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M2 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m2 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m2', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m2', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -398,7 +401,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M3 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m3 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m3', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m3', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -406,7 +409,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M4 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m4 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m4', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m4', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -414,7 +417,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M5 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m5 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m5', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m5', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -422,7 +425,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M6 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_m6 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m6', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m6', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -432,7 +435,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D1 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_d1 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d1', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d1', value)}
                         placeholder="0.00"
                       />
                     </div>
@@ -440,7 +443,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D2 ({lengthUnitLabel}) *</label>
                       <NumericInput
                         value={entry.cone_d2 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d2', value ?? 0)}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d2', value)}
                         placeholder="0.00"
                       />
                     </div>

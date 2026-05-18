@@ -195,11 +195,12 @@ export function DieselSection() {
 
   const handleFieldChange = (field: string, value: any) => {
     const updates: any = { [field]: value };
+    const hasNumericValue = value !== null && value !== undefined && value !== '';
 
     // If reading_inches changes, recalculate gallons
     if (field === 'reading_inches' && diesel.calibration_table) {
       const readingNum = typeof value === 'string' ? parseFloat(value) : value;
-      if (!isNaN(readingNum)) {
+      if (hasNumericValue && !isNaN(readingNum)) {
         const calculatedGallons = convertDieselReadingToGallons(readingNum, diesel.calibration_table);
         updates.calculated_gallons = calculatedGallons;
         updates.ending_inventory = calculatedGallons;
@@ -211,19 +212,33 @@ export function DieselSection() {
           calculatedGallons
         );
         updates.consumption_gallons = consumption;
+      } else if (!hasNumericValue) {
+        updates.calculated_gallons = 0;
+        updates.ending_inventory = 0;
+        updates.consumption_gallons = calculateDieselConsumption(
+          diesel.beginning_inventory || 0,
+          diesel.purchases_gallons || 0,
+          0
+        );
       }
     }
 
     // If purchases_gallons changes, recalculate consumption
     if (field === 'purchases_gallons') {
       const purchasesNum = typeof value === 'string' ? parseFloat(value) : value;
-      if (!isNaN(purchasesNum)) {
+      if (hasNumericValue && !isNaN(purchasesNum)) {
         const consumption = calculateDieselConsumption(
           diesel.beginning_inventory || 0,
           purchasesNum,
           diesel.ending_inventory || 0
         );
         updates.consumption_gallons = consumption;
+      } else if (!hasNumericValue) {
+        updates.consumption_gallons = calculateDieselConsumption(
+          diesel.beginning_inventory || 0,
+          0,
+          diesel.ending_inventory || 0
+        );
       }
     }
 
@@ -302,7 +317,7 @@ export function DieselSection() {
   const isValid = () => {
     // Must have reading (can be 0) and photo
     // Note: reading_inches === 0 is VALID, only null/undefined is invalid
-    if (diesel.reading_inches === null || diesel.reading_inches === undefined) {
+    if (diesel.reading_inches === null || diesel.reading_inches === undefined || diesel.reading_inches === '') {
       return false;
     }
     if (!diesel.photo_url) {
@@ -314,7 +329,7 @@ export function DieselSection() {
 
   const isDraft = () => {
     // Has some data but not complete
-    return diesel.reading_inches > 0 || diesel.purchases_gallons > 0;
+    return Number(diesel.reading_inches) > 0 || Number(diesel.purchases_gallons) > 0;
   };
 
   const numericReading = Number(diesel.reading_inches ?? diesel.reading ?? 0) || 0;

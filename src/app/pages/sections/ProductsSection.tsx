@@ -122,28 +122,35 @@ export function ProductsSection() {
 
   const handleFieldChange = (producto: any, field: string, value: any) => {
     const updates: any = { [field]: value };
+    const hasNumericValue = value !== null && value !== undefined && value !== '';
 
     // Calculate quantities based on measure_mode
     if (producto.measure_mode === 'TANK_READING' && field === 'reading_value') {
       // TANK_READING: calculate quantity from reading using calibration table
       const readingNum = typeof value === 'string' ? parseFloat(value) : value;
-      if (!isNaN(readingNum) && producto.calibration_table) {
+      if (hasNumericValue && !isNaN(readingNum) && producto.calibration_table) {
         const calculated = convertProductReadingToQuantity(readingNum, producto.calibration_table);
         updates.calculated_quantity = calculated;
         updates.quantity = calculated;
+      } else if (!hasNumericValue) {
+        updates.calculated_quantity = 0;
+        updates.quantity = null;
       }
     } else if ((producto.measure_mode === 'DRUM' || producto.measure_mode === 'PAIL') && field === 'unit_count') {
       // DRUM/PAIL: calculate total volume = unit_count * unit_volume
       const countNum = typeof value === 'string' ? parseFloat(value) : value;
-      if (!isNaN(countNum) && producto.unit_volume) {
+      if (hasNumericValue && !isNaN(countNum) && producto.unit_volume) {
         const total = countNum * producto.unit_volume;
         updates.total_volume = total;
         updates.quantity = countNum; // Quantity = number of units
+      } else if (!hasNumericValue) {
+        updates.total_volume = 0;
+        updates.quantity = null;
       }
     } else if (producto.measure_mode === 'COUNT' && field === 'quantity') {
       // COUNT: direct quantity
       const quantityNum = typeof value === 'string' ? parseFloat(value) : value;
-      updates.quantity = isNaN(quantityNum) ? 0 : quantityNum;
+      updates.quantity = hasNumericValue && !isNaN(quantityNum) ? quantityNum : null;
     }
 
     updateEntry('productos', producto.id, updates);
@@ -236,7 +243,7 @@ export function ProductsSection() {
 
   const isProductValid = (producto: any) => {
     // Must have quantity > 0 or explicitly = 0
-    if (producto.quantity === null || producto.quantity === undefined) {
+    if (producto.quantity === null || producto.quantity === undefined || producto.quantity === '') {
       return false;
     }
     // If requires photo, must have photo
@@ -247,11 +254,24 @@ export function ProductsSection() {
   };
 
   const isProductComplete = (producto: any) => {
-    return producto.quantity >= 0 && (!producto.requires_photo || producto.photo_url);
+    return (
+      producto.quantity !== null &&
+      producto.quantity !== undefined &&
+      producto.quantity !== '' &&
+      Number(producto.quantity) >= 0 &&
+      (!producto.requires_photo || producto.photo_url)
+    );
   };
 
   const allComplete = productos.every(isProductComplete);
-  const someStarted = productos.some(p => p.quantity > 0 || p.photo_url);
+  const someStarted = productos.some(p =>
+    (
+      p.quantity !== null &&
+      p.quantity !== undefined &&
+      p.quantity !== '' &&
+      Number(p.quantity) > 0
+    ) || p.photo_url
+  );
 
   // ============================================================================
   // GROUP PRODUCTS BY CATEGORY
@@ -309,7 +329,7 @@ export function ProductsSection() {
                 <NumericInput
                   label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
                   value={producto.reading_value ?? ''}
-                  onValueChange={(val) => handleFieldChange(producto, 'reading_value', val || 0)}
+                  onValueChange={(val) => handleFieldChange(producto, 'reading_value', val)}
                   placeholder="0.00"
                   required
                   helpText="Lectura del medidor del tanque"
@@ -336,7 +356,7 @@ export function ProductsSection() {
                 <NumericInput
                   label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
                   value={producto.unit_count ?? ''}
-                  onValueChange={(val) => handleFieldChange(producto, 'unit_count', val || 0)}
+                  onValueChange={(val) => handleFieldChange(producto, 'unit_count', val)}
                   placeholder="0"
                   required
                   helpText={`Número de ${producto.measure_mode === 'DRUM' ? 'tambores' : 'pailas'}`}
@@ -362,7 +382,7 @@ export function ProductsSection() {
               <NumericInput
                 label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
                 value={producto.quantity ?? ''}
-                onValueChange={(val) => handleFieldChange(producto, 'quantity', val || 0)}
+                onValueChange={(val) => handleFieldChange(producto, 'quantity', val)}
                 placeholder="0"
                 required
                 helpText={`Si no hay inventario, ingresa 0`}

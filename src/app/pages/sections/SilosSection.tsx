@@ -230,7 +230,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
     // Auto-calculate available volume based on the configured silo curve.
     if (field === 'reading_value') {
       const readingNum = typeof value === 'string' ? parseFloat(value) : value;
-      const calculatedVolume = hasCalibrationPoints(entry.conversion_table) && !isNaN(readingNum)
+      const calculatedVolume = value !== null && value !== undefined && value !== '' && hasCalibrationPoints(entry.conversion_table) && !isNaN(readingNum)
         ? convertReadingToVolume(readingNum, entry.conversion_table)
         : 0;
       updates.calculated_result_cy = calculatedVolume;
@@ -316,6 +316,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
     return !!(
       entry.reading_value !== null &&
       entry.reading_value !== undefined &&
+      entry.reading_value !== '' &&
       entry.photo_url
     );
   };
@@ -447,8 +448,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     Lectura ({entry.reading_uom || 'nivel'}) *
                   </label>
                   <NumericInput
-                    value={entry.reading_value || 0}
-                    onValueChange={(value) => handleFieldChange(entry.id, 'reading_value', value || 0)}
+                    value={entry.reading_value ?? ''}
+                    onValueChange={(value) => handleFieldChange(entry.id, 'reading_value', value)}
                     placeholder="0.00"
                     className="w-full"
                   />

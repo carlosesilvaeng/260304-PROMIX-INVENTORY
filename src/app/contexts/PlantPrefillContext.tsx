@@ -194,8 +194,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       product_name: null, // To be selected by manager
       product_in_silo: null,
       previous_reading: 0,
-      reading_value: 0, // The actual reading in the configured unit
-      reading: 0,
+      reading_value: null, // The actual reading in the configured unit
+      reading: null,
       calculated_result_cy: 0, // Result in cubic yards (or tons if conversion exists)
       calculated_volume: 0,
       photo_url: null,
@@ -225,16 +225,16 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       // BOX fields — use cajón config dimensions as fallback when plant_aggregates_config has no value
       box_width_ft: agg.box_width_ft || matchingCajon?.ancho || 0,
       box_height_ft: agg.box_height_ft || matchingCajon?.alto || 0,
-      box_length_ft: 0, // To be filled by manager
+      box_length_ft: null, // To be filled by manager
       // CONE fields
-      cone_m1: 0,
-      cone_m2: 0,
-      cone_m3: 0,
-      cone_m4: 0,
-      cone_m5: 0,
-      cone_m6: 0,
-      cone_d1: 0,
-      cone_d2: 0,
+      cone_m1: null,
+      cone_m2: null,
+      cone_m3: null,
+      cone_m4: null,
+      cone_m5: null,
+      cone_m6: null,
+      cone_d1: null,
+      cone_d2: null,
       calculated_volume_cy: 0,
       photo_url: null,
       notes: '',
@@ -262,14 +262,14 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           ? config.calibration_curves?.[aditivo.calibration_curve_name]?.points || null
           : null,
         reading_uom: aditivo.reading_uom || null,
-        reading_value: 0,
-        reading: 0,
+        reading_value: null,
+        reading: null,
         previous_reading: 0,
         calculated_volume: 0,
         calculated_gallons: 0,
         conversion_table: aditivo.conversion_table || null,
         // Manual-specific fields
-        quantity: 0,
+        quantity: null,
         // Common fields
         photo_url: null,
         notes: '',
@@ -291,12 +291,12 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         calibration_table: dieselConfig.calibration_table || null,
         tank_capacity_gallons: Number(dieselConfig.tank_capacity_gallons) || 0,
         // Reading and calculated fields
-        reading_inches: 0, // To be filled by manager
-        reading: 0,
+        reading_inches: null, // To be filled by manager
+        reading: null,
         calculated_gallons: 0, // Calculated from reading_inches using calibration_table
         // Inventory flow: beginning + purchases - ending = consumption
         beginning_inventory: Number(dieselConfig.initial_inventory_gallons) || 0, // Will be updated from previous month
-        purchases_gallons: 0, // To be filled by manager
+        purchases_gallons: null, // To be filled by manager
         ending_inventory: 0, // Equals calculated_gallons from reading
         consumption_gallons: 0, // Calculated: beginning + purchases - ending
         // Common fields
@@ -323,16 +323,16 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         requires_photo: producto.requires_photo ?? false,
         // For TANK_READING mode
         reading_uom: producto.reading_uom || null,
-        reading_value: 0, // To be filled by manager (for TANK_READING)
+        reading_value: null, // To be filled by manager (for TANK_READING)
         calculated_quantity: 0, // Calculated from reading using calibration_table
         calibration_table: producto.calibration_table || null,
         tank_capacity: producto.tank_capacity || null,
         // For DRUM/PAIL mode
-        unit_count: 0, // Number of drums/pails (to be filled by manager)
+        unit_count: null, // Number of drums/pails (to be filled by manager)
         unit_volume: producto.unit_volume || null, // Volume per unit (e.g., 55 gal/drum)
         total_volume: 0, // Calculated: unit_count * unit_volume
         // For COUNT mode
-        quantity: 0, // Direct quantity count (to be filled by manager, MUST be 0 if empty, not null)
+        quantity: null, // Direct quantity count (to be filled by manager)
         // Common fields
         photo_url: null,
         notes: producto.notes || '',
@@ -372,7 +372,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         requires_photo: meter.requires_photo ?? fallbackMeter.requires_photo ?? true,
         // Reading flow: previous reading comes from previous month
         previous_reading: Number(meter.initial_reading ?? fallbackMeter.initial_reading) || 0, // Will be updated from previous month
-        current_reading: 0, // To be filled by manager (MAIN FOCUS)
+        current_reading: null, // To be filled by manager (MAIN FOCUS)
         consumption: 0, // Calculated: current - previous
         // Common fields
         photo_url: null,
@@ -423,8 +423,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       established_amount: establishedAmount,
       currency: 'USD',
       // Manager input fields (EDITABLE)
-      receipts: 0, // Total of receipts in USD
-      cash: 0, // Cash on hand in USD
+      receipts: null, // Total of receipts in USD
+      cash: null, // Cash on hand in USD
       // Calculated fields
       total: 0, // receipts + cash
       difference: establishedAmount, // established - total (positive = short, negative = over)

@@ -307,11 +307,12 @@ export function AdditivesSection() {
     if (!entry) return;
 
     const updates: any = { [field]: value };
+    const hasNumericValue = value !== null && value !== undefined && value !== '';
 
     // If it's a TANK and reading_value changes, recalculate volume
     if (entry.additive_type === 'TANK' && field === 'reading_value' && entry.conversion_table) {
       const readingNum = typeof value === 'string' ? parseFloat(value) : value;
-      if (!isNaN(readingNum)) {
+      if (hasNumericValue && !isNaN(readingNum)) {
         const metrics = getAdditiveTankMetrics({
           ...entry,
           reading_value: readingNum,
@@ -319,13 +320,16 @@ export function AdditivesSection() {
         });
         updates.calculated_volume = metrics.availableVolume;
         updates.calculated_gallons = metrics.availableVolume;
+      } else if (!hasNumericValue) {
+        updates.calculated_volume = 0;
+        updates.calculated_gallons = 0;
       }
     }
 
-    // For MANUAL type, ensure quantity is always a number (0 if empty, not null)
+    // For MANUAL type, keep empty distinct from an explicit 0 while editing.
     if (entry.additive_type === 'MANUAL' && field === 'quantity') {
       const quantityNum = typeof value === 'string' ? parseFloat(value) : value;
-      updates.quantity = isNaN(quantityNum) ? 0 : quantityNum;
+      updates.quantity = hasNumericValue && !isNaN(quantityNum) ? quantityNum : null;
     }
 
     updateEntry('aditivos', entryId, updates);
@@ -425,7 +429,7 @@ export function AdditivesSection() {
   const isValid = () => {
     // All tanks must have reading and photo
     for (const tank of tankEntries) {
-      if (tank.reading_value === null || tank.reading_value === undefined) {
+      if (tank.reading_value === null || tank.reading_value === undefined || tank.reading_value === '') {
         return false;
       }
       if (tank.requires_photo && !tank.photo_url) {
@@ -435,7 +439,7 @@ export function AdditivesSection() {
 
     // All manual items must have a quantity (can be 0, but must be set)
     for (const manual of manualEntries) {
-      if (manual.quantity === null || manual.quantity === undefined) {
+      if (manual.quantity === null || manual.quantity === undefined || manual.quantity === '') {
         return false;
       }
     }
@@ -538,8 +542,8 @@ export function AdditivesSection() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                     <NumericInput
                       label={`Lectura (${entry.reading_uom || 'inches'})`}
-                      value={entry.reading_value || ''}
-                      onValueChange={(val) => handleFieldChange(entry.id, 'reading_value', val || 0)}
+                      value={entry.reading_value ?? ''}
+                      onValueChange={(val) => handleFieldChange(entry.id, 'reading_value', val)}
                       placeholder="0.00"
                       required
                       helpText="Ingresa la lectura del medidor del tanque"
@@ -682,8 +686,8 @@ export function AdditivesSection() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <NumericInput
                       label={`Cantidad (${entry.uom})`}
-                      value={entry.quantity}
-                      onValueChange={(val) => handleFieldChange(entry.id, 'quantity', val !== null ? val : 0)}
+                      value={entry.quantity ?? ''}
+                      onValueChange={(val) => handleFieldChange(entry.id, 'quantity', val)}
                       placeholder="0"
                       required
                       helpText="Ingresa la cantidad disponible. Si no hay, ingresa 0."

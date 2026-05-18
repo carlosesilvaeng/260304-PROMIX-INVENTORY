@@ -178,11 +178,11 @@ export function PettyCashSection() {
 
   const isComplete = () => {
     // Must have receipts >= 0 (can be 0)
-    if (pettyCash.receipts === null || pettyCash.receipts === undefined || pettyCash.receipts < 0) {
+    if (pettyCash.receipts === null || pettyCash.receipts === undefined || pettyCash.receipts === '' || pettyCash.receipts < 0) {
       return false;
     }
     // Must have cash >= 0 (can be 0)
-    if (pettyCash.cash === null || pettyCash.cash === undefined || pettyCash.cash < 0) {
+    if (pettyCash.cash === null || pettyCash.cash === undefined || pettyCash.cash === '' || pettyCash.cash < 0) {
       return false;
     }
     // Must have photo
@@ -276,8 +276,8 @@ export function PettyCashSection() {
             <div>
               <NumericInput
                 label="Recibos ($)"
-                value={pettyCash.receipts || ''}
-                onValueChange={(val) => handleFieldChange('receipts', val || 0)}
+                value={pettyCash.receipts ?? ''}
+                onValueChange={(val) => handleFieldChange('receipts', val)}
                 placeholder="0.00"
                 required
                 helpText="Suma total de recibos/gastos"
@@ -287,8 +287,8 @@ export function PettyCashSection() {
             <div>
               <NumericInput
                 label="Efectivo en Caja ($)"
-                value={pettyCash.cash || ''}
-                onValueChange={(val) => handleFieldChange('cash', val || 0)}
+                value={pettyCash.cash ?? ''}
+                onValueChange={(val) => handleFieldChange('cash', val)}
                 placeholder="0.00"
                 required
                 helpText="Efectivo físico disponible"

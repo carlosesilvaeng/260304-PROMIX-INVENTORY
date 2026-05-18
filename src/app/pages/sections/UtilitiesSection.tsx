@@ -108,12 +108,14 @@ export function UtilitiesSection() {
     // If current_reading changes, recalculate consumption
     if (field === 'current_reading') {
       const currentNum = typeof value === 'string' ? parseFloat(value) : value;
-      if (!isNaN(currentNum)) {
+      if (value !== null && value !== undefined && value !== '' && !isNaN(currentNum)) {
         const consumption = calculateUtilityConsumption(
           currentNum,
           utility.previous_reading || 0
         );
         updates.consumption = consumption;
+      } else {
+        updates.consumption = 0;
       }
     }
 
@@ -279,8 +281,8 @@ export function UtilitiesSection() {
               </label>
               <div className="relative">
                 <NumericInput
-                  value={utility.current_reading || ''}
-                  onValueChange={(val) => handleFieldChange(utility, 'current_reading', val || 0)}
+                  value={utility.current_reading ?? ''}
+                  onValueChange={(val) => handleFieldChange(utility, 'current_reading', val)}
                   placeholder="Ingresa lectura..."
                   required
                   className="border-4 border-[#2475C7] bg-white text-xl font-bold h-[50px] focus:ring-4 focus:ring-[#2475C7]/30 focus:border-[#2475C7]"
