@@ -8,7 +8,17 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileSpreadsheet, Upload } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Upload } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
@@ -865,6 +875,299 @@ function formatCurvePointSummary(points: CurvePointPayload[]) {
   return `${sorted.length} puntos · ${first} → ${last}`;
 }
 
+const curveStatusPalette = [
+  { bg: 'rgba(239, 68, 68, 0.08)', color: '#B91C1C' },
+  { bg: 'rgba(245, 158, 11, 0.08)', color: '#B45309' },
+  { bg: 'rgba(16, 185, 129, 0.10)', color: '#047857' },
+  { bg: 'rgba(34, 197, 94, 0.09)', color: '#15803D' },
+  { bg: 'rgba(74, 222, 128, 0.09)', color: '#166534' },
+  { bg: 'rgba(59, 130, 246, 0.08)', color: '#1D4ED8' },
+];
+
+type CurveChartPoint = {
+  level: number;
+  available: number;
+  consumed: number | null;
+  percentage: number | null;
+  status: string;
+};
+
+type CurveStatusInterval = {
+  status: string;
+  minX: number;
+  maxX: number;
+  displayMin: number;
+  displayMax: number;
+  pctMin: number | null;
+  pctMax: number | null;
+  color: string;
+  bg: string;
+};
+
+function formatChartNumber(value: number | null | undefined, maximumFractionDigits = 2) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+  return value.toLocaleString('es-DO', { maximumFractionDigits });
+}
+
+function normalizePercentage(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null;
+  return value > 0 && value <= 1 ? value * 100 : value;
+}
+
+function buildCurveChartPoints(item: CalibrationCurveCatalogItem): CurveChartPoint[] {
+  const sourcePoints: CalibrationCurveCatalogItem['points'] = item.points?.length
+    ? item.points
+    : Object.entries(item.data_points || {}).map(([key, value]) => ({
+        point_key: Number(key),
+        point_value: Number(value),
+        available_gallons: Number(value),
+        consumed_gallons: null,
+        percentage: null,
+        status: null,
+      }));
+
+  return sourcePoints
+    .map((point) => {
+      const level = Number(point.point_key);
+      const available = Number(point.available_gallons ?? point.point_value);
+      if (!Number.isFinite(level) || !Number.isFinite(available)) return null;
+      const consumed = point.consumed_gallons === null || point.consumed_gallons === undefined
+        ? null
+        : Number(point.consumed_gallons);
+      const percentage = point.percentage === null || point.percentage === undefined
+        ? null
+        : normalizePercentage(Number(point.percentage));
+
+      return {
+        level,
+        available,
+        consumed: consumed !== null && Number.isFinite(consumed) ? consumed : null,
+        percentage: percentage !== null && Number.isFinite(percentage) ? percentage : null,
+        status: point.status?.trim() || 'N/A',
+      };
+    })
+    .filter((point): point is CurveChartPoint => point !== null)
+    .sort((left, right) => left.level - right.level);
+}
+
+function buildStatusIntervals(points: CurveChartPoint[]): CurveStatusInterval[] {
+  if (points.length === 0) return [];
+
+  const blocks: Array<{ status: string; startIdx: number; endIdx: number }> = [];
+  let currentBlock: { status: string; startIdx: number; endIdx: number } | null = null;
+
+  points.forEach((point, index) => {
+    if (!currentBlock) {
+      currentBlock = { status: point.status, startIdx: index, endIdx: index };
+      return;
+    }
+    if (currentBlock.status === point.status) {
+      currentBlock.endIdx = index;
+      return;
+    }
+    blocks.push(currentBlock);
+    currentBlock = { status: point.status, startIdx: index, endIdx: index };
+  });
+
+  if (currentBlock) blocks.push(currentBlock);
+
+  return blocks.map((block, index) => {
+    const previous = blocks[index - 1];
+    const next = blocks[index + 1];
+    const firstPoint = points[block.startIdx];
+    const lastPoint = points[block.endIdx];
+    const colorConfig = curveStatusPalette[Math.min(index, curveStatusPalette.length - 1)];
+
+    return {
+      status: block.status,
+      minX: previous ? (points[previous.endIdx].level + firstPoint.level) / 2 : firstPoint.level,
+      maxX: next ? (lastPoint.level + points[next.startIdx].level) / 2 : lastPoint.level,
+      displayMin: firstPoint.level,
+      displayMax: lastPoint.level,
+      pctMin: firstPoint.percentage,
+      pctMax: lastPoint.percentage,
+      color: colorConfig.color,
+      bg: colorConfig.bg,
+    };
+  });
+}
+
+function CalibrationCurveVisualizationModal({
+  curve,
+  onClose,
+}: {
+  curve: CalibrationCurveCatalogItem | null;
+  onClose: () => void;
+}) {
+  const chartPoints = useMemo(() => (curve ? buildCurveChartPoints(curve) : []), [curve]);
+  const statusIntervals = useMemo(() => buildStatusIntervals(chartPoints), [chartPoints]);
+  const levels = chartPoints.map((point) => point.level);
+  const availableVolumes = chartPoints.map((point) => point.available);
+  const minLevel = levels.length ? Math.min(...levels) : 0;
+  const maxLevel = levels.length ? Math.max(...levels) : 0;
+  const minVolume = availableVolumes.length ? Math.min(...availableVolumes) : 0;
+  const maxVolume = availableVolumes.length ? Math.max(...availableVolumes) : 0;
+  const yMax = maxVolume > 0 ? maxVolume : 1;
+
+  return (
+    <Modal
+      isOpen={Boolean(curve)}
+      onClose={onClose}
+      title={curve ? `Curva de Calibración: ${curve.curve_name}` : 'Curva de Calibración'}
+      size="2xl"
+    >
+      {!curve || chartPoints.length === 0 ? (
+        <div className="rounded-lg border border-[#D4D8DD] bg-[#F8FAFC] p-8 text-center text-sm text-[#5F6773]">
+          Esta curva no tiene puntos suficientes para visualizar.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-[#D4D8DD] bg-white shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
+            <aside className="space-y-6 bg-[#0F172A] p-6 text-[#F8FAFC]">
+              <div>
+                <h3 className="text-xl font-semibold leading-tight text-[#38BDF8]">{curve.curve_name}</h3>
+                <p className="mt-1 text-sm text-[#94A3B8]">Auditoría e índices operativos</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-lg border-l-4 border-[#38BDF8] bg-[#1E293B] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Rango de nivel</p>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="text-sm text-[#CBD5E1]">Nivel máximo</span>
+                      <span className="text-2xl font-semibold text-white">{formatChartNumber(maxLevel)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="text-sm text-[#CBD5E1]">Nivel mínimo</span>
+                      <span className="text-2xl font-semibold text-white">{formatChartNumber(minLevel)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border-l-4 border-[#10B981] bg-[#1E293B] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Capacidad de volumen</p>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="text-sm text-[#CBD5E1]">Vol. máximo detectado</span>
+                      <span className="text-2xl font-semibold text-white">{formatChartNumber(maxVolume)} Gal</span>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="text-sm text-[#CBD5E1]">Vol. mínimo detectado</span>
+                      <span className="text-2xl font-semibold text-white">{formatChartNumber(minVolume)} Gal</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="border-b border-[#334155] pb-2 text-sm font-semibold text-[#E2E8F0]">
+                  Secuencia de status detectada
+                </p>
+                <div className="mt-4 space-y-4">
+                  {[...statusIntervals].reverse().map((interval, index) => (
+                    <div key={`${interval.status}-${index}`} className="flex items-start gap-3">
+                      <span
+                        className="mt-1 h-3 w-3 flex-none rounded-full"
+                        style={{ backgroundColor: interval.color }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#F1F5F9]">{interval.status}</p>
+                        <p className="text-xs text-[#94A3B8]">
+                          Nivel: {formatChartNumber(interval.displayMin)} → {formatChartNumber(interval.displayMax)}
+                        </p>
+                        <p className="text-xs text-[#94A3B8]">
+                          Porcentaje: {formatChartNumber(interval.pctMin, 1)}% → {formatChartNumber(interval.pctMax, 1)}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+
+            <section className="min-w-0 bg-white p-6">
+              <div>
+                <h3 className="text-2xl font-semibold leading-tight text-[#0F172A]">
+                  Curva de Calibración: {curve.curve_name}
+                </h3>
+                <p className="mt-1 text-sm text-[#64748B]">
+                  Monitoreo de comportamiento estructural de volumen y alertas de almacenamiento.
+                </p>
+              </div>
+
+              <div className="mt-6 h-[560px] rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartPoints} margin={{ top: 18, right: 24, bottom: 24, left: 24 }}>
+                    <CartesianGrid stroke="rgba(226, 232, 240, 0.9)" />
+                    {statusIntervals.map((interval, index) => (
+                      <ReferenceArea
+                        key={`${interval.status}-${index}`}
+                        x1={interval.minX}
+                        x2={interval.maxX}
+                        y1={0}
+                        y2={yMax}
+                        fill={interval.bg}
+                        strokeOpacity={0}
+                        label={{
+                          value: interval.status,
+                          position: 'insideTop',
+                          fill: interval.color,
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                      />
+                    ))}
+                    <XAxis
+                      type="number"
+                      dataKey="level"
+                      domain={[minLevel, maxLevel]}
+                      tickLine={false}
+                      axisLine={{ stroke: '#CBD5E1' }}
+                      label={{ value: 'Nivel', position: 'insideBottom', offset: -14, fill: '#475569', fontWeight: 600 }}
+                    />
+                    <YAxis
+                      type="number"
+                      domain={[0, yMax]}
+                      tickLine={false}
+                      axisLine={{ stroke: '#CBD5E1' }}
+                      label={{ value: 'Volumen Disponible (Galones)', angle: -90, position: 'insideLeft', fill: '#475569', fontWeight: 600 }}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: '#94A3B8', strokeDasharray: '4 4' }}
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const point = payload[0].payload as CurveChartPoint;
+                        return (
+                          <div className="rounded-lg bg-[#0F172A] px-3 py-2 text-xs text-[#F8FAFC] shadow-xl">
+                            <p className="font-semibold text-[#38BDF8]">Nivel: {formatChartNumber(point.level)}</p>
+                            <p>Vol. disponible: {formatChartNumber(point.available)} Gal</p>
+                            <p>Vol. consumido: {formatChartNumber(point.consumed)} Gal</p>
+                            <p>Porcentaje: {formatChartNumber(point.percentage, 2)}%</p>
+                            <p>Status: {point.status}</p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="available"
+                      stroke="#0F172A"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#0F172A', stroke: '#FFFFFF', strokeWidth: 1 }}
+                      activeDot={{ r: 6 }}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function CurvePointsEditor({
   points,
   onChange,
@@ -995,6 +1298,7 @@ function CalibrationCurvesTable({
   const [newReadingUom, setNewReadingUom] = useState('');
   const [newPoints, setNewPoints] = useState<EditableCurvePoint[]>([createEditableCurvePoint({ point_key: 0, point_value: 0 })]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [visualizingCurve, setVisualizingCurve] = useState<CalibrationCurveCatalogItem | null>(null);
   const [saving, setSaving] = useState(false);
 
   const startEdit = (item: CalibrationCurveCatalogItem) => {
@@ -1203,6 +1507,14 @@ function CalibrationCurvesTable({
                           <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
                             ✏️
                           </Button>
+                          <button
+                            type="button"
+                            onClick={() => setVisualizingCurve(item)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded text-[#2475C7] transition-colors hover:bg-[#EEF4FB]"
+                            title="Visualizar curva"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
                           <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
                             🗑️
                           </Button>
@@ -1248,6 +1560,10 @@ function CalibrationCurvesTable({
           </div>
         </>
       )}
+      <CalibrationCurveVisualizationModal
+        curve={visualizingCurve}
+        onClose={() => setVisualizingCurve(null)}
+      />
     </Card>
   );
 }
