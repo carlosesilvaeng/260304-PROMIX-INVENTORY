@@ -236,6 +236,7 @@ export function DieselConfigModal({
 }) {
   const [form, setForm] = useState<DieselConfigForm>(createEmptyForm());
   const [loading, setLoading] = useState(true);
+  const [dieselLoadError, setDieselLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -253,6 +254,8 @@ export function DieselConfigModal({
 
   useEffect(() => {
     setLoading(true);
+    setDieselLoadError(null);
+    setError(null);
     Promise.all([getPlantDieselConfigEntry(plant.id), getCalibrationCurvesCatalog(plant.id)])
       .then(([response, curvesResponse]) => {
         const curves = (curvesResponse.success ? curvesResponse.data : []) || [];
@@ -262,7 +265,11 @@ export function DieselConfigModal({
         }
 
         if (!response.success) {
-          setError(response.error ?? 'Error cargando diesel');
+          const loadMessage = response.error === 'Unauthorized'
+            ? 'Sesión expirada o sin autorización para cargar la configuración de Diesel. Vuelve a iniciar sesión y abre esta ventana nuevamente.'
+            : response.error ?? 'Error cargando diesel';
+          setDieselLoadError(loadMessage);
+          setError(loadMessage);
           return;
         }
 
@@ -290,7 +297,11 @@ export function DieselConfigModal({
           is_active: response.data.is_active ?? true,
         });
       })
-      .catch(() => setError('Error de conexión cargando diesel'))
+      .catch(() => {
+        const loadMessage = 'Error de conexión cargando diesel';
+        setDieselLoadError(loadMessage);
+        setError(loadMessage);
+      })
       .finally(() => setLoading(false));
   }, [plant.id]);
 
@@ -576,7 +587,7 @@ export function DieselConfigModal({
                   variant="secondary"
                   onClick={handleDownloadBlankTemplate}
                   loading={exportingTemplate}
-                  disabled={loading}
+                  disabled={loading || Boolean(dieselLoadError)}
                   className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
                 >
                   <FileSpreadsheet size={16} aria-hidden="true" />
@@ -586,7 +597,7 @@ export function DieselConfigModal({
                   variant="secondary"
                   onClick={handleDownloadCurrentConfiguration}
                   loading={exportingCurrent}
-                  disabled={loading}
+                  disabled={loading || Boolean(dieselLoadError)}
                   className="border-[#1D6F42] bg-[#EAF7EF] text-[#1D6F42] hover:bg-[#D9F1E2]"
                 >
                   <Download size={16} aria-hidden="true" />
@@ -596,7 +607,7 @@ export function DieselConfigModal({
                   variant="secondary"
                   onClick={handleOpenFilePicker}
                   loading={previewingImport}
-                  disabled={loading}
+                  disabled={loading || Boolean(dieselLoadError)}
                   className="border-[#C97A1E] bg-[#FFF4E8] text-[#9A5A12] hover:bg-[#FDE7CF]"
                 >
                   <Upload size={16} aria-hidden="true" />
@@ -622,6 +633,14 @@ export function DieselConfigModal({
 
             {loading ? (
               <div className="py-8 text-center text-[#5F6773]">Cargando diesel...</div>
+            ) : dieselLoadError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-5">
+                <p className="font-semibold text-red-900">No se pudo cargar la configuración guardada.</p>
+                <p className="mt-2 text-sm text-red-800">
+                  Para proteger la configuración existente, el formulario queda bloqueado hasta que la carga sea exitosa.
+                </p>
+                <p className="mt-3 text-sm text-red-700">{dieselLoadError}</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
@@ -693,7 +712,7 @@ export function DieselConfigModal({
             <Button variant="ghost" onClick={onClose} disabled={saving || deleting || previewingImport || executingImport}>
               Salir
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={loading || deleting || previewingImport || executingImport}>
+            <Button onClick={handleSave} loading={saving} disabled={loading || Boolean(dieselLoadError) || deleting || previewingImport || executingImport}>
               Guardar Configuración
             </Button>
           </div>
