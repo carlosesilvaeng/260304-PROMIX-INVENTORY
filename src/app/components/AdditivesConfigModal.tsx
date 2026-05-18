@@ -56,14 +56,14 @@ function createEmptyRow(): AdditiveConfigRow {
   return {
     catalog_additive_id: null,
     additive_name: '',
-    additive_type: 'MANUAL',
-    measurement_method: 'MANUAL_QUANTITY',
+    additive_type: 'TANK',
+    measurement_method: 'TANK_LEVEL',
     calibration_curve_name: null,
     brand: '',
     uom: '',
-    requires_photo: false,
+    requires_photo: true,
     tank_name: null,
-    reading_uom: null,
+    reading_uom: 'inches',
     conversion_table: {},
     is_active: true,
   };
@@ -71,6 +71,10 @@ function createEmptyRow(): AdditiveConfigRow {
 
 function buildAdditiveLabel(item: AdditiveCatalogItem) {
   return item.marca?.trim() ? `${item.nombre} — ${item.marca}` : item.nombre;
+}
+
+function isTankLevelCurve(curve: CalibrationCurveItem) {
+  return String(curve.measurement_type || '').trim().toUpperCase() === 'TANK_LEVEL';
 }
 
 function getCurvePreviewPoints(curve: CalibrationCurveItem | null | undefined) {
@@ -179,8 +183,9 @@ export function AdditivesConfigModal({
         const catalogByName = new Map(
           catalogData.map((item: AdditiveCatalogItem) => [item.nombre.trim().toUpperCase(), item])
         );
+        const tankCurveData = curveData.filter(isTankLevelCurve);
         const curvesByName = new Map(
-          curveData.map((item: CalibrationCurveItem) => [item.curve_name.trim().toUpperCase(), item])
+          tankCurveData.map((item: CalibrationCurveItem) => [item.curve_name.trim().toUpperCase(), item])
         );
 
         const loadedRows = (configResponse.data ?? []).map((entry: any) => {
@@ -196,13 +201,13 @@ export function AdditivesConfigModal({
             id: entry.id,
             catalog_additive_id: entry.catalog_additive_id || matchedCatalog?.id || null,
             additive_name: entry.additive_name || matchedCatalog?.nombre || '',
-            additive_type: String(entry.additive_type || 'MANUAL').toUpperCase() as AdditiveType,
-            measurement_method: entry.measurement_method || 'MANUAL_QUANTITY',
-            calibration_curve_name: entry.calibration_curve_name || null,
+            additive_type: 'TANK',
+            measurement_method: 'TANK_LEVEL',
+            calibration_curve_name: matchedCurve ? entry.calibration_curve_name || null : null,
             brand: entry.brand || matchedCatalog?.marca || '',
             uom: entry.uom || matchedCatalog?.uom || '',
-            requires_photo: entry.requires_photo ?? false,
-            tank_name: entry.tank_name || null,
+            requires_photo: entry.requires_photo ?? true,
+            tank_name: entry.tank_name || '',
             reading_uom: entry.reading_uom || matchedCurve?.reading_uom || null,
             conversion_table: entry.conversion_table || matchedCurve?.data_points || {},
             is_active: entry.is_active ?? true,
@@ -232,26 +237,15 @@ export function AdditivesConfigModal({
     updateRow(index, {
       catalog_additive_id: selected?.id || null,
       additive_name: selected?.nombre || '',
+      additive_type: 'TANK',
+      measurement_method: 'TANK_LEVEL',
       brand: selected?.marca || '',
       uom: selected?.uom || '',
     });
   };
 
-  const handleTypeChange = (index: number, nextType: AdditiveType) => {
-    const currentRow = rows[index];
-    updateRow(index, {
-      additive_type: nextType,
-      measurement_method: nextType === 'TANK' ? 'TANK_LEVEL' : 'MANUAL_QUANTITY',
-      requires_photo: nextType === 'TANK',
-      tank_name: nextType === 'TANK' ? currentRow.tank_name || '' : null,
-      reading_uom: nextType === 'TANK' ? currentRow.reading_uom || 'inches' : null,
-      calibration_curve_name: nextType === 'TANK' ? currentRow.calibration_curve_name || null : null,
-      conversion_table: nextType === 'TANK' ? currentRow.conversion_table || {} : {},
-    });
-  };
-
   const handleCurveChange = (index: number, curveName: string) => {
-    const selectedCurve = curveItems.find((curve) => curve.curve_name === curveName);
+    const selectedCurve = tankCurveItems.find((curve) => curve.curve_name === curveName);
 
     updateRow(index, {
       calibration_curve_name: curveName || null,
@@ -268,9 +262,10 @@ export function AdditivesConfigModal({
     })),
   ];
 
+  const tankCurveItems = curveItems.filter(isTankLevelCurve);
   const curveOptions = [
     { value: '', label: '-- Selecciona una curva --' },
-    ...curveItems.map((curve) => ({
+    ...tankCurveItems.map((curve) => ({
       value: curve.curve_name,
       label: curve.curve_name,
     })),
@@ -304,7 +299,7 @@ export function AdditivesConfigModal({
           return `${label}: debes seleccionar una curva de conversión`;
         }
 
-        if (!curveItems.some((curve) => curve.curve_name === row.calibration_curve_name)) {
+        if (!tankCurveItems.some((curve) => curve.curve_name === row.calibration_curve_name)) {
           return `${label}: la curva seleccionada ya no existe en esta planta`;
         }
 
@@ -312,7 +307,7 @@ export function AdditivesConfigModal({
           return `${label}: la unidad de lectura es requerida`;
         }
 
-        const selectedCurve = curveItems.find((curve) => curve.curve_name === row.calibration_curve_name);
+        const selectedCurve = tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name);
         if (!selectedCurve || Object.keys(selectedCurve.data_points || {}).length === 0) {
           return `${label}: la curva seleccionada no tiene puntos de conversión`;
         }
@@ -337,17 +332,15 @@ export function AdditivesConfigModal({
         ...(row.id ? { id: row.id } : {}),
         catalog_additive_id: row.catalog_additive_id || null,
         additive_name: row.additive_name.trim(),
-        additive_type: row.additive_type,
-        measurement_method: row.measurement_method,
-        calibration_curve_name: row.additive_type === 'TANK' ? row.calibration_curve_name || null : null,
+        additive_type: 'TANK',
+        measurement_method: 'TANK_LEVEL',
+        calibration_curve_name: row.calibration_curve_name || null,
         brand: row.brand.trim(),
         uom: row.uom.trim(),
         requires_photo: row.requires_photo,
-        tank_name: row.additive_type === 'TANK' ? row.tank_name?.trim() || null : null,
-        reading_uom: row.additive_type === 'TANK' ? row.reading_uom?.trim() || null : null,
-        conversion_table: row.additive_type === 'TANK'
-          ? curveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.conversion_table
-          : null,
+        tank_name: row.tank_name?.trim() || null,
+        reading_uom: row.reading_uom?.trim() || null,
+        conversion_table: tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.conversion_table,
         sort_order: index,
         is_active: row.is_active,
       }));
@@ -391,9 +384,9 @@ export function AdditivesConfigModal({
             </div>
           )}
 
-          {!loading && curveItems.length === 0 && (
+          {!loading && tankCurveItems.length === 0 && (
             <div className="mb-4">
-              <Alert type="warning" message="No hay curvas de conversión para esta planta. Los aditivos tipo tanque requieren una curva creada en Catálogos." />
+              <Alert type="warning" message="No hay curvas de conversión tipo TANK_LEVEL para esta planta. Los aditivos requieren una curva de tanque creada en Catálogos." />
             </div>
           )}
 
@@ -435,14 +428,10 @@ export function AdditivesConfigModal({
                         required
                         helperText="Nombre, marca y unidad salen del catálogo."
                       />
-                      <Select
+                      <Input
                         label="Tipo"
-                        value={row.additive_type}
-                        onChange={(e) => handleTypeChange(index, e.target.value as AdditiveType)}
-                        options={[
-                          { value: 'TANK', label: 'Tanque' },
-                          { value: 'MANUAL', label: 'Manual' },
-                        ]}
+                        value="Tanque"
+                        disabled
                       />
                       <Input
                         label="Marca"
@@ -470,9 +459,8 @@ export function AdditivesConfigModal({
                       </label>
                       <Input
                         label="Método"
-                        value={row.measurement_method}
-                        onChange={(e) => updateRow(index, { measurement_method: e.target.value })}
-                        placeholder="Ej: TANK_LEVEL"
+                        value="TANK_LEVEL"
+                        disabled
                         required
                       />
                       <Input
@@ -483,37 +471,35 @@ export function AdditivesConfigModal({
                       />
                     </div>
 
-                    {row.additive_type === 'TANK' && (
-                      <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                          <Input
-                            label="Nombre del tanque"
-                            value={row.tank_name || ''}
-                            onChange={(e) => updateRow(index, { tank_name: e.target.value })}
-                            placeholder="Ej: Tanque WR200"
-                            required
-                          />
-                          <Select
-                            label="Curva de conversión"
-                            value={row.calibration_curve_name || ''}
-                            onChange={(e) => handleCurveChange(index, e.target.value)}
-                            options={curveOptions}
-                            required
-                            helperText="La tabla y la unidad de lectura salen de esta curva."
-                          />
-                          <Input
-                            label="Unidad de lectura"
-                            value={row.reading_uom || ''}
-                            disabled
-                            placeholder="Se llena desde la curva"
-                            required
-                          />
-                        </div>
-                        <CurvePreviewTable
-                          curve={curveItems.find((curve) => curve.curve_name === row.calibration_curve_name)}
+                    <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <Input
+                          label="Nombre del tanque"
+                          value={row.tank_name || ''}
+                          onChange={(e) => updateRow(index, { tank_name: e.target.value })}
+                          placeholder="Ej: Tanque WR200"
+                          required
+                        />
+                        <Select
+                          label="Curva de conversión"
+                          value={row.calibration_curve_name || ''}
+                          onChange={(e) => handleCurveChange(index, e.target.value)}
+                          options={curveOptions}
+                          required
+                          helperText="La tabla y la unidad de lectura salen de esta curva."
+                        />
+                        <Input
+                          label="Unidad de lectura"
+                          value={row.reading_uom || ''}
+                          disabled
+                          placeholder="Se llena desde la curva"
+                          required
                         />
                       </div>
-                    )}
+                      <CurvePreviewTable
+                        curve={tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name)}
+                      />
+                    </div>
                   </div>
                 ))
               )}
