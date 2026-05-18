@@ -68,9 +68,15 @@ function stringifyTable(value: Record<string, number> | null | undefined) {
   return JSON.stringify(value, null, 2);
 }
 
-function getCurvePreviewPoints(curve: CalibrationCurveCatalogItem | null | undefined, fallbackText?: string) {
+function getDieselCalibrationPoints(curve: CalibrationCurveCatalogItem | null | undefined, fallbackText?: string) {
   if (curve?.points?.length) {
-    return [...curve.points].sort((left, right) => left.point_key - right.point_key);
+    return [...curve.points]
+      .map((point) => ({
+        depth_inches: Number(point.point_key),
+        volume_gallons: Number(point.available_gallons ?? point.point_value),
+      }))
+      .filter((point) => Number.isFinite(point.depth_inches) && Number.isFinite(point.volume_gallons))
+      .sort((left, right) => left.depth_inches - right.depth_inches);
   }
 
   const dataPoints = curve?.data_points || (() => {
@@ -82,26 +88,27 @@ function getCurvePreviewPoints(curve: CalibrationCurveCatalogItem | null | undef
   })();
 
   return Object.entries(dataPoints || {})
-    .map(([point_key, point_value]) => ({
-      point_key: Number(point_key),
-      point_value: Number(point_value),
-      available_gallons: Number(point_value),
-      consumed_gallons: null,
-      percentage: null,
-      status: null,
+    .map(([depth_inches, volume_gallons]) => ({
+      depth_inches: Number(depth_inches),
+      volume_gallons: Number(volume_gallons),
     }))
-    .filter((point) => Number.isFinite(point.point_key) && Number.isFinite(point.point_value))
-    .sort((left, right) => left.point_key - right.point_key);
+    .filter((point) => Number.isFinite(point.depth_inches) && Number.isFinite(point.volume_gallons))
+    .sort((left, right) => left.depth_inches - right.depth_inches);
 }
 
-function CurvePreviewTable({
+function DieselCalibrationTable({
   curve,
   fallbackText,
+  tankCapacityGallons,
 }: {
   curve: CalibrationCurveCatalogItem | null | undefined;
   fallbackText?: string;
+  tankCapacityGallons?: string;
 }) {
-  const points = getCurvePreviewPoints(curve, fallbackText);
+  const points = getDieselCalibrationPoints(curve, fallbackText);
+  const firstPoint = points[0] || null;
+  const lastPoint = points[points.length - 1] || null;
+  const maxVolume = points.reduce((maxValue, point) => Math.max(maxValue, point.volume_gallons), 0);
 
   if (!curve && points.length === 0) {
     return (
@@ -113,38 +120,49 @@ function CurvePreviewTable({
 
   return (
     <div className="overflow-hidden rounded border border-[#D7D9DE] bg-white">
-      <div className="flex items-center justify-between border-b border-[#E4E4E4] px-3 py-2">
-        <span className="text-sm font-medium text-[#3B3A36]">Tabla de calibración</span>
-        <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
-          {points.length} punto{points.length === 1 ? '' : 's'}
-        </span>
+      <div className="flex flex-col gap-2 border-b border-[#E4E4E4] px-3 py-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <span className="text-sm font-medium text-[#3B3A36]">Tabla técnica de diesel</span>
+          <p className="mt-1 text-xs text-[#5F6773]">
+            {curve ? `Sincronizada desde curva: ${curve.curve_name}` : 'Cargada directamente en la configuración de diesel'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+            {points.length} punto{points.length === 1 ? '' : 's'}
+          </span>
+          {lastPoint && (
+            <span className="rounded-full bg-[#EAF7EF] px-2 py-1 text-xs font-medium text-[#1D6F42]">
+              {firstPoint?.depth_inches ?? 0} a {lastPoint.depth_inches} in
+            </span>
+          )}
+          {maxVolume > 0 && (
+            <span className="rounded-full bg-[#FFF4E8] px-2 py-1 text-xs font-medium text-[#9A5A12]">
+              máx. {maxVolume.toLocaleString()} GAL
+            </span>
+          )}
+        </div>
       </div>
       <div className="max-h-64 overflow-auto">
-        <table className="w-full min-w-[680px]">
+        <table className="w-full min-w-[360px]">
           <thead className="bg-[#F2F3F5]">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Nivel</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones disponibles</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones consumidos</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">%</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Status</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">PROF. H (in)</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">VOL. (GAL)</th>
             </tr>
           </thead>
           <tbody>
             {points.map((point) => (
-              <tr key={`${point.point_key}-${point.point_value}`} className="border-t border-[#F2F3F5]">
-                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.point_key}</td>
-                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.available_gallons ?? point.point_value}</td>
-                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.consumed_gallons ?? '—'}</td>
-                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.percentage ?? '—'}</td>
-                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.status || '—'}</td>
+              <tr key={`${point.depth_inches}-${point.volume_gallons}`} className="border-t border-[#F2F3F5]">
+                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.depth_inches}</td>
+                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.volume_gallons.toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="border-t border-[#E4E4E4] px-3 py-2 text-xs text-[#5F6773]">
-        Estos puntos vienen de la tabla técnica guardada para diesel o de la curva seleccionada.
+        Capacidad configurada: {(Number(tankCapacityGallons) || 0).toLocaleString()} GAL. La captura de inventario interpola el volumen usando esta tabla.
       </p>
     </div>
   );
@@ -620,14 +638,14 @@ export function DieselConfigModal({
                     label="Método"
                     value="TANK_LEVEL"
                     disabled
-                    helperText="Método fijo para diesel con curva de calibración."
+                    helperText="Método fijo para diesel con tabla técnica de nivel a volumen."
                     required
                   />
                   <Input
                     label="Unidad de lectura"
                     value={form.reading_uom}
                     disabled
-                    placeholder="Se llena desde la curva"
+                    placeholder="Guardada en la configuración"
                     required
                   />
                   <Input
@@ -662,7 +680,11 @@ export function DieselConfigModal({
                   </label>
                 </div>
 
-                <CurvePreviewTable curve={selectedCurve} fallbackText={form.calibration_table_text} />
+                <DieselCalibrationTable
+                  curve={selectedCurve}
+                  fallbackText={form.calibration_table_text}
+                  tankCapacityGallons={form.tank_capacity_gallons}
+                />
               </div>
             )}
           </div>

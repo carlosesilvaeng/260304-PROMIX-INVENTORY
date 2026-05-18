@@ -1,3 +1,4 @@
+import * as ExcelJS from 'exceljs';
 import type { Plant } from '../contexts/AuthContext';
 
 export const DIESEL_IMPORT_TEMPLATE_VERSION = '2.0';
@@ -134,7 +135,6 @@ export async function downloadDieselImportWorkbook(options: {
   rows: DieselImportWorkbookRow[];
   templateType: 'blank' | 'current_config';
 }) {
-  const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'PROMIX Plant Inventory';
   workbook.created = new Date();
