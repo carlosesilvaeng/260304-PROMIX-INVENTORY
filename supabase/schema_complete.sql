@@ -49,7 +49,6 @@ CREATE TABLE IF NOT EXISTS plants (
   location TEXT,
   has_cone_measurement BOOLEAN NOT NULL DEFAULT true,
   has_cajon_measurement BOOLEAN NOT NULL DEFAULT true,
-  layout_image_url TEXT,
   petty_cash_established NUMERIC(12,2) NOT NULL DEFAULT 0,
   cajones JSONB NOT NULL DEFAULT '[]'::jsonb,
   silos JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -131,10 +130,6 @@ CREATE TABLE IF NOT EXISTS calibration_curve_points (
   curve_id TEXT NOT NULL REFERENCES calibration_curves(id) ON DELETE CASCADE,
   point_key NUMERIC NOT NULL,
   point_value NUMERIC NOT NULL,
-  available_gallons NUMERIC,
-  consumed_gallons NUMERIC,
-  percentage NUMERIC,
-  status TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (curve_id, point_key)
@@ -163,8 +158,6 @@ CREATE TABLE IF NOT EXISTS plant_silos_config (
   silo_name TEXT NOT NULL,
   measurement_method TEXT NOT NULL,
   calibration_curve_name TEXT,
-  reading_uom TEXT,
-  conversion_table JSONB,
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -239,6 +232,7 @@ CREATE TABLE IF NOT EXISTS plant_products_config (
   category TEXT NOT NULL DEFAULT 'OTHER',
   measure_mode TEXT NOT NULL DEFAULT 'COUNT',
   requires_photo BOOLEAN NOT NULL DEFAULT false,
+  calibration_curve_name TEXT,
   reading_uom TEXT,
   calibration_table JSONB,
   tank_capacity NUMERIC(12,2),
@@ -677,7 +671,7 @@ BEGIN
       IF jsonb_array_length(v_rows) > 0 THEN
         INSERT INTO public.plant_products_config (
           id, plant_id, product_name, unit, category, measure_mode, requires_photo,
-          reading_uom, calibration_table, tank_capacity, unit_volume, notes, sort_order, is_active
+          calibration_curve_name, reading_uom, calibration_table, tank_capacity, unit_volume, notes, sort_order, is_active
         )
         SELECT
           COALESCE(row_data.id, gen_random_uuid()::text),
@@ -687,6 +681,7 @@ BEGIN
           COALESCE(row_data.category, 'OTHER'),
           COALESCE(row_data.measure_mode, 'COUNT'),
           COALESCE(row_data.requires_photo, false),
+          row_data.calibration_curve_name,
           row_data.reading_uom,
           row_data.calibration_table,
           row_data.tank_capacity,
@@ -702,6 +697,7 @@ BEGIN
           category text,
           measure_mode text,
           requires_photo boolean,
+          calibration_curve_name text,
           reading_uom text,
           calibration_table jsonb,
           tank_capacity numeric,
@@ -753,8 +749,7 @@ BEGIN
 
   IF jsonb_array_length(v_silos) > 0 THEN
     INSERT INTO public.plant_silos_config (
-      id, plant_id, silo_name, measurement_method, calibration_curve_name, reading_uom,
-      conversion_table, sort_order, is_active
+      id, plant_id, silo_name, measurement_method, calibration_curve_name, sort_order, is_active
     )
     SELECT
       COALESCE(row_data.id, gen_random_uuid()::text),
@@ -762,8 +757,6 @@ BEGIN
       row_data.silo_name,
       row_data.measurement_method,
       row_data.calibration_curve_name,
-      row_data.reading_uom,
-      row_data.conversion_table,
       COALESCE(row_data.sort_order, 0),
       COALESCE(row_data.is_active, true)
     FROM jsonb_to_recordset(v_silos) AS row_data(
@@ -772,8 +765,6 @@ BEGIN
       silo_name text,
       measurement_method text,
       calibration_curve_name text,
-      reading_uom text,
-      conversion_table jsonb,
       sort_order integer,
       is_active boolean
     );
@@ -1092,8 +1083,7 @@ BEGIN
 
   IF jsonb_array_length(v_silos) > 0 THEN
     INSERT INTO public.plant_silos_config (
-      id, plant_id, silo_name, measurement_method, calibration_curve_name, reading_uom,
-      conversion_table, sort_order, is_active
+      id, plant_id, silo_name, measurement_method, calibration_curve_name, sort_order, is_active
     )
     SELECT
       COALESCE(row_data.id, gen_random_uuid()::text),
@@ -1101,13 +1091,10 @@ BEGIN
       row_data.silo_name,
       row_data.measurement_method,
       row_data.calibration_curve_name,
-      row_data.reading_uom,
-      row_data.conversion_table,
       COALESCE(row_data.sort_order, 0),
       COALESCE(row_data.is_active, true)
     FROM jsonb_to_recordset(v_silos) AS row_data(
-      id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text,
-      reading_uom text, conversion_table jsonb, sort_order integer, is_active boolean
+      id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text, sort_order integer, is_active boolean
     )
     ON CONFLICT (id) DO UPDATE
     SET
@@ -1115,8 +1102,6 @@ BEGIN
       silo_name = EXCLUDED.silo_name,
       measurement_method = EXCLUDED.measurement_method,
       calibration_curve_name = EXCLUDED.calibration_curve_name,
-      reading_uom = EXCLUDED.reading_uom,
-      conversion_table = EXCLUDED.conversion_table,
       sort_order = EXCLUDED.sort_order,
       is_active = EXCLUDED.is_active;
 
@@ -1124,8 +1109,7 @@ BEGIN
     WHERE silo_config_id IN (
       SELECT row_data.id
       FROM jsonb_to_recordset(v_silos) AS row_data(
-        id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text,
-        reading_uom text, conversion_table jsonb, sort_order integer, is_active boolean
+        id text, plant_id text, silo_name text, measurement_method text, calibration_curve_name text, sort_order integer, is_active boolean
       )
     );
   END IF;
@@ -1226,7 +1210,7 @@ BEGIN
   IF jsonb_array_length(v_products) > 0 THEN
     INSERT INTO public.plant_products_config (
       id, plant_id, product_name, unit, category, measure_mode, requires_photo,
-      reading_uom, calibration_table, tank_capacity, unit_volume, notes, sort_order, is_active
+      calibration_curve_name, reading_uom, calibration_table, tank_capacity, unit_volume, notes, sort_order, is_active
     )
     SELECT
       COALESCE(row_data.id, gen_random_uuid()::text),
@@ -1236,6 +1220,7 @@ BEGIN
       COALESCE(row_data.category, 'OTHER'),
       COALESCE(row_data.measure_mode, 'COUNT'),
       COALESCE(row_data.requires_photo, false),
+      row_data.calibration_curve_name,
       row_data.reading_uom,
       row_data.calibration_table,
       row_data.tank_capacity,
@@ -1245,7 +1230,7 @@ BEGIN
       COALESCE(row_data.is_active, true)
     FROM jsonb_to_recordset(v_products) AS row_data(
       id text, plant_id text, product_name text, unit text, category text, measure_mode text, requires_photo boolean,
-      reading_uom text, calibration_table jsonb, tank_capacity numeric, unit_volume numeric, notes text,
+      calibration_curve_name text, reading_uom text, calibration_table jsonb, tank_capacity numeric, unit_volume numeric, notes text,
       sort_order integer, is_active boolean
     )
     ON CONFLICT (id) DO UPDATE
@@ -1256,6 +1241,7 @@ BEGIN
       category = EXCLUDED.category,
       measure_mode = EXCLUDED.measure_mode,
       requires_photo = EXCLUDED.requires_photo,
+      calibration_curve_name = EXCLUDED.calibration_curve_name,
       reading_uom = EXCLUDED.reading_uom,
       calibration_table = EXCLUDED.calibration_table,
       tank_capacity = EXCLUDED.tank_capacity,

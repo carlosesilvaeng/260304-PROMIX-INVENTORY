@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileSpreadsheet, Upload } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Upload } from 'lucide-react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -7,9 +7,11 @@ import { Modal } from './Modal';
 import { Select } from './Select';
 import {
   executePlantProductsImport,
+  getCalibrationCurvesCatalog,
   getPlantProductsConfigEntries,
   previewPlantProductsImport,
   updatePlantProductsConfigEntries,
+  type CalibrationCurveCatalogItem,
   type ProductsImportPreviewResponse,
 } from '../utils/api';
 import type { Plant } from '../contexts/AuthContext';
@@ -28,8 +30,9 @@ interface ProductConfigRow {
   measure_mode: string;
   uom: string;
   requires_photo: boolean;
+  calibration_curve_name?: string | null;
   reading_uom?: string | null;
-  calibration_table_text: string;
+  calibration_table: Record<string, number> | null;
   tank_capacity: string;
   unit_volume: string;
   notes: string;
@@ -63,8 +66,9 @@ function createEmptyRow(): ProductConfigRow {
     measure_mode: 'COUNT',
     uom: '',
     requires_photo: false,
+    calibration_curve_name: null,
     reading_uom: null,
-    calibration_table_text: '',
+    calibration_table: null,
     tank_capacity: '',
     unit_volume: '',
     notes: '',
@@ -72,145 +76,103 @@ function createEmptyRow(): ProductConfigRow {
   };
 }
 
-function stringifyTable(value: Record<string, number> | null | undefined) {
-  if (!value || Object.keys(value).length === 0) return '';
-  return JSON.stringify(value, null, 2);
+function isTankLevelCurve(curve: CalibrationCurveCatalogItem) {
+  return String(curve.measurement_type || '').trim().toUpperCase() === 'TANK_LEVEL';
 }
 
-function parseCalibrationTableText(value: string) {
-  if (!value.trim()) return [];
-  const parsed = JSON.parse(value) as Record<string, number>;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('La tabla debe tener puntos de lectura');
-  }
-
-  return Object.entries(parsed)
-    .map(([level, amount]) => ({
-      id: `${level}-${amount}`,
-      level: String(level),
-      amount: String(amount),
-    }))
-    .filter((point) => point.level.trim() || point.amount.trim())
-    .sort((left, right) => Number(left.level) - Number(right.level));
+function normalizeCurveName(value: string | null | undefined) {
+  return String(value || '').trim().toUpperCase();
 }
 
-function buildCalibrationTableText(points: Array<{ level: string; amount: string }>) {
-  const normalized = points
-    .map((point, index) => {
-      const level = point.level.trim();
-      const amount = point.amount.trim();
-      if (!level && !amount) return null;
-      if (!level || !amount) {
-        throw new Error(`Completa Nivel y Valor en el punto ${index + 1}`);
-      }
-
-      const numericLevel = Number(level);
-      const numericAmount = Number(amount);
-      if (!Number.isFinite(numericLevel)) {
-        throw new Error(`Nivel inválido en el punto ${index + 1}`);
-      }
-      if (!Number.isFinite(numericAmount)) {
-        throw new Error(`Valor inválido en el punto ${index + 1}`);
-      }
-
-      return { level: numericLevel, amount: numericAmount };
-    })
-    .filter((point): point is { level: number; amount: number } => point !== null)
-    .sort((left, right) => left.level - right.level);
-
-  if (normalized.length === 0) {
-    throw new Error('La tabla de calibración debe tener al menos un punto');
-  }
-
-  for (let index = 1; index < normalized.length; index += 1) {
-    if (normalized[index - 1].level === normalized[index].level) {
-      throw new Error(`Nivel duplicado: ${normalized[index].level}`);
-    }
-  }
-
-  return JSON.stringify(
-    normalized.reduce((acc: Record<string, number>, point) => {
-      acc[String(point.level)] = point.amount;
-      return acc;
-    }, {}),
-  );
+function getCurvePointCount(curve: CalibrationCurveCatalogItem | null | undefined) {
+  return curve?.points?.length || Object.keys(curve?.data_points || {}).length;
 }
 
-function ProductCalibrationTableEditor({
-  value,
-  onChange,
+function findCurveForTable(curves: CalibrationCurveCatalogItem[], table: Record<string, number> | null | undefined) {
+  const normalizedTable = JSON.stringify(table || {});
+  return curves.find((curve) => JSON.stringify(curve.data_points || {}) === normalizedTable) || null;
+}
+
+function CalibrationCurveViewModal({
+  curve,
+  onClose,
 }: {
-  value: string;
-  onChange: (value: string) => void;
+  curve: CalibrationCurveCatalogItem | null;
+  onClose: () => void;
 }) {
-  const points = useMemo(() => {
-    try {
-      const parsedPoints = parseCalibrationTableText(value);
-      return parsedPoints.length ? parsedPoints : [{ id: crypto.randomUUID(), level: '0', amount: '0' }];
-    } catch {
-      return [{ id: crypto.randomUUID(), level: '', amount: '' }];
+  const rows = useMemo(() => {
+    if (!curve) return [];
+    if (curve.points?.length) {
+      return [...curve.points].sort((left, right) => Number(left.point_key) - Number(right.point_key));
     }
-  }, [value]);
-
-  const emitChange = (nextPoints: Array<{ id: string; level: string; amount: string }>) => {
-    try {
-      onChange(buildCalibrationTableText(nextPoints));
-    } catch {
-      const draft = nextPoints.reduce((acc: Record<string, number | string>, point) => {
-        if (point.level.trim()) acc[point.level.trim()] = point.amount;
-        return acc;
-      }, {});
-      onChange(JSON.stringify(draft));
-    }
-  };
+    return Object.entries(curve.data_points || {})
+      .map(([point_key, point_value]) => ({
+        point_key: Number(point_key),
+        point_value: Number(point_value),
+        available_gallons: Number(point_value),
+        consumed_gallons: null,
+        percentage: null,
+        status: null,
+      }))
+      .filter((point) => Number.isFinite(point.point_key) && Number.isFinite(point.point_value))
+      .sort((left, right) => left.point_key - right.point_key);
+  }, [curve]);
 
   return (
-    <div className="max-w-[360px] space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
-      <div className="grid grid-cols-[96px_160px_28px] gap-1.5 text-xs font-medium text-[#5F6773]">
-        <span>Nivel</span>
-        <span>Valor</span>
-        <span />
-      </div>
-      {points.map((point) => (
-        <div key={point.id} className="grid grid-cols-[96px_160px_28px] gap-1.5">
-          <input
-            type="text"
-            value={point.level}
-            onChange={(event) => {
-              emitChange(points.map((item) => (item.id === point.id ? { ...item, level: event.target.value } : item)));
-            }}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
-            placeholder="0"
-          />
-          <input
-            type="text"
-            value={point.amount}
-            onChange={(event) => {
-              emitChange(points.map((item) => (item.id === point.id ? { ...item, amount: event.target.value } : item)));
-            }}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
-            placeholder="0"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => emitChange(points.filter((item) => item.id !== point.id))}
-          >
-            ✕
-          </Button>
+    <Modal
+      isOpen={Boolean(curve)}
+      onClose={onClose}
+      title={curve ? `Curva de Calibración: ${curve.curve_name}` : 'Curva de Calibración'}
+      size="xl"
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
+            <p className="text-xs text-[#5F6773]">Tipo</p>
+            <p className="mt-1 text-sm font-medium text-[#3B3A36]">{curve?.measurement_type || '-'}</p>
+          </div>
+          <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
+            <p className="text-xs text-[#5F6773]">Unidad de lectura</p>
+            <p className="mt-1 text-sm font-medium text-[#3B3A36]">{curve?.reading_uom || '-'}</p>
+          </div>
+          <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
+            <p className="text-xs text-[#5F6773]">Puntos</p>
+            <p className="mt-1 text-sm font-medium text-[#3B3A36]">{rows.length}</p>
+          </div>
         </div>
-      ))}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-[#5F6773]">{points.length} punto{points.length === 1 ? '' : 's'} en edición</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => emitChange([...points, { id: crypto.randomUUID(), level: '', amount: '' }])}
-        >
-          + Punto
-        </Button>
+        <div className="max-h-[420px] overflow-auto rounded border border-[#D7D9DE] bg-white">
+          <table className="w-full min-w-[680px] text-sm">
+            <thead className="bg-[#F2F3F5] text-[#5F6773]">
+              <tr>
+                <th className="px-3 py-2 text-left">Nivel</th>
+                <th className="px-3 py-2 text-left">Galones disponibles</th>
+                <th className="px-3 py-2 text-left">Galones consumidos</th>
+                <th className="px-3 py-2 text-left">%</th>
+                <th className="px-3 py-2 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((point, pointIndex) => (
+                <tr key={`${point.point_key}-${pointIndex}`} className="border-t border-[#E4E4E4]">
+                  <td className="px-3 py-2 text-[#3B3A36]">{point.point_key}</td>
+                  <td className="px-3 py-2 text-[#3B3A36]">{point.available_gallons ?? point.point_value}</td>
+                  <td className="px-3 py-2 text-[#5F6773]">{point.consumed_gallons ?? '-'}</td>
+                  <td className="px-3 py-2 text-[#5F6773]">{point.percentage ?? '-'}</td>
+                  <td className="px-3 py-2 text-[#5F6773]">{point.status || '-'}</td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="px-3 py-4 text-[#5F6773]" colSpan={5}>
+                    Esta curva no tiene puntos para visualizar.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -224,7 +186,7 @@ function toWorkbookRows(rows: ProductConfigRow[]): ProductsImportWorkbookRow[] {
     reading_uom: row.reading_uom?.trim() || null,
     tank_capacity: row.tank_capacity.trim() || null,
     unit_volume: row.unit_volume.trim() || null,
-    calibration_table: row.calibration_table_text.trim() ? JSON.parse(row.calibration_table_text) : null,
+    calibration_table: row.calibration_table,
     notes: row.notes.trim(),
     is_active: row.is_active,
   }));
@@ -257,6 +219,8 @@ export function ProductsConfigModal({
   onClose: () => void;
 }) {
   const [rows, setRows] = useState<ProductConfigRow[]>([]);
+  const [curveItems, setCurveItems] = useState<CalibrationCurveCatalogItem[]>([]);
+  const [visualizingCurve, setVisualizingCurve] = useState<CalibrationCurveCatalogItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -273,27 +237,46 @@ export function ProductsConfigModal({
 
   useEffect(() => {
     setLoading(true);
-    getPlantProductsConfigEntries(plant.id)
-      .then((response) => {
+    Promise.all([getPlantProductsConfigEntries(plant.id), getCalibrationCurvesCatalog(plant.id)])
+      .then(([response, curvesResponse]) => {
         if (!response.success) {
           setError(response.error ?? 'Error cargando productos');
           return;
         }
 
-        const loadedRows = (response.data ?? []).map((entry: any) => ({
-          id: entry.id,
-          product_name: entry.product_name || '',
-          category: entry.category || 'OTHER',
-          measure_mode: entry.measure_mode || 'COUNT',
-          uom: entry.uom || entry.unit || '',
-          requires_photo: entry.requires_photo ?? false,
-          reading_uom: entry.reading_uom || null,
-          calibration_table_text: stringifyTable(entry.calibration_table),
-          tank_capacity: String(entry.tank_capacity ?? ''),
-          unit_volume: String(entry.unit_volume ?? ''),
-          notes: entry.notes || '',
-          is_active: entry.is_active ?? true,
-        }));
+        if (!curvesResponse.success) {
+          setError(curvesResponse.error ?? 'Error cargando curvas de calibración');
+          return;
+        }
+
+        const tankCurveData = ((curvesResponse.data ?? []) as CalibrationCurveCatalogItem[]).filter(isTankLevelCurve);
+        setCurveItems(tankCurveData);
+
+        const curvesByName = new Map(
+          tankCurveData.map((curve) => [normalizeCurveName(curve.curve_name), curve])
+        );
+
+        const loadedRows = (response.data ?? []).map((entry: any) => {
+          const matchedCurve = entry.calibration_curve_name
+            ? curvesByName.get(normalizeCurveName(entry.calibration_curve_name)) || null
+            : findCurveForTable(tankCurveData, entry.calibration_table);
+
+          return {
+            id: entry.id,
+            product_name: entry.product_name || '',
+            category: entry.category || 'OTHER',
+            measure_mode: entry.measure_mode || 'COUNT',
+            uom: entry.uom || entry.unit || '',
+            requires_photo: entry.requires_photo ?? false,
+            calibration_curve_name: matchedCurve?.curve_name || entry.calibration_curve_name || null,
+            reading_uom: entry.reading_uom || matchedCurve?.reading_uom || null,
+            calibration_table: matchedCurve?.data_points || entry.calibration_table || null,
+            tank_capacity: String(entry.tank_capacity ?? ''),
+            unit_volume: String(entry.unit_volume ?? ''),
+            notes: entry.notes || '',
+            is_active: entry.is_active ?? true,
+          };
+        });
 
         setRows(loadedRows);
       })
@@ -314,11 +297,30 @@ export function ProductsConfigModal({
     updateRow(index, {
       measure_mode: measureMode,
       reading_uom: measureMode === 'TANK_READING' ? rows[index].reading_uom || 'inches' : null,
-      calibration_table_text: measureMode === 'TANK_READING' ? rows[index].calibration_table_text : '',
+      calibration_curve_name: measureMode === 'TANK_READING' ? rows[index].calibration_curve_name || null : null,
+      calibration_table: measureMode === 'TANK_READING' ? rows[index].calibration_table : null,
       tank_capacity: measureMode === 'TANK_READING' ? rows[index].tank_capacity : '',
       unit_volume: measureMode === 'DRUM' || measureMode === 'PAIL' ? rows[index].unit_volume || '' : '',
     });
   };
+
+  const handleCurveChange = (index: number, curveName: string) => {
+    const selectedCurve = curveItems.find((curve) => curve.curve_name === curveName);
+    updateRow(index, {
+      calibration_curve_name: selectedCurve?.curve_name || null,
+      reading_uom: selectedCurve?.reading_uom || rows[index].reading_uom || 'inches',
+      calibration_table: selectedCurve?.data_points || null,
+      tank_capacity: selectedCurve ? rows[index].tank_capacity : '',
+    });
+  };
+
+  const curveOptions = [
+    { value: '', label: '-- Selecciona una curva --' },
+    ...curveItems.map((curve) => ({
+      value: curve.curve_name,
+      label: `${curve.curve_name}${curve.reading_uom ? ` (${curve.reading_uom})` : ''}`,
+    })),
+  ];
 
   const validateRows = () => {
     for (const [index, row] of rows.entries()) {
@@ -329,12 +331,10 @@ export function ProductsConfigModal({
 
       if (row.measure_mode === 'TANK_READING') {
         if (!row.reading_uom?.trim()) return `${label}: la unidad de lectura es requerida`;
-        if (!row.calibration_table_text.trim()) return `${label}: la tabla de calibración es requerida`;
-        try {
-          buildCalibrationTableText(parseCalibrationTableText(row.calibration_table_text));
-        } catch (validationError) {
-          return `${label}: ${validationError instanceof Error ? validationError.message : 'la tabla de calibración tiene puntos inválidos'}`;
-        }
+        if (!row.calibration_curve_name?.trim()) return `${label}: debes seleccionar una curva de calibración`;
+        const selectedCurve = curveItems.find((curve) => curve.curve_name === row.calibration_curve_name);
+        if (!selectedCurve) return `${label}: la curva seleccionada ya no existe en esta planta`;
+        if (getCurvePointCount(selectedCurve) === 0) return `${label}: la curva seleccionada no tiene puntos`;
       }
 
       if ((row.measure_mode === 'DRUM' || row.measure_mode === 'PAIL') && !row.unit_volume.trim()) {
@@ -364,7 +364,10 @@ export function ProductsConfigModal({
         uom: row.uom.trim(),
         requires_photo: row.requires_photo,
         reading_uom: row.measure_mode === 'TANK_READING' ? row.reading_uom?.trim() || null : null,
-        calibration_table: row.measure_mode === 'TANK_READING' ? JSON.parse(row.calibration_table_text) : null,
+        calibration_curve_name: row.measure_mode === 'TANK_READING' ? row.calibration_curve_name || null : null,
+        calibration_table: row.measure_mode === 'TANK_READING'
+          ? curveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.calibration_table
+          : null,
         tank_capacity: row.measure_mode === 'TANK_READING' ? Number(row.tank_capacity) || 0 : null,
         unit_volume: row.measure_mode === 'DRUM' || row.measure_mode === 'PAIL' ? Number(row.unit_volume) || 0 : null,
         notes: row.notes.trim(),
@@ -567,6 +570,12 @@ export function ProductsConfigModal({
               <div className="py-8 text-center text-[#5F6773]">Cargando productos...</div>
             ) : (
               <div className="space-y-4">
+                {curveItems.length === 0 && (
+                  <Alert
+                    type="warning"
+                    message="No hay curvas de calibración tipo TANK_LEVEL para esta planta. Cárgalas primero en Catálogos para usar Lectura de tanque."
+                  />
+                )}
                 {rows.length === 0 ? (
                   <div className="rounded-lg bg-[#F2F3F5] py-8 text-center">
                     <p className="mb-2 text-[#5F6773]">No hay productos configurados</p>
@@ -661,12 +670,34 @@ export function ProductsConfigModal({
 
                       {row.measure_mode === 'TANK_READING' && (
                         <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                            <div className="flex items-end gap-2">
+                              <div className="min-w-0 flex-1">
+                                <Select
+                                  label="Curva de calibración"
+                                  value={row.calibration_curve_name || ''}
+                                  onChange={(e) => handleCurveChange(index, e.target.value)}
+                                  options={curveOptions}
+                                  required
+                                  helperText="La tabla se administra desde Catálogos."
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setVisualizingCurve(curveItems.find((curve) => curve.curve_name === row.calibration_curve_name) || null)}
+                                disabled={!row.calibration_curve_name}
+                                className="mb-[22px] inline-flex h-10 w-10 flex-none items-center justify-center rounded border border-[#2475C7] text-[#2475C7] transition-colors hover:bg-[#EEF4FB] disabled:cursor-not-allowed disabled:border-[#D7D9DE] disabled:text-[#A5ACB8]"
+                                title="Visualizar curva"
+                                aria-label="Visualizar curva de calibración"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                            </div>
                             <Input
                               label="Unidad de lectura"
                               value={row.reading_uom || ''}
-                              onChange={(e) => updateRow(index, { reading_uom: e.target.value })}
-                              placeholder="Ej: inches"
+                              disabled
+                              placeholder="Se llena desde la curva"
                               required
                             />
                             <Input
@@ -677,16 +708,9 @@ export function ProductsConfigModal({
                               placeholder="500"
                             />
                           </div>
-                          <div className="space-y-2">
-                            <label className="block text-[#3B3A36]">
-                              Tabla de calibración
-                              <span className="ml-1 text-[#C94A4A]">*</span>
-                            </label>
-                            <ProductCalibrationTableEditor
-                              value={row.calibration_table_text}
-                              onChange={(value) => updateRow(index, { calibration_table_text: value })}
-                            />
-                          </div>
+                          <p className="text-xs text-[#5F6773]">
+                            Usa el icono de ojo para revisar la tabla. Para cambiar puntos, actualiza Catálogos &gt; Curvas de conversión.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -814,6 +838,7 @@ export function ProductsConfigModal({
           </div>
         )}
       </Modal>
+      <CalibrationCurveViewModal curve={visualizingCurve} onClose={() => setVisualizingCurve(null)} />
     </>
   );
 }

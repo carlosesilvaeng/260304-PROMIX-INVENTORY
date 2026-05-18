@@ -1321,6 +1321,7 @@ export async function updatePlantProductsConfigEntries(
     measure_mode?: string;
     uom?: string;
     requires_photo?: boolean;
+    calibration_curve_name?: string | null;
     reading_uom?: string | null;
     calibration_table?: Record<string, number> | null;
     tank_capacity?: number | null;

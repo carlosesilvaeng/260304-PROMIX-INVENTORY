@@ -2254,6 +2254,7 @@ app.get("/make-server/plants/:plantId/products", async (c) => {
         category,
         measure_mode,
         requires_photo,
+        calibration_curve_name,
         reading_uom,
         calibration_table,
         tank_capacity,
@@ -2290,21 +2291,49 @@ app.put("/make-server/plants/:plantId/products", async (c) => {
     const { plantId } = c.req.param();
     const body = await c.req.json();
     const products = body.products ?? [];
-    const rows = products.map((product: any, index: number) => ({
-      id: product.id,
-      plant_id: plantId,
-      product_name: product.product_name,
-      unit: product.uom || product.unit || '',
-      category: product.category || 'OTHER',
-      measure_mode: product.measure_mode || 'COUNT',
-      requires_photo: product.requires_photo ?? false,
-      reading_uom: product.reading_uom || null,
-      calibration_table: product.calibration_table || null,
-      tank_capacity: product.tank_capacity ?? null,
-      unit_volume: product.unit_volume ?? null,
-      notes: product.notes || '',
-      sort_order: product.sort_order ?? index,
-      is_active: product.is_active ?? true,
+    const rows = await Promise.all(products.map(async (product: any, index: number) => {
+      const measureMode = String(product.measure_mode || 'COUNT').toUpperCase();
+      const calibrationCurveName = product.calibration_curve_name?.trim() || null;
+      let selectedCurve: any = null;
+
+      if (measureMode === 'TANK_READING') {
+        if (!calibrationCurveName) {
+          throw new Error(`El producto "${product.product_name || `fila ${index + 1}`}" debe seleccionar una curva de calibración.`);
+        }
+
+        const { curve } = await db.findPlantCalibrationCurveByName(plantId, calibrationCurveName);
+        if (!curve) {
+          throw new Error(`La curva "${calibrationCurveName}" no existe en esta planta.`);
+        }
+
+        if (!curve.reading_uom?.trim()) {
+          throw new Error(`La curva "${curve.curve_name}" no tiene unidad de lectura configurada.`);
+        }
+
+        if (!hasCalibrationPoints(curve.data_points)) {
+          throw new Error(`La curva "${curve.curve_name}" no tiene puntos de calibración.`);
+        }
+
+        selectedCurve = curve;
+      }
+
+      return {
+        id: product.id,
+        plant_id: plantId,
+        product_name: product.product_name,
+        unit: product.uom || product.unit || '',
+        category: product.category || 'OTHER',
+        measure_mode: product.measure_mode || 'COUNT',
+        requires_photo: product.requires_photo ?? false,
+        calibration_curve_name: selectedCurve?.curve_name || null,
+        reading_uom: selectedCurve?.reading_uom || null,
+        calibration_table: selectedCurve?.data_points || null,
+        tank_capacity: product.tank_capacity ?? null,
+        unit_volume: product.unit_volume ?? null,
+        notes: product.notes || '',
+        sort_order: product.sort_order ?? index,
+        is_active: product.is_active ?? true,
+      };
     }));
 
     await db.replacePlantConfigRowsAtomic('products', plantId, rows);
