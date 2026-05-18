@@ -4,14 +4,11 @@ import { Alert } from './Alert';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Modal } from './Modal';
-import { Select } from './Select';
 import {
   executePlantDieselImport,
-  getCalibrationCurvesCatalog,
   getPlantDieselConfigEntry,
   previewPlantDieselImport,
   updatePlantDieselConfigEntry,
-  type CalibrationCurveCatalogItem,
   type DieselImportPreviewResponse,
 } from '../utils/api';
 import type { Plant } from '../contexts/AuthContext';
@@ -68,18 +65,8 @@ function stringifyTable(value: Record<string, number> | null | undefined) {
   return JSON.stringify(value, null, 2);
 }
 
-function getDieselCalibrationPoints(curve: CalibrationCurveCatalogItem | null | undefined, fallbackText?: string) {
-  if (curve?.points?.length) {
-    return [...curve.points]
-      .map((point) => ({
-        depth_inches: Number(point.point_key),
-        volume_gallons: Number(point.available_gallons ?? point.point_value),
-      }))
-      .filter((point) => Number.isFinite(point.depth_inches) && Number.isFinite(point.volume_gallons))
-      .sort((left, right) => left.depth_inches - right.depth_inches);
-  }
-
-  const dataPoints = curve?.data_points || (() => {
+function getDieselCalibrationPoints(fallbackText?: string) {
+  const dataPoints = (() => {
     try {
       return fallbackText ? JSON.parse(fallbackText) as Record<string, number> : {};
     } catch {
@@ -97,23 +84,21 @@ function getDieselCalibrationPoints(curve: CalibrationCurveCatalogItem | null | 
 }
 
 function DieselCalibrationTable({
-  curve,
   fallbackText,
   tankCapacityGallons,
 }: {
-  curve: CalibrationCurveCatalogItem | null | undefined;
   fallbackText?: string;
   tankCapacityGallons?: string;
 }) {
-  const points = getDieselCalibrationPoints(curve, fallbackText);
+  const points = getDieselCalibrationPoints(fallbackText);
   const firstPoint = points[0] || null;
   const lastPoint = points[points.length - 1] || null;
   const maxVolume = points.reduce((maxValue, point) => Math.max(maxValue, point.volume_gallons), 0);
 
-  if (!curve && points.length === 0) {
+  if (points.length === 0) {
     return (
       <div className="rounded border border-[#D7D9DE] bg-white px-3 py-4 text-sm text-[#5F6773]">
-        Importa una tabla técnica o selecciona una curva para ver sus puntos.
+        Importa una tabla técnica para ver sus puntos.
       </div>
     );
   }
@@ -123,9 +108,7 @@ function DieselCalibrationTable({
       <div className="flex flex-col gap-2 border-b border-[#E4E4E4] px-3 py-2 md:flex-row md:items-center md:justify-between">
         <div>
           <span className="text-sm font-medium text-[#3B3A36]">Tabla técnica de diesel</span>
-          <p className="mt-1 text-xs text-[#5F6773]">
-            {curve ? `Sincronizada desde curva: ${curve.curve_name}` : 'Cargada directamente en la configuración de diesel'}
-          </p>
+          <p className="mt-1 text-xs text-[#5F6773]">Cargada directamente en la configuración de diesel</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
@@ -189,7 +172,6 @@ function toWorkbookRows(form: DieselConfigForm): DieselImportWorkbookRow[] {
   if (points.length === 0) {
     return [{
       measurement_method: form.measurement_method.trim() || 'TANK_LEVEL',
-      calibration_curve_name: form.calibration_curve_name?.trim() || null,
       reading_uom: form.reading_uom.trim() || 'inches',
       tank_capacity_gallons: form.tank_capacity_gallons.trim() || null,
       initial_inventory_gallons: form.initial_inventory_gallons.trim() || null,
@@ -201,7 +183,6 @@ function toWorkbookRows(form: DieselConfigForm): DieselImportWorkbookRow[] {
 
   return points.map((point, index) => ({
     measurement_method: form.measurement_method.trim() || 'TANK_LEVEL',
-    calibration_curve_name: form.calibration_curve_name?.trim() || null,
     reading_uom: form.reading_uom.trim() || 'inches',
     tank_capacity_gallons: index === 0 ? form.tank_capacity_gallons.trim() || null : '',
     initial_inventory_gallons: index === 0 ? form.initial_inventory_gallons.trim() || null : '',
@@ -215,7 +196,7 @@ function toImportPayloadRows(fileRows: Awaited<ReturnType<typeof parseDieselImpo
   return fileRows.map((row) => ({
     row_number: row.row_number,
     measurement_method: row.measurement_method,
-    calibration_curve_name: row.calibration_curve_name,
+    calibration_curve_name: '',
     reading_uom: row.reading_uom,
     tank_capacity_gallons: row.tank_capacity_gallons,
     initial_inventory_gallons: row.initial_inventory_gallons,
@@ -249,21 +230,14 @@ export function DieselConfigModal({
   const [importReason, setImportReason] = useState('');
   const [selectedImportFileName, setSelectedImportFileName] = useState('');
   const [importPayload, setImportPayload] = useState<DieselImportPayload | null>(null);
-  const [curveItems, setCurveItems] = useState<CalibrationCurveCatalogItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setDieselLoadError(null);
     setError(null);
-    Promise.all([getPlantDieselConfigEntry(plant.id), getCalibrationCurvesCatalog(plant.id)])
-      .then(([response, curvesResponse]) => {
-        const curves = (curvesResponse.success ? curvesResponse.data : []) || [];
-        setCurveItems(curves);
-        if (!curvesResponse.success) {
-          setError(curvesResponse.error ?? 'Error cargando curvas de conversión');
-        }
-
+    getPlantDieselConfigEntry(plant.id)
+      .then((response) => {
         if (!response.success) {
           const loadMessage = response.error === 'Unauthorized'
             ? 'Sesión expirada o sin autorización para cargar la configuración de Diesel. Vuelve a iniciar sesión y abre esta ventana nuevamente.'
@@ -278,22 +252,14 @@ export function DieselConfigModal({
           return;
         }
 
-        const matchedCurve = response.data.calibration_curve_name
-          ? curves.find((curve) => curve.curve_name.trim().toUpperCase() === String(response.data.calibration_curve_name).trim().toUpperCase()) || null
-          : null;
-
-        if (response.data.calibration_curve_name && !matchedCurve) {
-          setError(`La curva "${response.data.calibration_curve_name}" ya no existe en el catálogo de esta planta. Selecciona una curva válida para resincronizar diesel.`);
-        }
-
         setForm({
           id: response.data.id,
           measurement_method: response.data.measurement_method || 'TANK_LEVEL',
-          calibration_curve_name: matchedCurve?.curve_name || response.data.calibration_curve_name || null,
-          reading_uom: matchedCurve?.reading_uom || response.data.reading_uom || 'inches',
+          calibration_curve_name: null,
+          reading_uom: response.data.reading_uom || 'inches',
           tank_capacity_gallons: String(response.data.tank_capacity_gallons ?? ''),
           initial_inventory_gallons: String(response.data.initial_inventory_gallons ?? ''),
-          calibration_table_text: stringifyTable(matchedCurve?.data_points || response.data.calibration_table),
+          calibration_table_text: stringifyTable(response.data.calibration_table),
           is_active: response.data.is_active ?? true,
         });
       })
@@ -305,32 +271,6 @@ export function DieselConfigModal({
       .finally(() => setLoading(false));
   }, [plant.id]);
 
-  const curveOptions = useMemo(
-    () => [
-      { value: '', label: '-- Selecciona una curva --' },
-      ...curveItems.map((curve) => ({
-        value: curve.curve_name,
-        label: curve.curve_name,
-      })),
-    ],
-    [curveItems]
-  );
-
-  const selectedCurve = useMemo(
-    () => curveItems.find((curve) => curve.curve_name === form.calibration_curve_name) || null,
-    [curveItems, form.calibration_curve_name]
-  );
-
-  const handleCurveChange = (curveName: string) => {
-    const selectedCurve = curveItems.find((curve) => curve.curve_name === curveName) || null;
-    setForm((prev) => ({
-      ...prev,
-      calibration_curve_name: selectedCurve?.curve_name || null,
-      reading_uom: selectedCurve?.reading_uom || '',
-      calibration_table_text: stringifyTable(selectedCurve?.data_points) || '',
-    }));
-  };
-
   const previewHasBlockingErrors = useMemo(
     () => Boolean(importPreview && importPreview.errors.length > 0),
     [importPreview]
@@ -339,10 +279,6 @@ export function DieselConfigModal({
   const validateForm = () => {
     if (!form.measurement_method.trim()) {
       return 'El método de medición es requerido';
-    }
-
-    if (form.calibration_curve_name?.trim() && !curveItems.some((curve) => curve.curve_name === form.calibration_curve_name)) {
-      return 'La curva seleccionada ya no existe en el catálogo de esta planta';
     }
 
     if (!form.reading_uom.trim()) {
@@ -365,7 +301,7 @@ export function DieselConfigModal({
       }
     }
 
-    const calibrationTable = selectedCurve?.data_points || (() => {
+    const calibrationTable = (() => {
       try {
         return JSON.parse(form.calibration_table_text) as Record<string, number>;
       } catch {
@@ -394,11 +330,11 @@ export function DieselConfigModal({
       const response = await updatePlantDieselConfigEntry(plant.id, {
         ...(form.id ? { id: form.id } : {}),
         measurement_method: 'TANK_LEVEL',
-        calibration_curve_name: form.calibration_curve_name?.trim() || null,
+        calibration_curve_name: null,
         reading_uom: form.reading_uom.trim(),
         tank_capacity_gallons: Number(form.tank_capacity_gallons),
         initial_inventory_gallons: form.initial_inventory_gallons.trim() ? Number(form.initial_inventory_gallons) : 0,
-        calibration_table: selectedCurve?.data_points || JSON.parse(form.calibration_table_text),
+        calibration_table: JSON.parse(form.calibration_table_text),
         is_active: form.is_active,
       });
 
@@ -682,13 +618,6 @@ export function DieselConfigModal({
                     onChange={(e) => setForm((prev) => ({ ...prev, initial_inventory_gallons: e.target.value }))}
                     placeholder="5000"
                   />
-                  <Select
-                    label="Curva de conversión"
-                    value={form.calibration_curve_name || ''}
-                    onChange={(e) => handleCurveChange(e.target.value)}
-                    options={curveOptions}
-                    helperText="Opcional. Si importas una tabla técnica, diesel puede trabajar sin curva de catálogo."
-                  />
                   <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
                     <input
                       type="checkbox"
@@ -700,7 +629,6 @@ export function DieselConfigModal({
                 </div>
 
                 <DieselCalibrationTable
-                  curve={selectedCurve}
                   fallbackText={form.calibration_table_text}
                   tankCapacityGallons={form.tank_capacity_gallons}
                 />

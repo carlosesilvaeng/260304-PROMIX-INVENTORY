@@ -2206,29 +2206,20 @@ app.put("/make-server/plants/:plantId/diesel", async (c) => {
     const diesel = body.diesel;
 
     if (diesel) {
-      const calibrationCurveName = diesel.calibration_curve_name?.trim() || null;
-      if (!calibrationCurveName) {
-        return c.json({ success: false, error: 'Debes seleccionar una curva de conversión válida para diesel.' }, 400);
-      }
-
-      const { curve } = await db.findPlantCalibrationCurveByName(plantId, calibrationCurveName);
-      if (!curve) {
-        return c.json({ success: false, error: `La curva "${calibrationCurveName}" no existe en esta planta.` }, 400);
-      }
-
-      if (!curve.reading_uom?.trim()) {
-        return c.json({ success: false, error: `La curva "${curve.curve_name}" no tiene unidad de lectura configurada.` }, 400);
+      const calibrationTable = diesel.calibration_table;
+      if (!calibrationTable || typeof calibrationTable !== 'object' || Array.isArray(calibrationTable) || Object.keys(calibrationTable).length === 0) {
+        return c.json({ success: false, error: 'La tabla técnica de diesel es requerida.' }, 400);
       }
 
       const row = {
         id: diesel.id,
         plant_id: plantId,
         measurement_method: diesel.measurement_method || 'TANK_LEVEL',
-        calibration_curve_name: curve.curve_name,
-        reading_uom: curve.reading_uom,
+        calibration_curve_name: null,
+        reading_uom: diesel.reading_uom || 'inches',
         tank_capacity_gallons: diesel.tank_capacity_gallons ?? 0,
         initial_inventory_gallons: diesel.initial_inventory_gallons ?? 0,
-        calibration_table: curve.data_points,
+        calibration_table: calibrationTable,
         is_active: diesel.is_active ?? true,
       };
 
