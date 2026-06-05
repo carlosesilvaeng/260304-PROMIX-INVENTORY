@@ -1,4 +1,4 @@
-import { AlertTriangle, FileImage, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { AlertTriangle, FileImage, FileSpreadsheet, Maximize2, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,6 +62,7 @@ export function Settings() {
   const [layoutDeleting, setLayoutDeleting] = useState(false);
   const [layoutMessage, setLayoutMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [layoutPreviewUrl, setLayoutPreviewUrl] = useState<string | null>(null);
+  const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [viewingPlantDetails, setViewingPlantDetails] = useState<Plant | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showCreatePlantModal, setShowCreatePlantModal] = useState(false);
@@ -251,6 +252,7 @@ export function Settings() {
     setEditingLayout(plant);
     setLayoutPreviewUrl(plant.layoutImageUrl || null);
     setLayoutMessage(null);
+    setLayoutExpanded(false);
   };
 
   const handleLayoutFileSelected = async (file: File | null) => {
@@ -308,6 +310,7 @@ export function Settings() {
       }
 
       setLayoutPreviewUrl(null);
+      setLayoutExpanded(false);
       setLayoutMessage({ type: 'success', message: 'Layout eliminado.' });
       await refreshPlants();
       handleSave();
@@ -755,13 +758,24 @@ export function Settings() {
                 )}
               </div>
 
-              <div className="border border-[#E4E4E4] rounded-lg bg-[#F7F8FA] min-h-[280px] flex items-center justify-center overflow-hidden">
+              <div className="relative border border-[#E4E4E4] rounded-lg bg-[#F7F8FA] min-h-[280px] flex items-center justify-center overflow-hidden">
                 {layoutPreviewUrl ? (
-                  <img
-                    src={layoutPreviewUrl}
-                    alt={`Layout de ${editingLayout.name}`}
-                    className="max-h-[58vh] w-full object-contain"
-                  />
+                  <>
+                    <img
+                      src={layoutPreviewUrl}
+                      alt={`Layout de ${editingLayout.name}`}
+                      className="max-h-[58vh] w-full object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLayoutExpanded(true)}
+                      className="absolute bottom-3 right-3 rounded-full bg-[#2475C7] p-2 text-white shadow hover:bg-[#1d5fa1] transition-colors"
+                      title="Ampliar layout"
+                      aria-label="Ampliar layout"
+                    >
+                      <Maximize2 size={18} aria-hidden="true" />
+                    </button>
+                  </>
                 ) : (
                   <div className="text-center p-8">
                     <FileImage size={46} className="mx-auto text-[#9D9B9A] mb-3" aria-hidden="true" />
@@ -781,6 +795,35 @@ export function Settings() {
                 Cerrar
               </Button>
             </div>
+
+            {layoutExpanded && layoutPreviewUrl && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
+                <button
+                  type="button"
+                  className="absolute inset-0 cursor-default"
+                  onClick={() => setLayoutExpanded(false)}
+                  aria-label="Cerrar layout ampliado"
+                />
+                <div className="relative z-10 flex max-h-[92vh] w-full max-w-6xl items-center justify-center">
+                  <img
+                    src={layoutPreviewUrl}
+                    alt={`Layout ampliado de ${editingLayout.name}`}
+                    className="max-h-[92vh] max-w-full rounded bg-white object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLayoutExpanded(false)}
+                    className="absolute right-3 top-3 rounded-full bg-[#C94A4A] p-2 text-white shadow hover:bg-[#a03838] transition-colors"
+                    title="Cerrar"
+                    aria-label="Cerrar"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

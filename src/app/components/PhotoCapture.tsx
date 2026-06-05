@@ -14,7 +14,7 @@ interface PhotoCaptureProps {
   error?: string;
   compress?: boolean; // Default true - compress photos before callback
   compressionQuality?: 'high' | 'medium' | 'low'; // Default 'medium'
-  fit?: 'cover' | 'contain'; // Default 'cover' — use 'contain' to show full image without cropping
+  fit?: 'cover' | 'contain'; // Default 'contain' — show full image without cropping
 }
 
 export function PhotoCapture({
@@ -25,13 +25,14 @@ export function PhotoCapture({
   error,
   compress = true, // Enable compression by default
   compressionQuality = 'medium',
-  fit = 'cover'
+  fit = 'contain'
 }: PhotoCaptureProps) {
   const { accessToken, currentPlant } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | undefined>(currentPhoto);
   const [compressing, setCompressing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const busy = compressing || uploading;
   const imageFitClass = fit === 'contain' ? 'object-contain bg-gray-100' : 'object-cover';
@@ -111,6 +112,7 @@ export function PhotoCapture({
 
   const handleRemove = () => {
     setPreview(undefined);
+    setExpanded(false);
     onPhotoCapture('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -155,14 +157,31 @@ export function PhotoCapture({
               className={`w-full h-48 ${imageFitClass} rounded border-2 border-[#9D9B9A]`}
             />
             <button
+              type="button"
               onClick={handleRemove}
               disabled={busy}
+              title="Eliminar foto"
+              aria-label="Eliminar foto"
               className={`absolute top-2 right-2 bg-[#C94A4A] text-white p-2 rounded-full hover:bg-[#a03838] transition-colors ${
                 busy ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              disabled={busy}
+              title="Ampliar foto"
+              aria-label="Ampliar foto"
+              className={`absolute bottom-2 right-2 bg-[#2475C7] text-white p-2 rounded-full shadow hover:bg-[#1d5fa1] transition-colors ${
+                busy ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" />
               </svg>
             </button>
             {compressing && (
@@ -224,6 +243,35 @@ export function PhotoCapture({
 
       {error && (
         <p className="mt-2 text-sm text-[#C94A4A]">{error}</p>
+      )}
+
+      {expanded && preview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setExpanded(false)}
+            aria-label="Cerrar foto ampliada"
+          />
+          <div className="relative z-10 flex max-h-[92vh] w-full max-w-6xl items-center justify-center">
+            <img
+              src={preview}
+              alt="Captura ampliada"
+              className="max-h-[92vh] max-w-full rounded bg-white object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="absolute right-3 top-3 rounded-full bg-[#C94A4A] p-2 text-white shadow hover:bg-[#a03838] transition-colors"
+              title="Cerrar"
+              aria-label="Cerrar"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

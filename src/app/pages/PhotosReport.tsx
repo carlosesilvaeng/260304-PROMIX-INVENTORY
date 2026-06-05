@@ -355,7 +355,7 @@ export function PhotosReport() {
                         <img
                           src={photo.photo_url}
                           alt={`${photo.section} - ${photo.item_name}`}
-                          className="w-12 h-12 object-cover"
+                          className="w-12 h-12 object-contain bg-[#F2F3F5]"
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = PLACEHOLDER_SVG;
