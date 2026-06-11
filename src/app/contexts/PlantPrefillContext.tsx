@@ -343,7 +343,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       entries.productos = [];
     }
 
-    // UTILITIES: Create entry for each utility meter in LOCAL config (not from API)
+    // UTILITIES: Use backend config first; local config is only a legacy fallback.
     const localUtilitiesConfig = getPlantUtilitiesConfig(config.plant_id || '');
     const localMetersById = new Map((localUtilitiesConfig?.meters || []).map((meter: any) => [meter.id, meter]));
     const localMetersByName = new Map((localUtilitiesConfig?.meters || []).map((meter: any) => [meter.meter_name, meter]));

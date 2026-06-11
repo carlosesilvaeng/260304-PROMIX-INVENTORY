@@ -68,17 +68,6 @@ export const UTILITIES_CONFIG: PlantUtilitiesConfig[] = [
         initial_reading: 450000,
         notes: 'Medidor principal de electricidad',
       },
-      {
-        id: 'electricity_office',
-        meter_name: 'Electricidad - Oficinas',
-        meter_number: 'LUMA-CAR-12346',
-        utility_type: 'ELECTRICITY',
-        uom: 'kWh',
-        provider: 'LUMA Energy',
-        requires_photo: true,
-        initial_reading: 35000,
-        notes: 'Medidor de oficinas administrativas',
-      },
     ],
   },
   {
