@@ -258,7 +258,7 @@ export function UtilitiesSection() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* PREVIOUS READING - READ-ONLY */}
             <div>
-              <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+              <label className="flex min-h-5 items-center text-sm font-semibold text-[#3B3A36] mb-1.5 leading-5">
                 Lectura Anterior
               </label>
               <div className="bg-[#F2F3F5] border-2 border-[#9D9B9A] rounded px-4 py-3 h-[50px] flex items-center">
@@ -276,9 +276,9 @@ export function UtilitiesSection() {
 
             {/* CURRENT READING - HIGHLIGHTED FOCUS */}
             <div className="relative">
-              <label className="block text-sm font-bold text-[#2475C7] mb-1.5 flex items-center gap-2">
+              <label className="flex min-h-5 items-center gap-2 text-sm font-bold text-[#2475C7] mb-1.5 leading-5">
                 <span>Lectura Actual</span>
-                <span className="text-lg">👈</span>
+                <span className="text-base leading-5">👈</span>
               </label>
               <div className="relative">
                 <NumericInput
@@ -286,7 +286,7 @@ export function UtilitiesSection() {
                   onValueChange={(val) => handleFieldChange(utility, 'current_reading', val)}
                   placeholder="Ingresa lectura..."
                   required
-                  className="border-4 border-[#2475C7] bg-white text-xl font-bold h-[50px] focus:ring-4 focus:ring-[#2475C7]/30 focus:border-[#2475C7]"
+                  className="h-[50px] border-4 border-[#2475C7] bg-white pr-24 text-xl font-bold focus:border-[#2475C7] focus:ring-4 focus:ring-[#2475C7]/30"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                   <span className="text-sm text-[#5F6773] font-semibold">{utility.uom}</span>
@@ -299,7 +299,7 @@ export function UtilitiesSection() {
 
             {/* CONSUMPTION - CALCULATED */}
             <div>
-              <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+              <label className="flex min-h-5 items-center text-sm font-semibold text-[#3B3A36] mb-1.5 leading-5">
                 Consumo Calculado
               </label>
               <div className={`border-2 rounded px-4 py-3 h-[50px] flex items-center ${

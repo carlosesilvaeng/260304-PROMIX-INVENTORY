@@ -13,7 +13,7 @@ export function Input({ label, error, helperText, helpText, className = '', ...p
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-[#3B3A36] mb-1.5">
+        <label className="flex min-h-5 items-center text-[#3B3A36] mb-1.5 leading-5">
           {label}
           {props.required && <span className="text-[#C94A4A] ml-1">*</span>}
         </label>

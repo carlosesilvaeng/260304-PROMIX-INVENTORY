@@ -66,13 +66,13 @@ export function StandardInput({
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {/* Label */}
-      <label className="text-sm font-semibold text-[#3B3A36] flex items-center gap-1">
+      <label className="flex min-h-5 items-center gap-1 text-sm font-semibold text-[#3B3A36] leading-5">
         {label}
         {required && (
           <span className="text-red-600" title="Campo requerido">*</span>
         )}
         {unit && (
-          <span className="text-xs text-[#5F6773] font-normal ml-1">({unit})</span>
+          <span className="text-xs text-[#5F6773] font-normal ml-1 leading-5">({unit})</span>
         )}
       </label>
 
@@ -97,6 +97,7 @@ export function StandardInput({
                 ? 'bg-white text-[#3B3A36] border-2 border-red-500 focus:border-red-600 focus:ring-2 focus:ring-red-200'
                 : 'bg-white text-[#3B3A36] border-2 border-[#D4D2CF] focus:border-[#2475C7] focus:ring-2 focus:ring-[#2475C7]/20'
             }
+            ${unit && !disabled ? 'pr-16' : ''}
             outline-none
           `}
         />
