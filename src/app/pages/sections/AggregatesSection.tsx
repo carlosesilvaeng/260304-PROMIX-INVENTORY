@@ -124,11 +124,11 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
     // Auto-calculate volume based on method
     if (entry.measurement_method === 'BOX') {
-      // BOX method: calculate when length changes (usa ?? 0 para evitar fallo por width/height = 0 o null)
-      if (field === 'box_length_ft') {
-        const w = entry.box_width_ft ?? 0;
-        const h = entry.box_height_ft ?? 0;
-        updates.calculated_volume_cy = calculateBoxVolume(w, h, value ?? 0);
+      if (field === 'box_height_ft' || field === 'box_length_ft') {
+        const width = Number(entry.box_width_ft ?? 0);
+        const height = Number(field === 'box_height_ft' ? value : entry.box_height_ft ?? 0);
+        const length = Number(field === 'box_length_ft' ? value : entry.box_length_ft ?? 0);
+        updates.calculated_volume_cy = calculateBoxVolume(width, height, length);
         updates.unit = volumeUnit;
       }
     } else if (entry.measurement_method === 'CONE') {
@@ -207,8 +207,10 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
     // For BOX method
     if (entry.measurement_method === 'BOX') {
-      // length can be 0 (not used), but must be explicitly set
-      return entry.box_length_ft !== null && entry.box_length_ft !== undefined && entry.box_length_ft !== '';
+      return [
+        entry.box_height_ft,
+        entry.box_length_ft,
+      ].every(v => v !== null && v !== undefined && v !== '');
     }
 
     // For CONE method
@@ -286,8 +288,8 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
             📋 Instrucciones
           </h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-            <li><strong>Campos bloqueados 🔒:</strong> Material, procedencia, método, ancho y alto (vienen de configuración)</li>
-            <li><strong>Método Cajón:</strong> Solo captura el largo en {lengthUnitLabel}</li>
+            <li><strong>Campos bloqueados 🔒:</strong> Material, procedencia, método y ancho (vienen de configuración)</li>
+            <li><strong>Método Cajón:</strong> Captura alto y largo en {lengthUnitLabel}</li>
             <li><strong>Método Cono:</strong> Captura 6 medidas M y 2 diámetros D en {lengthUnitLabel}</li>
             <li><strong>Volumen calculado:</strong> Se actualiza automáticamente en {volumeUnitLabel}</li>
             <li><strong>Agregado no usado:</strong> Si un agregado no se usó, ingresa 0 en largo o medidas</li>
@@ -339,14 +341,17 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       </div>
                     </div>
 
-                    {/* Height - READ ONLY */}
+                    {/* Height - EDITABLE */}
                     <div>
-                      <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                        Alto ({lengthUnitLabel}) 🔒
+                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
+                        Alto ({lengthUnitLabel}) *
                       </label>
-                      <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[#3B3A36]">
-                        {entry.box_height_ft || 0} {lengthUnitLabel}
-                      </div>
+                      <NumericInput
+                        value={entry.box_height_ft ?? ''}
+                        onValueChange={(value) => handleFieldChange(entry.id, 'box_height_ft', value)}
+                        placeholder="0.00"
+                        className="w-full"
+                      />
                     </div>
 
                     {/* Length - EDITABLE */}

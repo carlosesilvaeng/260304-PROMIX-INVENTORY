@@ -692,9 +692,9 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
               return {
                 ...entry,
                 measurement_method: aggConfig.measurement_method,
-                // BOX dimensions: use aggConfig → cajón config → existing entry value
+                // BOX width stays fixed from config; height can be adjusted per inventory entry.
                 box_width_ft: aggConfig.box_width_ft || matchingCajon?.ancho || entry.box_width_ft,
-                box_height_ft: aggConfig.box_height_ft || matchingCajon?.alto || entry.box_height_ft,
+                box_height_ft: entry.box_height_ft ?? aggConfig.box_height_ft ?? matchingCajon?.alto ?? 0,
                 aggregate_name: aggConfig.aggregate_name || entry.aggregate_name,
                 material_type: aggConfig.material_type || entry.material_type,
                 location_area: aggConfig.location_area || entry.location_area,

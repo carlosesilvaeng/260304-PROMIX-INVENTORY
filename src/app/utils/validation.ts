@@ -35,7 +35,16 @@ export function validateAggregatesSection(entries: any[]): SectionValidationResu
     const measurementMethod = String(entry.measurement_method || '').toUpperCase();
 
     if (measurementMethod === 'BOX') {
-      if (entry.box_length_ft === null || entry.box_length_ft === undefined) {
+      if (entry.box_height_ft === null || entry.box_height_ft === undefined || entry.box_height_ft === '') {
+        issues.push({
+          field: `${aggregateLabel} - Alto`,
+          message: 'Alto requerido (puede ser 0 si no se usó)',
+          severity: 'error',
+        });
+        entryComplete = false;
+      }
+
+      if (entry.box_length_ft === null || entry.box_length_ft === undefined || entry.box_length_ft === '') {
         issues.push({
           field: `${aggregateLabel} - Largo`,
           message: 'Largo requerido (puede ser 0 si no se usó)',
