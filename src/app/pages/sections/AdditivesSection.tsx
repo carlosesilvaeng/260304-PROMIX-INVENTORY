@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
+import { formatOptionalNumber, formatNumber } from '../../utils/numberFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
 import additiveTankMeasurementReference from '../../../assets/additive-tank-measurement-reference.png';
 
@@ -162,7 +163,7 @@ function getAdditiveTankMetrics(entry: any) {
 }
 
 function formatMetricValue(value: number | null | undefined, fallback = '-') {
-  return value === null || value === undefined || !Number.isFinite(value) ? fallback : value.toFixed(2);
+  return formatOptionalNumber(value, 2, fallback);
 }
 
 function clampPercentage(value: number | null | undefined) {
@@ -200,7 +201,7 @@ function TankLevelIndicator({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#3B3A36]">Nivel del tanque</p>
-          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">{safePercentage.toFixed(2)}%</p>
+          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">{formatNumber(safePercentage)}%</p>
           <p className="mt-2 truncate text-sm font-semibold" style={{ color: fillColor }}>
             {status || '-'}
           </p>

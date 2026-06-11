@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
+import { formatNumber } from '../../utils/numberFormatting';
 import { saveDieselEntry } from '../../utils/api';
 import dieselMeasurementReference from '../../../assets/diesel-measurement-reference.png';
 
@@ -51,7 +52,7 @@ function TankLevelGraphic({
       <div className="text-center">
         <h3 className="text-2xl font-bold text-[#2F4052]">Monitoreo de Tanque</h3>
         <p className="mt-1 text-sm font-medium text-[#7A858C]">
-          {plantName || 'Planta'} | Prof. máx. {maxDepth.toLocaleString()} {readingUom} | Cap. {tankCapacity.toLocaleString()} GAL
+          {plantName || 'Planta'} | Prof. máx. {formatNumber(maxDepth, 0)} {readingUom} | Cap. {formatNumber(tankCapacity, 0)} GAL
         </p>
       </div>
 
@@ -79,7 +80,7 @@ function TankLevelGraphic({
         <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">Volumen actual</p>
           <p className="mt-2 text-2xl font-bold text-[#2F4052]">
-            {Number(calculatedGallons || 0).toLocaleString()} GAL
+            {formatNumber(Number(calculatedGallons || 0))} GAL
           </p>
         </div>
         <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
@@ -91,7 +92,7 @@ function TankLevelGraphic({
       </div>
 
       <p className="mt-4 text-center text-xs text-[#8A969D]">
-        Los valores se calculan mediante interpolación basada en la tabla técnica de {tankCapacity.toLocaleString()} GAL.
+        Los valores se calculan mediante interpolación basada en la tabla técnica de {formatNumber(tankCapacity, 0)} GAL.
       </p>
     </div>
   );
@@ -363,7 +364,7 @@ export function DieselSection() {
               <div>
                 <p className="text-sm font-semibold text-[#5F6773]">Capacidad del Tanque</p>
                 <p className="text-2xl font-bold text-[#2475C7]">
-                  {diesel.tank_capacity_gallons?.toLocaleString()} galones
+                  {formatNumber(diesel.tank_capacity_gallons ?? 0)} galones
                 </p>
               </div>
               <div className="sm:text-right">
@@ -406,7 +407,7 @@ export function DieselSection() {
                 </p>
               </div>
               <p className="text-2xl font-bold text-blue-600 ml-7">
-                {(diesel.beginning_inventory || 0).toLocaleString()} galones
+                {formatNumber(diesel.beginning_inventory || 0)} galones
               </p>
             </div>
           )}
@@ -455,7 +456,7 @@ export function DieselSection() {
               <div>
                 <p className="text-sm font-semibold text-[#5F6773] mb-1">Inventario Inicial</p>
                 <p className="text-2xl font-bold text-[#3B3A36]">
-                  {(diesel.beginning_inventory || 0).toLocaleString()}
+                  {formatNumber(diesel.beginning_inventory || 0)}
                 </p>
                 <p className="text-xs text-[#5F6773]">galones</p>
               </div>
@@ -463,18 +464,18 @@ export function DieselSection() {
                 <div className="text-center">
                   <p className="text-sm font-semibold text-[#5F6773] mb-1">+ Compras</p>
                   <p className="text-2xl font-bold text-green-600">
-                    +{(diesel.purchases_gallons || 0).toLocaleString()}
+                    +{formatNumber(diesel.purchases_gallons || 0)}
                   </p>
                   <p className="text-xs text-[#5F6773] mt-1">- Inventario Final</p>
                   <p className="text-2xl font-bold text-orange-600">
-                    -{(diesel.ending_inventory || 0).toLocaleString()}
+                    -{formatNumber(diesel.ending_inventory || 0)}
                   </p>
                 </div>
               </div>
               <div className="bg-[#2475C7] text-white rounded-lg p-4 flex flex-col items-center justify-center">
                 <p className="text-sm font-semibold mb-2">Consumo Calculado</p>
                 <p className="text-4xl font-bold">
-                  {(diesel.consumption_gallons || 0).toLocaleString()}
+                  {formatNumber(diesel.consumption_gallons || 0)}
                 </p>
                 <p className="text-sm mt-1">galones</p>
               </div>

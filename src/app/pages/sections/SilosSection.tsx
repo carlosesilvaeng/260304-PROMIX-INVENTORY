@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
+import { formatNumber } from '../../utils/numberFormatting';
 import { saveSilosEntries } from '../../utils/api';
 import siloMeasurementReference from '../../../assets/silo-measurement-reference.png';
 
@@ -126,10 +127,10 @@ function SiloLevelIndicator({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#3B3A36]">Nivel del silo</p>
           <p className="mt-1 text-2xl font-bold text-[#3B3A36]">
-            {percentage === null || percentage === undefined ? '-' : `${safePercentage.toFixed(2)}%`}
+            {percentage === null || percentage === undefined ? '-' : `${formatNumber(safePercentage)}%`}
           </p>
           <p className="mt-2 text-sm font-semibold" style={{ color: fillColor }}>
-            {sacks.toFixed(2)} sacos
+            {formatNumber(sacks)} sacos
           </p>
           <p className="mt-1 truncate text-sm font-semibold" style={{ color: fillColor }}>
             {status || '-'}
@@ -463,7 +464,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {getReadingFeet(entry).toFixed(2)} ft
+                      {formatNumber(getReadingFeet(entry))} ft
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Lectura ÷ 12</p>
@@ -476,7 +477,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {siloMetrics.sacks.toFixed(2)} sacos
+                      {formatNumber(siloMetrics.sacks)} sacos
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Cálculo automático</p>
@@ -487,7 +488,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {siloMetrics.lbs.toFixed(2)} lbs
+                      {formatNumber(siloMetrics.lbs)} lbs
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Sacos × 94</p>
@@ -498,7 +499,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {siloMetrics.metricTons.toFixed(2)} t
+                      {formatNumber(siloMetrics.metricTons)} t
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Lbs ÷ 2204.62</p>

@@ -12,6 +12,7 @@ import {
   getProductCalculatedLabel,
 } from '../../utils/products';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
+import { formatNumber } from '../../utils/numberFormatting';
 import { saveProductsEntries } from '../../utils/api';
 
 // Category badge colors
@@ -330,7 +331,7 @@ export function ProductsSection() {
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                     <span className="text-[#2475C7] font-bold text-lg">
-                      {(producto.calculated_quantity || 0).toLocaleString()}
+                      {formatNumber(producto.calculated_quantity || 0)}
                     </span>
                     <span className="text-[#5F6773] ml-2 text-sm">{producto.uom}</span>
                   </div>
@@ -357,7 +358,7 @@ export function ProductsSection() {
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                     <span className="text-[#2475C7] font-bold text-lg">
-                      {(producto.total_volume || 0).toLocaleString()}
+                      {formatNumber(producto.total_volume || 0)}
                     </span>
                     <span className="text-[#5F6773] ml-2 text-sm">galones</span>
                   </div>

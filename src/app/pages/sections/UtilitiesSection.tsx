@@ -12,6 +12,7 @@ import {
   getUtilityTypeColor,
 } from '../../config/utilitiesConfig';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
+import { formatNumber } from '../../utils/numberFormatting';
 import { saveUtilitiesEntries } from '../../utils/api';
 
 export function UtilitiesSection() {
@@ -262,7 +263,7 @@ export function UtilitiesSection() {
               </label>
               <div className="bg-[#F2F3F5] border-2 border-[#9D9B9A] rounded px-4 py-3 h-[50px] flex items-center">
                 <span className="text-[#5F6773] font-bold text-xl">
-                  {(utility.previous_reading || 0).toLocaleString()}
+                  {formatNumber(utility.previous_reading || 0)}
                 </span>
                 <span className="text-[#5F6773] ml-2 text-sm">{utility.uom}</span>
               </div>
@@ -309,7 +310,7 @@ export function UtilitiesSection() {
                 <span className={`font-bold text-xl ${
                   hasConsumption ? 'text-green-700' : 'text-gray-500'
                 }`}>
-                  {(utility.consumption || 0).toLocaleString()}
+                  {formatNumber(utility.consumption || 0)}
                 </span>
                 <span className="text-[#5F6773] ml-2 text-sm">{utility.uom}</span>
               </div>
@@ -328,14 +329,14 @@ export function UtilitiesSection() {
                   <div>
                     <p className="text-sm font-semibold text-[#5F6773]">Consumo del Mes</p>
                     <p className="text-3xl font-bold text-[#2475C7]">
-                      {utility.consumption.toLocaleString()} {utility.uom}
+                      {formatNumber(utility.consumption)} {utility.uom}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-[#5F6773]">Rango</p>
                   <p className="text-sm font-mono text-[#3B3A36]">
-                    {utility.previous_reading.toLocaleString()} → {utility.current_reading.toLocaleString()}
+                    {formatNumber(utility.previous_reading)} → {formatNumber(utility.current_reading)}
                   </p>
                 </div>
               </div>

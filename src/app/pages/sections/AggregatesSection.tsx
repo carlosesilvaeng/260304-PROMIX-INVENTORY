@@ -8,6 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { useUnits } from '../../contexts/UnitsContext';
 import { saveAggregatesEntries } from '../../utils/api';
+import { formatNumber } from '../../utils/numberFormatting';
 
 interface AggregatesSectionProps {
   onBack?: () => void;
@@ -337,7 +338,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                         Ancho ({lengthUnitLabel}) 🔒
                       </label>
                       <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[#3B3A36]">
-                        {entry.box_width_ft || 0} {lengthUnitLabel}
+                        {formatNumber(entry.box_width_ft || 0)} {lengthUnitLabel}
                       </div>
                     </div>
 
@@ -374,7 +375,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                         Volumen ({volumeUnitLabel}) 📊
                       </label>
                       <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold">
-                        {(entry.calculated_volume_cy || 0).toFixed(2)} {volumeUnitLabel}
+                        {formatNumber(entry.calculated_volume_cy || 0)} {volumeUnitLabel}
                       </div>
                     </div>
                   </div>
@@ -460,7 +461,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       Volumen Calculado ({volumeUnitLabel}) 📊
                     </label>
                     <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold text-lg">
-                      {(entry.calculated_volume_cy || 0).toFixed(2)} {volumeUnitLabel}
+                      {formatNumber(entry.calculated_volume_cy || 0)} {volumeUnitLabel}
                     </div>
                   </div>
                 </div>

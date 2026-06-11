@@ -307,7 +307,7 @@ export function PettyCashSection() {
                 {formatCurrency(pettyCash.total || 0)}
               </p>
               <p className="text-xs text-[#5F6773] mt-2">
-                = ${(pettyCash.receipts || 0).toFixed(2)} + ${(pettyCash.cash || 0).toFixed(2)}
+                = {formatCurrency(pettyCash.receipts || 0)} + {formatCurrency(pettyCash.cash || 0)}
               </p>
             </div>
 
