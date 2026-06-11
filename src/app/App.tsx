@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { InventoryProvider, useInventory } from "./contexts/InventoryContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
-import { PlantPrefillProvider } from "./contexts/PlantPrefillContext";
+import { PlantPrefillProvider, usePlantPrefill } from "./contexts/PlantPrefillContext";
 import { ModulesProvider } from "./contexts/ModulesContext";
 import { Login } from "./pages/Login";
 import { InitialSetup } from "./pages/InitialSetup";
@@ -71,6 +71,7 @@ const BUILD_VERSION = '2603131812';
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
+  const { refreshData } = usePlantPrefill();
   const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -97,7 +98,15 @@ function AppContent() {
     }
   };
 
-  const handleViewChange = (view: string) => {
+  const discardPendingSectionChanges = async () => {
+    if (currentView === 'section') {
+      await refreshData();
+    }
+  };
+
+  const handleViewChange = async (view: string) => {
+    await discardPendingSectionChanges();
+
     const nextView = view === 'inventory' && !isOperationalUser ? 'dashboard' : view;
     setCurrentView(nextView);
     if (view !== 'section') {
@@ -111,8 +120,8 @@ function AppContent() {
     }
   };
 
-  const handleBackToDashboard = () => {
-    handleViewChange("dashboard");
+  const handleBackToDashboard = async () => {
+    await handleViewChange("dashboard");
   };
 
   const handleChangePlant = () => {
