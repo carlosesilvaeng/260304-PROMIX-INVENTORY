@@ -356,6 +356,23 @@ export async function getUnits(categoryId?: string): Promise<ApiResponse<UnitDef
   return apiRequest(`/catalogs/units${suffix}`, 'GET');
 }
 
+export async function createUnit(
+  unit: Partial<UnitDefinition>,
+): Promise<ApiResponse<UnitDefinition>> {
+  return apiRequest('/catalogs/units', 'POST', unit);
+}
+
+export async function updateUnit(
+  id: string,
+  unit: Partial<UnitDefinition>,
+): Promise<ApiResponse<UnitDefinition>> {
+  return apiRequest(`/catalogs/units/${id}`, 'PUT', unit);
+}
+
+export async function deleteUnit(id: string): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/units/${id}`, 'DELETE');
+}
+
 export async function getPlantMeasurementConfigs(plantId: string): Promise<ApiResponse<MeasurementConfig[]>> {
   return apiRequest(`/plants/${plantId}/measurement-configs`, 'GET');
 }

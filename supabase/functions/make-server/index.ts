@@ -3971,6 +3971,83 @@ function normalizeMeasurementConfigForPlant(plantId: string, row: any, index: nu
   };
 }
 
+async function getActiveUnitUsage(unitId: string) {
+  const supabase = db.getSupabaseClient();
+  const [
+    capture,
+    calculation,
+    display,
+    inventory,
+    curveInput,
+    curveOutput,
+    factorFrom,
+    factorTo,
+  ] = await Promise.all([
+    supabase.from('measurement_configs').select('id', { count: 'exact', head: true }).eq('capture_unit_id', unitId).eq('active', true),
+    supabase.from('measurement_configs').select('id', { count: 'exact', head: true }).eq('calculation_unit_id', unitId).eq('active', true),
+    supabase.from('measurement_configs').select('id', { count: 'exact', head: true }).eq('display_unit_id', unitId).eq('active', true),
+    supabase.from('measurement_configs').select('id', { count: 'exact', head: true }).eq('inventory_unit_id', unitId).eq('active', true),
+    supabase.from('calibration_curves').select('id', { count: 'exact', head: true }).eq('input_unit_id', unitId),
+    supabase.from('calibration_curves').select('id', { count: 'exact', head: true }).eq('output_unit_id', unitId),
+    supabase.from('material_conversion_factors').select('id', { count: 'exact', head: true }).eq('from_unit_id', unitId).eq('active', true),
+    supabase.from('material_conversion_factors').select('id', { count: 'exact', head: true }).eq('to_unit_id', unitId).eq('active', true),
+  ]);
+
+  const errors = [capture, calculation, display, inventory, curveInput, curveOutput, factorFrom, factorTo]
+    .map((result: any) => result.error)
+    .filter(Boolean);
+  if (errors.length > 0) throw errors[0];
+
+  return {
+    measurement_configs:
+      (capture.count || 0) + (calculation.count || 0) + (display.count || 0) + (inventory.count || 0),
+    calibration_curves: (curveInput.count || 0) + (curveOutput.count || 0),
+    material_conversion_factors: (factorFrom.count || 0) + (factorTo.count || 0),
+  };
+}
+
+function normalizeUnitPayload(body: any, existing?: any) {
+  const id = String(body.id || existing?.id || body.code || '').trim();
+  const code = String(body.code || existing?.code || id).trim();
+  const categoryId = String(body.category_id || existing?.category_id || '').trim();
+  const nameEs = String(body.name_es || existing?.name_es || '').trim();
+  const nameEn = String(body.name_en || existing?.name_en || nameEs).trim();
+  const symbol = String(body.symbol || existing?.symbol || code).trim();
+  const measurementSystem = String(body.measurement_system || existing?.measurement_system || 'operational').trim();
+  const factorToBase = Number(body.factor_to_base ?? existing?.factor_to_base);
+  const decimalPrecision = Number(body.decimal_precision ?? existing?.decimal_precision ?? 2);
+
+  if (!id) throw new Error('id requerido');
+  if (!code) throw new Error('codigo requerido');
+  if (!categoryId) throw new Error('categoria requerida');
+  if (!nameEs) throw new Error('nombre en español requerido');
+  if (!nameEn) throw new Error('nombre en ingles requerido');
+  if (!symbol) throw new Error('simbolo requerido');
+  if (!['metric', 'imperial', 'us_customary', 'operational'].includes(measurementSystem)) {
+    throw new Error('measurement_system invalido');
+  }
+  if (!Number.isFinite(factorToBase) || factorToBase <= 0) {
+    throw new Error('factor_to_base debe ser mayor que cero');
+  }
+  if (!Number.isInteger(decimalPrecision) || decimalPrecision < 0 || decimalPrecision > 10) {
+    throw new Error('decimal_precision debe estar entre 0 y 10');
+  }
+
+  return {
+    id,
+    category_id: categoryId,
+    code,
+    name_es: nameEs,
+    name_en: nameEn,
+    symbol,
+    measurement_system: measurementSystem,
+    factor_to_base: factorToBase,
+    decimal_precision: decimalPrecision,
+    active: body.active ?? existing?.active ?? true,
+    sort_order: body.sort_order ?? existing?.sort_order ?? 0,
+  };
+}
+
 // ── UNIDADES ──
 
 app.get("/make-server/catalogs/unit-categories", async (c) => {
@@ -4005,6 +4082,110 @@ app.get("/make-server/catalogs/units", async (c) => {
   } catch (error: any) {
     console.error("❌ Error fetching units:", error);
     return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/units", async (c) => {
+  try {
+    const body = await c.req.json();
+    const unit = normalizeUnitPayload(body);
+    const supabase = db.getSupabaseClient();
+
+    const { data: category, error: categoryError } = await supabase
+      .from('unit_categories')
+      .select('id')
+      .eq('id', unit.category_id)
+      .eq('active', true)
+      .maybeSingle();
+    if (categoryError) throw categoryError;
+    if (!category) return c.json({ success: false, error: 'Categoria no encontrada.' }, 400);
+
+    const { data: duplicated, error: duplicatedError } = await supabase
+      .from('units')
+      .select('id, code')
+      .or(`id.eq.${unit.id},code.eq.${unit.code}`)
+      .maybeSingle();
+    if (duplicatedError) throw duplicatedError;
+    if (duplicated) return c.json({ success: false, error: 'Ya existe una unidad con ese id o codigo.' }, 400);
+
+    const { data, error } = await supabase
+      .from('units')
+      .insert(unit)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data }, 201);
+  } catch (error: any) {
+    console.error("❌ Error creating unit:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.put("/make-server/catalogs/units/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const supabase = db.getSupabaseClient();
+
+    const { data: existing, error: existingError } = await supabase
+      .from('units')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return c.json({ success: false, error: 'Unidad no encontrada.' }, 404);
+
+    const unit = normalizeUnitPayload({ ...body, id }, existing);
+    if (unit.category_id !== existing.category_id) {
+      const usage = await getActiveUnitUsage(id);
+      if (usage.measurement_configs + usage.calibration_curves + usage.material_conversion_factors > 0) {
+        return c.json({ success: false, error: 'No se puede cambiar la categoria de una unidad en uso.' }, 400);
+      }
+    }
+
+    if (unit.code !== existing.code) {
+      const { data: duplicated, error: duplicatedError } = await supabase
+        .from('units')
+        .select('id')
+        .eq('code', unit.code)
+        .neq('id', id)
+        .maybeSingle();
+      if (duplicatedError) throw duplicatedError;
+      if (duplicated) return c.json({ success: false, error: 'Ya existe otra unidad con ese codigo.' }, 400);
+    }
+
+    const { data, error } = await supabase
+      .from('units')
+      .update({ ...unit, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error("❌ Error updating unit:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.delete("/make-server/catalogs/units/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const usage = await getActiveUnitUsage(id);
+    if (usage.measurement_configs + usage.calibration_curves + usage.material_conversion_factors > 0) {
+      return c.json({ success: false, error: 'No se puede desactivar una unidad en uso.' }, 400);
+    }
+
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('units')
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("❌ Error deleting unit:", error);
+    return c.json({ success: false, error: error.message }, 400);
   }
 });
 
