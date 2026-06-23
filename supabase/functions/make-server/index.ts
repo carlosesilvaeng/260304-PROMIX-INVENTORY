@@ -3927,6 +3927,17 @@ async function getUnitsById(unitIds: string[]) {
   return new Map((data || []).map((unit: any) => [unit.id, unit]));
 }
 
+const CALIBRATION_REQUIRED_SECTIONS = new Set(['additives', 'silos', 'diesel', 'products']);
+const SECTION_FORMULA_CROSS_CATEGORY_SECTIONS = new Set(['aggregates']);
+
+function measurementSectionRequiresCalibration(sectionCode?: string | null) {
+  return CALIBRATION_REQUIRED_SECTIONS.has(sectionCode || '');
+}
+
+function measurementSectionUsesFormulaAcrossCategories(sectionCode?: string | null) {
+  return SECTION_FORMULA_CROSS_CATEGORY_SECTIONS.has(sectionCode || '');
+}
+
 function validateMeasurementConfigUnits(config: any, unitsById: Map<string, any>) {
   const requiredFields = ['capture_unit_id', 'calculation_unit_id', 'display_unit_id', 'inventory_unit_id'];
   for (const field of requiredFields) {
@@ -3943,8 +3954,20 @@ function validateMeasurementConfigUnits(config: any, unitsById: Map<string, any>
     throw new Error('La unidad de calculo y la unidad visible deben pertenecer a la misma categoria.');
   }
 
-  if (captureUnit.category_id !== calculationUnit.category_id && !config.calibration_curve_id) {
-    throw new Error('La captura cruza categorias y requiere una curva de calibracion.');
+  if (
+    captureUnit.category_id !== calculationUnit.category_id &&
+    measurementSectionRequiresCalibration(config.section_code) &&
+    !config.calibration_curve_id
+  ) {
+    throw new Error('Esta seccion requiere una curva de calibracion para convertir captura a calculo.');
+  }
+
+  if (
+    captureUnit.category_id !== calculationUnit.category_id &&
+    !measurementSectionRequiresCalibration(config.section_code) &&
+    !measurementSectionUsesFormulaAcrossCategories(config.section_code)
+  ) {
+    throw new Error('La captura cruza categorias y esta seccion no tiene regla explicita para convertirla.');
   }
 
   if (calculationUnit.category_id !== inventoryUnit.category_id && !config.material_conversion_factor_id) {

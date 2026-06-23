@@ -41,6 +41,9 @@ const SECTION_FORMULAS: Record<string, string> = {
   utilities: 'Consumo = lectura actual - lectura anterior',
 };
 
+const CALIBRATION_REQUIRED_SECTIONS = new Set(['additives', 'silos', 'diesel', 'products']);
+const SECTION_FORMULA_CROSS_CATEGORY_SECTIONS = new Set(['aggregates']);
+
 const MEASUREMENT_SYSTEM_OPTIONS = [
   { value: 'metric', label: 'Metrico' },
   { value: 'imperial', label: 'Imperial' },
@@ -72,6 +75,14 @@ const EMPTY_FACTOR_FORM = {
   effective_from: '',
   effective_to: '',
 };
+
+function sectionRequiresCalibration(sectionCode?: string | null) {
+  return CALIBRATION_REQUIRED_SECTIONS.has(sectionCode || '');
+}
+
+function sectionUsesFormulaAcrossCategories(sectionCode?: string | null) {
+  return SECTION_FORMULA_CROSS_CATEGORY_SECTIONS.has(sectionCode || '');
+}
 
 function getUnitCategory(units: UnitDefinition[], unitId?: string | null) {
   return units.find((unit) => unit.id === unitId)?.category_id || null;
@@ -270,8 +281,12 @@ export function UnitsPanel() {
 
       if (!config.section_code) return 'Cada configuracion debe tener seccion.';
       if (calculationCategory !== displayCategory) return 'Calculo y visualizacion deben estar en la misma categoria.';
-      if (captureCategory !== calculationCategory && !config.calibration_curve_id) {
-        return 'Las capturas que cruzan categorias requieren curva de calibracion.';
+      if (
+        captureCategory !== calculationCategory &&
+        sectionRequiresCalibration(config.section_code) &&
+        !config.calibration_curve_id
+      ) {
+        return 'Esta seccion requiere curva de calibracion para convertir captura a calculo.';
       }
       if (calculationCategory !== inventoryCategory && !config.material_conversion_factor_id) {
         return 'El inventario que cruza categorias requiere factor por material.';
@@ -284,13 +299,16 @@ export function UnitsPanel() {
     const captureCategory = getUnitCategory(units, config.capture_unit_id);
     const calculationCategory = getUnitCategory(units, config.calculation_unit_id);
     const inventoryCategory = getUnitCategory(units, config.inventory_unit_id);
-    const needsCurve = captureCategory !== calculationCategory;
+    const crossesCaptureCategory = captureCategory !== calculationCategory;
+    const needsCurve = crossesCaptureCategory && sectionRequiresCalibration(config.section_code);
+    const usesSectionFormula = crossesCaptureCategory && sectionUsesFormulaAcrossCategories(config.section_code);
     const needsFactor = calculationCategory !== inventoryCategory;
 
     if (needsCurve && !config.calibration_curve_id) return { label: 'Falta configurar', tone: 'error' as const };
     if (needsFactor && !config.material_conversion_factor_id) return { label: 'Falta configurar', tone: 'error' as const };
     if (needsCurve) return { label: 'Curva de calibracion', tone: 'warning' as const };
     if (needsFactor) return { label: 'Factor por material', tone: 'warning' as const };
+    if (usesSectionFormula) return { label: 'Formula de seccion', tone: 'success' as const };
     return { label: 'Conversion estandar', tone: 'success' as const };
   };
 
@@ -299,7 +317,9 @@ export function UnitsPanel() {
     const calculationCategory = getUnitCategory(units, config.calculation_unit_id);
     const displayCategory = getUnitCategory(units, config.display_unit_id);
     const inventoryCategory = getUnitCategory(units, config.inventory_unit_id);
-    const needsCurve = captureCategory !== calculationCategory;
+    const crossesCaptureCategory = captureCategory !== calculationCategory;
+    const needsCurve = crossesCaptureCategory && sectionRequiresCalibration(config.section_code);
+    const usesSectionFormula = crossesCaptureCategory && sectionUsesFormulaAcrossCategories(config.section_code);
     const needsFactor = calculationCategory !== inventoryCategory;
     const curveLabel = getCurveLabel(curves, config.calibration_curve_id);
     const factorLabel = getFactorLabel(factors, config.material_conversion_factor_id);
@@ -316,7 +336,9 @@ export function UnitsPanel() {
           ? curveLabel
             ? `Usa curva: ${curveLabel}`
             : `Curva requerida para convertir ${getUnitLabel(units, config.capture_unit_id)} a ${getUnitLabel(units, config.calculation_unit_id)}.`
-          : describeStandardConversion(units, config.capture_unit_id, config.calculation_unit_id),
+          : usesSectionFormula
+            ? `No requiere curva: ${SECTION_FORMULAS[config.section_code || '']} convierte ${getUnitLabel(units, config.capture_unit_id)} a ${getUnitLabel(units, config.calculation_unit_id)}.`
+            : describeStandardConversion(units, config.capture_unit_id, config.calculation_unit_id),
         tone: needsCurve && !curveLabel ? 'error' : needsCurve ? 'warning' : 'success',
       },
       {
@@ -588,7 +610,9 @@ export function UnitsPanel() {
           <div className="space-y-4">
             {configs.map((config, index) => {
               const calculationCategory = getUnitCategory(units, config.calculation_unit_id);
-              const needsCurve = getUnitCategory(units, config.capture_unit_id) !== calculationCategory;
+              const needsCurve =
+                getUnitCategory(units, config.capture_unit_id) !== calculationCategory &&
+                sectionRequiresCalibration(config.section_code);
               const needsFactor = getUnitCategory(units, config.inventory_unit_id) !== calculationCategory;
               const ruleState = getRuleState(config);
               const sectionLabel = SECTION_OPTIONS.find((section) => section.value === config.section_code)?.label || 'Nueva configuracion';
