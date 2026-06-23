@@ -1511,6 +1511,74 @@ app.get("/make-server/plants/:plantId/config", async (c) => {
   }
 });
 
+app.get("/make-server/plants/:plantId/measurement-configs", async (c) => {
+  try {
+    const user = c.get('user');
+    const plantId = c.req.param("plantId");
+    if (!checkPlantAccess(user, plantId)) {
+      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
+    }
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('measurement_configs')
+      .select('*')
+      .or(`plant_id.eq.${plantId},plant_id.is.null`)
+      .eq('active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error("❌ Error fetching measurement configs:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.put("/make-server/plants/:plantId/measurement-configs", async (c) => {
+  try {
+    const user = c.get('user');
+    const plantId = c.req.param("plantId");
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      return c.json({ success: false, error: 'Solo administradores pueden modificar unidades por seccion.' }, 403);
+    }
+    if (!checkPlantAccess(user, plantId)) {
+      return c.json({ success: false, error: 'Forbidden: No access to this plant' }, 403);
+    }
+
+    const body = await c.req.json();
+    const configs = Array.isArray(body.configs) ? body.configs : [];
+    const rows = configs.map((row: any, index: number) => normalizeMeasurementConfigForPlant(plantId, row, index));
+    const unitsById = await getUnitsById(rows.flatMap((row: any) => [
+      row.capture_unit_id,
+      row.calculation_unit_id,
+      row.display_unit_id,
+      row.inventory_unit_id,
+    ]));
+    rows.filter((row: any) => row.active !== false).forEach((row: any) => validateMeasurementConfigUnits(row, unitsById));
+
+    const supabase = db.getSupabaseClient();
+    const { error: deleteError } = await supabase
+      .from('measurement_configs')
+      .delete()
+      .eq('plant_id', plantId);
+    if (deleteError) throw deleteError;
+
+    if (rows.length === 0) {
+      return c.json({ success: true, count: 0 });
+    }
+
+    const { data, error } = await supabase
+      .from('measurement_configs')
+      .insert(rows)
+      .select();
+    if (error) throw error;
+    return c.json({ success: true, data, count: data?.length || 0 });
+  } catch (error: any) {
+    console.error("❌ Error saving measurement configs:", error);
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
 // GET /plants — list all plants (replaces MOCK_PLANTS in frontend)
 app.get("/make-server/plants", async (c) => {
   try {
@@ -3846,6 +3914,217 @@ app.get("/make-server/auth/validate", async (c) => {
 // CATALOG ENDPOINTS — materiales, procedencias, aditivos y curvas
 // ============================================================================
 
+async function getUnitsById(unitIds: string[]) {
+  const uniqueUnitIds = Array.from(new Set(unitIds.filter(Boolean)));
+  if (uniqueUnitIds.length === 0) return new Map<string, any>();
+
+  const supabase = db.getSupabaseClient();
+  const { data, error } = await supabase
+    .from('units')
+    .select('*')
+    .in('id', uniqueUnitIds);
+  if (error) throw error;
+  return new Map((data || []).map((unit: any) => [unit.id, unit]));
+}
+
+function validateMeasurementConfigUnits(config: any, unitsById: Map<string, any>) {
+  const requiredFields = ['capture_unit_id', 'calculation_unit_id', 'display_unit_id', 'inventory_unit_id'];
+  for (const field of requiredFields) {
+    if (!config[field]) throw new Error(`La configuracion requiere ${field}.`);
+    if (!unitsById.has(config[field])) throw new Error(`Unidad no encontrada: ${config[field]}.`);
+  }
+
+  const captureUnit = unitsById.get(config.capture_unit_id);
+  const calculationUnit = unitsById.get(config.calculation_unit_id);
+  const displayUnit = unitsById.get(config.display_unit_id);
+  const inventoryUnit = unitsById.get(config.inventory_unit_id);
+
+  if (calculationUnit.category_id !== displayUnit.category_id) {
+    throw new Error('La unidad de calculo y la unidad visible deben pertenecer a la misma categoria.');
+  }
+
+  if (captureUnit.category_id !== calculationUnit.category_id && !config.calibration_curve_id) {
+    throw new Error('La captura cruza categorias y requiere una curva de calibracion.');
+  }
+
+  if (calculationUnit.category_id !== inventoryUnit.category_id && !config.material_conversion_factor_id) {
+    throw new Error('La unidad de inventario cruza categorias y requiere un factor de conversion por material.');
+  }
+}
+
+function normalizeMeasurementConfigForPlant(plantId: string, row: any, index: number) {
+  return {
+    id: row.id || undefined,
+    plant_id: plantId,
+    section_code: row.section_code?.trim() || null,
+    inventory_type_id: row.inventory_type_id?.trim() || null,
+    material_id: row.material_id || null,
+    equipment_id: row.equipment_id?.trim() || null,
+    capture_unit_id: row.capture_unit_id,
+    calculation_unit_id: row.calculation_unit_id,
+    display_unit_id: row.display_unit_id,
+    inventory_unit_id: row.inventory_unit_id,
+    material_conversion_factor_id: row.material_conversion_factor_id || null,
+    calibration_curve_id: row.calibration_curve_id || null,
+    active: row.active ?? true,
+    sort_order: row.sort_order ?? index,
+  };
+}
+
+// ── UNIDADES ──
+
+app.get("/make-server/catalogs/unit-categories", async (c) => {
+  try {
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('unit_categories')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error("❌ Error fetching unit categories:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.get("/make-server/catalogs/units", async (c) => {
+  try {
+    const categoryId = c.req.query('category_id');
+    const supabase = db.getSupabaseClient();
+    let query = supabase
+      .from('units')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order');
+    if (categoryId?.trim()) query = query.eq('category_id', categoryId.trim());
+    const { data, error } = await query;
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error("❌ Error fetching units:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// ── FACTORES DE CONVERSION POR MATERIAL ──
+
+app.get("/make-server/catalogs/material-conversion-factors", async (c) => {
+  try {
+    const plantId = c.req.query('plant_id');
+    const materialId = c.req.query('material_id');
+    const supabase = db.getSupabaseClient();
+    let query = supabase
+      .from('material_conversion_factors')
+      .select('*, material:materiales_catalog(id,nombre,clase), from_unit:units!material_conversion_factors_from_unit_id_fkey(id,code,symbol,category_id), to_unit:units!material_conversion_factors_to_unit_id_fkey(id,code,symbol,category_id)')
+      .eq('active', true)
+      .order('created_at', { ascending: false });
+    if (plantId?.trim()) query = query.or(`plant_id.eq.${plantId.trim()},plant_id.is.null`);
+    if (materialId?.trim()) query = query.eq('material_id', materialId.trim());
+    const { data, error } = await query;
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error("❌ Error fetching material conversion factors:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.post("/make-server/catalogs/material-conversion-factors", async (c) => {
+  try {
+    const body = await c.req.json();
+    if (!body.from_unit_id || !body.to_unit_id) return c.json({ success: false, error: 'from_unit_id y to_unit_id requeridos' }, 400);
+    const unitsById = await getUnitsById([body.from_unit_id, body.to_unit_id]);
+    if (!unitsById.has(body.from_unit_id) || !unitsById.has(body.to_unit_id)) {
+      return c.json({ success: false, error: 'Unidad origen o destino no encontrada.' }, 400);
+    }
+    if (unitsById.get(body.from_unit_id).category_id === unitsById.get(body.to_unit_id).category_id) {
+      return c.json({ success: false, error: 'Usa conversion estandar para unidades de la misma categoria.' }, 400);
+    }
+    const factor = Number(body.factor);
+    if (!Number.isFinite(factor) || factor <= 0) return c.json({ success: false, error: 'factor debe ser mayor que cero' }, 400);
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('material_conversion_factors')
+      .insert({
+        material_id: body.material_id || null,
+        plant_id: body.plant_id || null,
+        from_unit_id: body.from_unit_id,
+        to_unit_id: body.to_unit_id,
+        factor,
+        factor_source: body.factor_source?.trim() || null,
+        effective_from: body.effective_from || null,
+        effective_to: body.effective_to || null,
+        active: body.active ?? true,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data }, 201);
+  } catch (error: any) {
+    console.error("❌ Error creating material conversion factor:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.put("/make-server/catalogs/material-conversion-factors/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
+    ['material_id', 'plant_id', 'from_unit_id', 'to_unit_id', 'effective_from', 'effective_to'].forEach((field) => {
+      if (body[field] !== undefined) update[field] = body[field] || null;
+    });
+    if (body.factor !== undefined) {
+      const factor = Number(body.factor);
+      if (!Number.isFinite(factor) || factor <= 0) return c.json({ success: false, error: 'factor debe ser mayor que cero' }, 400);
+      update.factor = factor;
+    }
+    if (body.factor_source !== undefined) update.factor_source = body.factor_source?.trim() || null;
+    if (body.active !== undefined) update.active = body.active;
+
+    const nextFromUnitId = update.from_unit_id || body.current_from_unit_id;
+    const nextToUnitId = update.to_unit_id || body.current_to_unit_id;
+    if (nextFromUnitId && nextToUnitId) {
+      const unitsById = await getUnitsById([nextFromUnitId, nextToUnitId]);
+      if (unitsById.get(nextFromUnitId)?.category_id === unitsById.get(nextToUnitId)?.category_id) {
+        return c.json({ success: false, error: 'Usa conversion estandar para unidades de la misma categoria.' }, 400);
+      }
+    }
+
+    const supabase = db.getSupabaseClient();
+    const { data, error } = await supabase
+      .from('material_conversion_factors')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    console.error("❌ Error updating material conversion factor:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+app.delete("/make-server/catalogs/material-conversion-factors/:id", async (c) => {
+  try {
+    const id = c.req.param('id');
+    const supabase = db.getSupabaseClient();
+    const { error } = await supabase
+      .from('material_conversion_factors')
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("❌ Error deleting material conversion factor:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
 // ── MATERIALES ──
 
 app.get("/make-server/catalogs/materiales", async (c) => {
@@ -4441,7 +4720,7 @@ app.get("/make-server/catalogs/calibration-curves", async (c) => {
 
 app.post("/make-server/catalogs/calibration-curves", async (c) => {
   try {
-    const { plant_id, curve_name, measurement_type, reading_uom, points, data_points } = await c.req.json();
+    const { plant_id, curve_name, measurement_type, reading_uom, equipment_id, material_id, input_unit_id, output_unit_id, method, points, data_points } = await c.req.json();
     if (!plant_id?.trim()) return c.json({ success: false, error: 'plant_id requerido' }, 400);
     if (!curve_name?.trim()) return c.json({ success: false, error: 'curve_name requerido' }, 400);
     if (!measurement_type?.trim()) return c.json({ success: false, error: 'measurement_type requerido' }, 400);
@@ -4454,6 +4733,11 @@ app.post("/make-server/catalogs/calibration-curves", async (c) => {
       curve_name: curve_name.trim(),
       measurement_type: measurement_type.trim(),
       reading_uom: reading_uom?.trim() || null,
+      equipment_id: equipment_id?.trim() || null,
+      material_id: material_id || null,
+      input_unit_id: input_unit_id || null,
+      output_unit_id: output_unit_id || null,
+      method: method || 'table_interpolation',
       points: Array.isArray(points) ? points : undefined,
       data_points,
     });
@@ -4488,6 +4772,11 @@ app.put("/make-server/catalogs/calibration-curves/:id", async (c) => {
     if (body.curve_name !== undefined) update.curve_name = body.curve_name.trim();
     if (body.measurement_type !== undefined) update.measurement_type = body.measurement_type.trim();
     if (body.reading_uom !== undefined) update.reading_uom = body.reading_uom?.trim() || null;
+    if (body.equipment_id !== undefined) update.equipment_id = body.equipment_id?.trim() || null;
+    if (body.material_id !== undefined) update.material_id = body.material_id || null;
+    if (body.input_unit_id !== undefined) update.input_unit_id = body.input_unit_id || null;
+    if (body.output_unit_id !== undefined) update.output_unit_id = body.output_unit_id || null;
+    if (body.method !== undefined) update.method = body.method || 'table_interpolation';
     if (body.points !== undefined) update.points = body.points;
     if (body.data_points !== undefined) update.data_points = body.data_points;
 

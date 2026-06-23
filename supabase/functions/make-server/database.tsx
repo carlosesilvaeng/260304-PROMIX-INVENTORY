@@ -225,6 +225,11 @@ interface CalibrationCurveRow {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  equipment_id?: string | null;
+  material_id?: string | null;
+  input_unit_id?: string | null;
+  output_unit_id?: string | null;
+  method?: string | null;
   points: CalibrationCurvePointInput[];
   point_count: number;
   data_points: Record<string, number>;
@@ -1054,6 +1059,11 @@ interface RawCalibrationCurveRecord {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  equipment_id?: string | null;
+  material_id?: string | null;
+  input_unit_id?: string | null;
+  output_unit_id?: string | null;
+  method?: string | null;
   data_points?: Record<string, number> | null;
 }
 
@@ -1183,6 +1193,11 @@ async function hydrateCalibrationCurves(rows: RawCalibrationCurveRecord[]) {
       curve_name: row.curve_name,
       measurement_type: row.measurement_type,
       reading_uom: row.reading_uom ?? null,
+      equipment_id: row.equipment_id ?? null,
+      material_id: row.material_id ?? null,
+      input_unit_id: row.input_unit_id ?? null,
+      output_unit_id: row.output_unit_id ?? null,
+      method: row.method || 'table_interpolation',
       points: normalizedPoints,
       point_count: normalizedPoints.length,
       data_points: buildCalibrationCurveDataPoints(normalizedPoints),
@@ -1194,7 +1209,7 @@ export async function listPlantCalibrationCurves(plantId: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('calibration_curves')
-    .select('id, plant_id, curve_name, measurement_type, reading_uom, data_points')
+    .select('id, plant_id, curve_name, measurement_type, reading_uom, equipment_id, material_id, input_unit_id, output_unit_id, method, data_points')
     .eq('plant_id', plantId)
     .order('curve_name', { ascending: true });
 
@@ -1264,7 +1279,7 @@ export async function getCalibrationCurveById(id: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('calibration_curves')
-    .select('id, plant_id, curve_name, measurement_type, reading_uom, data_points')
+    .select('id, plant_id, curve_name, measurement_type, reading_uom, equipment_id, material_id, input_unit_id, output_unit_id, method, data_points')
     .eq('id', id)
     .maybeSingle();
 
@@ -1305,6 +1320,11 @@ export async function createCalibrationCurve(data: {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  equipment_id?: string | null;
+  material_id?: string | null;
+  input_unit_id?: string | null;
+  output_unit_id?: string | null;
+  method?: string | null;
   points?: CalibrationCurvePointInput[];
   data_points?: Record<string, number>;
 }) {
@@ -1321,9 +1341,14 @@ export async function createCalibrationCurve(data: {
       curve_name: data.curve_name.trim(),
       measurement_type: data.measurement_type.trim(),
       reading_uom: normalizeCatalogOptionalText(data.reading_uom),
+      equipment_id: normalizeCatalogOptionalText(data.equipment_id),
+      material_id: data.material_id || null,
+      input_unit_id: data.input_unit_id || null,
+      output_unit_id: data.output_unit_id || null,
+      method: data.method || 'table_interpolation',
       data_points: derivedDataPoints,
     })
-    .select('id, plant_id, curve_name, measurement_type, reading_uom, data_points')
+    .select('id, plant_id, curve_name, measurement_type, reading_uom, equipment_id, material_id, input_unit_id, output_unit_id, method, data_points')
     .single();
 
   if (error) throw error;
@@ -1339,6 +1364,11 @@ export async function updateCalibrationCurve(id: string, patch: {
   curve_name?: string;
   measurement_type?: string;
   reading_uom?: string | null;
+  equipment_id?: string | null;
+  material_id?: string | null;
+  input_unit_id?: string | null;
+  output_unit_id?: string | null;
+  method?: string | null;
   points?: CalibrationCurvePointInput[];
   data_points?: Record<string, number>;
 }) {
@@ -1360,6 +1390,11 @@ export async function updateCalibrationCurve(id: string, patch: {
   if (patch.curve_name !== undefined) update.curve_name = patch.curve_name.trim();
   if (patch.measurement_type !== undefined) update.measurement_type = patch.measurement_type.trim();
   if (patch.reading_uom !== undefined) update.reading_uom = normalizeCatalogOptionalText(patch.reading_uom);
+  if (patch.equipment_id !== undefined) update.equipment_id = normalizeCatalogOptionalText(patch.equipment_id);
+  if (patch.material_id !== undefined) update.material_id = patch.material_id || null;
+  if (patch.input_unit_id !== undefined) update.input_unit_id = patch.input_unit_id || null;
+  if (patch.output_unit_id !== undefined) update.output_unit_id = patch.output_unit_id || null;
+  if (patch.method !== undefined) update.method = patch.method || 'table_interpolation';
 
   const supabase = getSupabaseClient();
   const { error } = await supabase
@@ -2071,6 +2106,10 @@ export async function getPlantConfigPackage(plantId: string) {
       productsRes,
       utilitiesRes,
       pettyCashRes,
+      measurementConfigsRes,
+      unitCategoriesRes,
+      unitsRes,
+      materialConversionFactorsRes,
       curves,
     ] = await Promise.all([
       supabase.from('plant_aggregates_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
@@ -2081,6 +2120,10 @@ export async function getPlantConfigPackage(plantId: string) {
       supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
+      supabase.from('measurement_configs').select('*').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true).order('sort_order'),
+      supabase.from('unit_categories').select('*').eq('active', true).order('sort_order'),
+      supabase.from('units').select('*').eq('active', true).order('sort_order'),
+      supabase.from('material_conversion_factors').select('*').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true),
       listPlantCalibrationCurves(plantId),
     ]);
     
@@ -2100,6 +2143,22 @@ export async function getPlantConfigPackage(plantId: string) {
 
     if (cajonesRes.error) {
       console.error(`❌ [getPlantConfigPackage] Cajones query error:`, cajonesRes.error);
+    }
+
+    if (measurementConfigsRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Measurement configs query error:`, measurementConfigsRes.error);
+    }
+
+    if (unitCategoriesRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Unit categories query error:`, unitCategoriesRes.error);
+    }
+
+    if (unitsRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Units query error:`, unitsRes.error);
+    }
+
+    if (materialConversionFactorsRes.error) {
+      console.error(`❌ [getPlantConfigPackage] Material conversion factors query error:`, materialConversionFactorsRes.error);
     }
     
     const calibration_curves = buildCalibrationCurveMapForPackage(curves || []);
@@ -2151,7 +2210,11 @@ export async function getPlantConfigPackage(plantId: string) {
       products: productsRes.data || [],
       utilities_meters: utilitiesRes.data || [],
       petty_cash: pettyCashRes.data || null,
-      calibration_curves
+      calibration_curves,
+      unit_categories: unitCategoriesRes.data || [],
+      units: unitsRes.data || [],
+      measurement_configs: measurementConfigsRes.data || [],
+      material_conversion_factors: materialConversionFactorsRes.data || [],
     };
   } catch (error) {
     console.error('Error fetching plant configuration:', error);

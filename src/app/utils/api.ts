@@ -283,10 +283,116 @@ export interface PlantConfigPackage {
   utilities_meters: any[];
   petty_cash: any;
   calibration_curves: Record<string, any>;
+  unit_categories?: UnitCategory[];
+  units?: UnitDefinition[];
+  measurement_configs?: MeasurementConfig[];
+  material_conversion_factors?: MaterialConversionFactor[];
 }
 
 export async function getPlantConfig(plantId: string): Promise<ApiResponse<PlantConfigPackage>> {
   return apiRequest(`/plants/${plantId}/config`);
+}
+
+export interface UnitCategory {
+  id: string;
+  code: string;
+  name_es: string;
+  name_en: string;
+  base_unit_id: string | null;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface UnitDefinition {
+  id: string;
+  category_id: string;
+  code: string;
+  name_es: string;
+  name_en: string;
+  symbol: string;
+  measurement_system: 'metric' | 'imperial' | 'us_customary' | 'operational';
+  factor_to_base: number;
+  decimal_precision: number;
+  active: boolean;
+  sort_order: number;
+}
+
+export interface MeasurementConfig {
+  id?: string;
+  plant_id?: string | null;
+  section_code?: string | null;
+  inventory_type_id?: string | null;
+  material_id?: string | null;
+  equipment_id?: string | null;
+  capture_unit_id: string;
+  calculation_unit_id: string;
+  display_unit_id: string;
+  inventory_unit_id: string;
+  material_conversion_factor_id?: string | null;
+  calibration_curve_id?: string | null;
+  active?: boolean;
+  sort_order?: number;
+}
+
+export interface MaterialConversionFactor {
+  id: string;
+  material_id?: string | null;
+  plant_id?: string | null;
+  from_unit_id: string;
+  to_unit_id: string;
+  factor: number;
+  factor_source?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  active: boolean;
+}
+
+export async function getUnitCategories(): Promise<ApiResponse<UnitCategory[]>> {
+  return apiRequest('/catalogs/unit-categories', 'GET');
+}
+
+export async function getUnits(categoryId?: string): Promise<ApiResponse<UnitDefinition[]>> {
+  const suffix = categoryId ? `?category_id=${encodeURIComponent(categoryId)}` : '';
+  return apiRequest(`/catalogs/units${suffix}`, 'GET');
+}
+
+export async function getPlantMeasurementConfigs(plantId: string): Promise<ApiResponse<MeasurementConfig[]>> {
+  return apiRequest(`/plants/${plantId}/measurement-configs`, 'GET');
+}
+
+export async function updatePlantMeasurementConfigs(
+  plantId: string,
+  configs: MeasurementConfig[],
+): Promise<ApiResponse<MeasurementConfig[]>> {
+  return apiRequest(`/plants/${plantId}/measurement-configs`, 'PUT', { configs });
+}
+
+export async function getMaterialConversionFactors(params?: {
+  plantId?: string;
+  materialId?: string;
+}): Promise<ApiResponse<MaterialConversionFactor[]>> {
+  const searchParams = new URLSearchParams();
+  if (params?.plantId) searchParams.set('plant_id', params.plantId);
+  if (params?.materialId) searchParams.set('material_id', params.materialId);
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+  return apiRequest(`/catalogs/material-conversion-factors${suffix}`, 'GET');
+}
+
+export async function createMaterialConversionFactor(
+  factor: Partial<MaterialConversionFactor>,
+): Promise<ApiResponse<MaterialConversionFactor>> {
+  return apiRequest('/catalogs/material-conversion-factors', 'POST', factor);
+}
+
+export async function updateMaterialConversionFactor(
+  id: string,
+  factor: Partial<MaterialConversionFactor>,
+): Promise<ApiResponse<MaterialConversionFactor>> {
+  return apiRequest(`/catalogs/material-conversion-factors/${id}`, 'PUT', factor);
+}
+
+export async function deleteMaterialConversionFactor(id: string): Promise<ApiResponse> {
+  return apiRequest(`/catalogs/material-conversion-factors/${id}`, 'DELETE');
 }
 
 export interface PlantConfigurationCounts {
@@ -569,6 +675,11 @@ export interface CalibrationCurveCatalogItem {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  equipment_id?: string | null;
+  material_id?: string | null;
+  input_unit_id?: string | null;
+  output_unit_id?: string | null;
+  method?: string | null;
   points: Array<{
     point_key: number;
     point_value: number;
@@ -887,6 +998,11 @@ export async function createCalibrationCurveCatalogItem(data: {
   curve_name: string;
   measurement_type: string;
   reading_uom?: string | null;
+  equipment_id?: string | null;
+  material_id?: string | null;
+  input_unit_id?: string | null;
+  output_unit_id?: string | null;
+  method?: string | null;
   points: Array<{
     point_key: number;
     point_value: number;
@@ -907,6 +1023,11 @@ export async function updateCalibrationCurveCatalogItem(
     curve_name?: string;
     measurement_type?: string;
     reading_uom?: string | null;
+    equipment_id?: string | null;
+    material_id?: string | null;
+    input_unit_id?: string | null;
+    output_unit_id?: string | null;
+    method?: string | null;
     points?: Array<{
       point_key: number;
       point_value: number;

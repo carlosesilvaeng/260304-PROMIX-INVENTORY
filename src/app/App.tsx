@@ -26,7 +26,6 @@ import { PettyCashSection } from "./pages/sections/PettyCashSection";
 import { ProductsSection } from "./pages/sections/ProductsSection";
 import { ReviewAndApproveSection } from "./pages/sections/ReviewAndApproveSection";
 import { ErrorBoundary } from "./utils/errorBoundary";
-import { UnitsProvider } from "./contexts/UnitsContext";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { isPlantManagerLike } from "./utils/permissions";
 
@@ -312,17 +311,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LanguageProvider>
-        <UnitsProvider>
-          <AuthProvider>
-            <InventoryProvider>
-              <PlantPrefillProvider>
-                <ModulesProvider>
-                  <AppContent key={APP_KEY} />
-                </ModulesProvider>
-              </PlantPrefillProvider>
-            </InventoryProvider>
-          </AuthProvider>
-        </UnitsProvider>
+        <AuthProvider>
+          <InventoryProvider>
+            <PlantPrefillProvider>
+              <ModulesProvider>
+                <AppContent key={APP_KEY} />
+              </ModulesProvider>
+            </PlantPrefillProvider>
+          </InventoryProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ErrorBoundary>
   );

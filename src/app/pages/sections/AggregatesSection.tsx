@@ -4,11 +4,18 @@ import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
-import { useUnits } from '../../contexts/UnitsContext';
 import { saveAggregatesEntries } from '../../utils/api';
 import { formatNumber } from '../../utils/numberFormatting';
+import {
+  convertWithMaterialFactor,
+  convertUnit,
+  getUnitSymbol,
+  resolveMeasurementConfig,
+  type MaterialConversionFactor,
+  type MeasurementConfig,
+  type UnitDefinition,
+} from '../../utils/unitConversion';
 
 interface AggregatesSectionProps {
   onBack?: () => void;
@@ -16,15 +23,25 @@ interface AggregatesSectionProps {
 
 export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const { currentPlant } = useAuth();
-  const { t } = useLanguage();
-  const { units } = useUnits();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const lengthUnitLabel = units.length === 'm' ? 'm' : 'ft';
-  const volumeUnit = units.length === 'm' ? 'm3' : 'ft3';
-  const volumeUnitLabel = units.length === 'm' ? 'm³' : 'ft³';
+  const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
+  const measurementConfigs = (prefillData.config?.measurement_configs || []) as MeasurementConfig[];
+  const aggregateMeasurementConfig = resolveMeasurementConfig(measurementConfigs, {
+    plantId: currentPlant?.id,
+    sectionCode: 'aggregates',
+  });
+  const captureUnit = aggregateMeasurementConfig?.capture_unit_id || 'ft';
+  const calculationUnit = aggregateMeasurementConfig?.calculation_unit_id || 'ft3';
+  const displayUnit = aggregateMeasurementConfig?.display_unit_id || calculationUnit;
+  const inventoryUnit = aggregateMeasurementConfig?.inventory_unit_id || displayUnit;
+  const materialFactors = (prefillData.config?.material_conversion_factors || []) as MaterialConversionFactor[];
+  const aggregateMaterialFactor = materialFactors.find((factor) => factor.id === aggregateMeasurementConfig?.material_conversion_factor_id);
+  const lengthUnitLabel = getUnitSymbol(unitCatalog, captureUnit, captureUnit === 'm' ? 'm' : 'ft');
+  const volumeUnitLabel = getUnitSymbol(unitCatalog, displayUnit, displayUnit === 'm3' ? 'm³' : 'ft³');
+  const inventoryUnitLabel = getUnitSymbol(unitCatalog, inventoryUnit, inventoryUnit);
 
   // Load data when component mounts
   useEffect(() => {
@@ -100,8 +117,42 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   // VOLUME CALCULATIONS
   // ============================================================================
 
+  const getVolumeUnitForLengthUnit = (unitId: string) => {
+    if (unitId === 'm') return 'm3';
+    if (unitId === 'ft') return 'ft3';
+    return calculationUnit;
+  };
+
+  const convertVolumeForDisplay = (rawVolume: number) => {
+    const rawVolumeUnit = getVolumeUnitForLengthUnit(captureUnit);
+    try {
+      const calculationVolume = rawVolumeUnit === calculationUnit
+        ? rawVolume
+        : convertUnit(rawVolume, rawVolumeUnit, calculationUnit, unitCatalog);
+      return calculationUnit === displayUnit
+        ? calculationVolume
+        : convertUnit(calculationVolume, calculationUnit, displayUnit, unitCatalog);
+    } catch (error) {
+      console.warn('[AggregatesSection] No se pudo convertir volumen con la configuracion actual:', error);
+      return rawVolume;
+    }
+  };
+
+  const calculateInventoryQuantity = (displayValue: number) => {
+    try {
+      const calculationValue = displayUnit === calculationUnit
+        ? displayValue
+        : convertUnit(displayValue, displayUnit, calculationUnit, unitCatalog);
+      return calculationUnit === inventoryUnit
+        ? calculationValue
+        : convertWithMaterialFactor(calculationValue, calculationUnit, inventoryUnit, aggregateMaterialFactor);
+    } catch {
+      return null;
+    }
+  };
+
   const calculateBoxVolume = (width: number, height: number, length: number): number => {
-    return width * height * length;
+    return convertVolumeForDisplay(width * height * length);
   };
 
   const calculateConeVolume = (m1: number, m2: number, m3: number, m4: number, m5: number, m6: number, d1: number, d2: number): number => {
@@ -110,7 +161,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
     const avgM = (m1 + m2 + m3 + m4 + m5 + m6) / 6;
     const hSquared = Math.pow(avgM, 2) - Math.pow(r, 2);
     if (hSquared <= 0) return 0; // geometría inválida: avgM debe ser mayor que r
-    return (Math.PI * Math.pow(r, 2) * Math.sqrt(hSquared)) / 3;
+    return convertVolumeForDisplay((Math.PI * Math.pow(r, 2) * Math.sqrt(hSquared)) / 3);
   };
 
   // ============================================================================
@@ -130,7 +181,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         const height = Number(field === 'box_height_ft' ? value : entry.box_height_ft ?? 0);
         const length = Number(field === 'box_length_ft' ? value : entry.box_length_ft ?? 0);
         updates.calculated_volume_cy = calculateBoxVolume(width, height, length);
-        updates.unit = volumeUnit;
+        updates.unit = displayUnit;
       }
     } else if (entry.measurement_method === 'CONE') {
       // CONE method: calculate when any measurement changes
@@ -146,10 +197,10 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         
         if ([m1, m2, m3, m4, m5, m6, d1, d2].every(v => v !== null && v !== undefined && v !== '')) {
           updates.calculated_volume_cy = calculateConeVolume(m1, m2, m3, m4, m5, m6, d1, d2);
-          updates.unit = volumeUnit;
+          updates.unit = displayUnit;
         } else {
           updates.calculated_volume_cy = 0;
-          updates.unit = volumeUnit;
+          updates.unit = displayUnit;
         }
       }
     }
@@ -174,7 +225,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
       // Prepare entries for saving (remove temp IDs and _isNew flag)
       const entriesToSave = prefillData.agregadosEntries.map(entry => ({
         ...entry,
-        unit: volumeUnit,
+        unit: displayUnit,
         id: entry._isNew ? undefined : entry.id, // Remove temp ID for new entries
         _isNew: undefined, // Remove internal flag
       }));
@@ -377,6 +428,14 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                       <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold">
                         {formatNumber(entry.calculated_volume_cy || 0)} {volumeUnitLabel}
                       </div>
+                      {inventoryUnit !== displayUnit && (
+                        <p className="mt-1 text-xs text-[#6F767E]">
+                          Inventario:{' '}
+                          {calculateInventoryQuantity(Number(entry.calculated_volume_cy || 0)) === null
+                            ? 'requiere factor'
+                            : `${formatNumber(calculateInventoryQuantity(Number(entry.calculated_volume_cy || 0)) || 0)} ${inventoryUnitLabel}`}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -463,6 +522,14 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                     <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold text-lg">
                       {formatNumber(entry.calculated_volume_cy || 0)} {volumeUnitLabel}
                     </div>
+                    {inventoryUnit !== displayUnit && (
+                      <p className="mt-1 text-xs text-[#6F767E]">
+                        Inventario:{' '}
+                        {calculateInventoryQuantity(Number(entry.calculated_volume_cy || 0)) === null
+                          ? 'requiere factor'
+                          : `${formatNumber(calculateInventoryQuantity(Number(entry.calculated_volume_cy || 0)) || 0)} ${inventoryUnitLabel}`}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
