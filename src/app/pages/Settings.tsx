@@ -75,7 +75,8 @@ export function Settings() {
   const canViewAudit = canAccessAudit(user?.role);
   const canManageSystemModules = canManageModules(user?.role);
   const canAccessDataControl = user?.role === 'super_admin';
-  const hasManagementTabs = canManageUsers || canManagePlants || canViewAudit || canManageSystemModules || canAccessDataControl;
+  const canViewUnits = user?.role === 'operations_manager' || canManagePlants;
+  const hasManagementTabs = canManageUsers || canManagePlants || canViewUnits || canViewAudit || canManageSystemModules || canAccessDataControl;
 
   useEffect(() => {
     if (!user) return;
@@ -85,8 +86,8 @@ export function Settings() {
     if (canManagePlants) {
       allowedTabs.add('plants');
       allowedTabs.add('catalogs');
-      allowedTabs.add('units');
     }
+    if (canViewUnits) allowedTabs.add('units');
     if (canViewAudit) allowedTabs.add('audit');
     if (canManageSystemModules) allowedTabs.add('modules');
     if (canAccessDataControl) allowedTabs.add('data-control');
@@ -96,7 +97,7 @@ export function Settings() {
     } else if (!hasManagementTabs) {
       setActiveTab('account');
     }
-  }, [user, activeTab, canManageUsers, canManagePlants, canViewAudit, canManageSystemModules, canAccessDataControl, hasManagementTabs]);
+  }, [user, activeTab, canManageUsers, canManagePlants, canViewUnits, canViewAudit, canManageSystemModules, canAccessDataControl, hasManagementTabs]);
 
   const handleSave = () => {
     setShowSaveSuccess(true);
@@ -376,17 +377,19 @@ export function Settings() {
               >
                 Catálogos
               </button>
-              <button
-                onClick={() => setActiveTab('units')}
-                className={`px-4 py-2 border-b-2 transition-colors ${
-                  activeTab === 'units'
-                    ? 'border-[#2475C7] text-[#2475C7]'
-                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
-                }`}
-              >
-                Unidades
-              </button>
             </>
+          )}
+          {canViewUnits && (
+            <button
+              onClick={() => setActiveTab('units')}
+              className={`px-4 py-2 border-b-2 transition-colors ${
+                activeTab === 'units'
+                  ? 'border-[#2475C7] text-[#2475C7]'
+                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+              }`}
+            >
+              Unidades
+            </button>
           )}
           {canManageUsers && (
             <button
@@ -632,7 +635,7 @@ export function Settings() {
       )}
 
       {/* Units Tab */}
-      {canManagePlants && activeTab === 'units' && (
+      {canViewUnits && activeTab === 'units' && (
         <UnitsPanel />
       )}
 

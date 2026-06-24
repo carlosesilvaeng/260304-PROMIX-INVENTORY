@@ -3,12 +3,18 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
+import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
 import { saveSilosEntries } from '../../utils/api';
+import {
+  resolveEffectiveMeasurementConfig,
+  type MeasurementConfig,
+  type UnitDefinition,
+} from '../../utils/unitConversion';
 import siloMeasurementReference from '../../../assets/silo-measurement-reference.png';
 
 interface SilosSectionProps {
@@ -147,6 +153,26 @@ export function SilosSection({ onBack }: SilosSectionProps) {
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
+  const measurementConfigs = (prefillData.config?.measurement_configs || []) as MeasurementConfig[];
+  const siloMeasurementConfigs = measurementConfigs.filter((config) => (
+    config.section_code !== 'silos' ||
+    config.calculation_unit_id === 'sack' ||
+    config.display_unit_id === 'sack' ||
+    config.inventory_unit_id === 'sack'
+  ));
+  const siloUnits = resolveEffectiveMeasurementConfig({
+    units: unitCatalog,
+    configs: siloMeasurementConfigs,
+    plantId: currentPlant?.id,
+    sectionCode: 'silos',
+    fallbackCaptureUnitId: 'in',
+    fallbackCalculationUnitId: 'sack',
+    fallbackDisplayUnitId: 'sack',
+    fallbackInventoryUnitId: 'lb',
+    fallbackRuleLabel: 'Curva de silo',
+    fallbackRuleDetail: 'La lectura se convierte con la tabla configurada del silo.',
+  });
 
   // Load data when component mounts
   useEffect(() => {
@@ -370,6 +396,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               </span>
             )}
           </div>
+          <UnitFlowSummary effectiveConfig={siloUnits} className="mt-4" />
         </div>
 
         {/* Save Message */}
@@ -413,7 +440,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
                     <span>📏 {entry.measurement_method || 'SILO_LEVEL'}</span>
                     <span className="font-medium text-[#2B7DE9]">
-                      Lectura: {entry.reading_uom || 'nivel'} 🔒
+                      Lectura: {siloUnits.captureLabel || entry.reading_uom || 'nivel'} 🔒
                     </span>
                   </div>
                 </div>
@@ -446,7 +473,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 {/* Reading - EDITABLE */}
                 <div>
                   <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                    Lectura ({entry.reading_uom || 'nivel'}) *
+                    Lectura ({siloUnits.captureLabel || entry.reading_uom || 'nivel'}) *
                   </label>
                   <NumericInput
                     value={entry.reading_value ?? ''}

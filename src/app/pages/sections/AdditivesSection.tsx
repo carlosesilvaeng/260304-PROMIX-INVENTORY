@@ -3,12 +3,18 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
+import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatOptionalNumber, formatNumber } from '../../utils/numberFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
+import {
+  resolveEffectiveMeasurementConfig,
+  type MeasurementConfig,
+  type UnitDefinition,
+} from '../../utils/unitConversion';
 import additiveTankMeasurementReference from '../../../assets/additive-tank-measurement-reference.png';
 
 type TabType = 'tanks' | 'manual';
@@ -218,6 +224,20 @@ export function AdditivesSection() {
   const [activeTab, setActiveTab] = useState<TabType>('tanks');
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
+  const measurementConfigs = (prefillData.config?.measurement_configs || []) as MeasurementConfig[];
+  const additiveUnits = resolveEffectiveMeasurementConfig({
+    units: unitCatalog,
+    configs: measurementConfigs,
+    plantId: currentPlant?.id,
+    sectionCode: 'additives',
+    fallbackCaptureUnitId: 'in',
+    fallbackCalculationUnitId: 'gal_us',
+    fallbackDisplayUnitId: 'gal_us',
+    fallbackInventoryUnitId: 'gal_us',
+    fallbackRuleLabel: 'Curva de tanque',
+    fallbackRuleDetail: 'La lectura se convierte con la curva configurada del tanque de aditivo.',
+  });
 
   // Load data when component mounts
   useEffect(() => {
@@ -466,6 +486,7 @@ export function AdditivesSection() {
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
         </div>
       </div>
+      <UnitFlowSummary effectiveConfig={additiveUnits} />
 
       {/* TABS */}
       <div className="flex gap-2 border-b border-[#D4D2CF]">
@@ -542,7 +563,7 @@ export function AdditivesSection() {
                   {/* READING AND VOLUME */}
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                     <NumericInput
-                      label={`Lectura (${entry.reading_uom || 'inches'})`}
+                      label={`Lectura (${additiveUnits.captureLabel || entry.reading_uom || 'inches'})`}
                       value={entry.reading_value ?? ''}
                       onValueChange={(val) => handleFieldChange(entry.id, 'reading_value', val)}
                       placeholder="0.00"
@@ -551,13 +572,13 @@ export function AdditivesSection() {
                     />
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                        Volumen disponible ({entry.uom})
+                        Volumen disponible ({additiveUnits.displayLabel || entry.uom})
                       </label>
                       <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                         <span className="text-[#2475C7] font-bold text-lg">
                           {formatMetricValue(tankMetrics.availableVolume, '0.00')}
                         </span>
-                        <span className="text-[#5F6773] ml-2 text-sm">{entry.uom}</span>
+                        <span className="text-[#5F6773] ml-2 text-sm">{additiveUnits.displayLabel || entry.uom}</span>
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">
                         Inventario tomado según curva de conversión
@@ -565,14 +586,14 @@ export function AdditivesSection() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                        Volumen consumido ({entry.uom})
+                        Volumen consumido ({additiveUnits.displayLabel || entry.uom})
                       </label>
                       <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                         <span className="text-[#3B3A36] font-bold text-lg">
                           {formatMetricValue(tankMetrics.consumedVolume)}
                         </span>
                         {tankMetrics.consumedVolume !== null && tankMetrics.consumedVolume !== undefined && (
-                          <span className="text-[#5F6773] ml-2 text-sm">{entry.uom}</span>
+                          <span className="text-[#5F6773] ml-2 text-sm">{additiveUnits.displayLabel || entry.uom}</span>
                         )}
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">

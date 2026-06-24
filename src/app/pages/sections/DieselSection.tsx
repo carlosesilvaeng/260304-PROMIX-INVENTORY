@@ -3,12 +3,18 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { StandardInput } from '../../components/StandardInput';
+import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
 import { saveDieselEntry } from '../../utils/api';
+import {
+  resolveEffectiveMeasurementConfig,
+  type MeasurementConfig,
+  type UnitDefinition,
+} from '../../utils/unitConversion';
 import dieselMeasurementReference from '../../../assets/diesel-measurement-reference.png';
 
 function getCalibrationDepthRange(calibrationTable: Record<string, number> | null | undefined) {
@@ -104,6 +110,20 @@ export function DieselSection() {
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
+  const measurementConfigs = (prefillData.config?.measurement_configs || []) as MeasurementConfig[];
+  const dieselUnits = resolveEffectiveMeasurementConfig({
+    units: unitCatalog,
+    configs: measurementConfigs,
+    plantId: currentPlant?.id,
+    sectionCode: 'diesel',
+    fallbackCaptureUnitId: 'in',
+    fallbackCalculationUnitId: 'gal_us',
+    fallbackDisplayUnitId: 'gal_us',
+    fallbackInventoryUnitId: 'gal_us',
+    fallbackRuleLabel: 'Curva de tanque',
+    fallbackRuleDetail: 'La lectura se convierte con la tabla tecnica del tanque de diesel.',
+  });
 
   // Load data when component mounts
   useEffect(() => {
@@ -266,8 +286,8 @@ export function DieselSection() {
         inventory_month_id: prefillData.inventoryMonth.id,
         diesel_config_id: diesel.diesel_config_id || null,
         plant_id: diesel.plant_id || currentPlant?.id || null,
-        unit: diesel.unit || 'gallons',
-        reading_uom: diesel.reading_uom || 'inches',
+        unit: dieselUnits.inventoryLabel || diesel.unit || 'gallons',
+        reading_uom: dieselUnits.captureLabel || diesel.reading_uom || 'inches',
         reading_inches: diesel.reading_inches ?? 0,
         reading: diesel.reading_inches ?? diesel.reading ?? 0,
         calculated_gallons: diesel.calculated_gallons ?? 0,
@@ -355,6 +375,7 @@ export function DieselSection() {
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
         </div>
       </div>
+      <UnitFlowSummary effectiveConfig={dieselUnits} />
 
       {/* TANK INFO */}
       <Card className="bg-[#F2F3F5] border-[#2475C7]/30">
@@ -364,13 +385,13 @@ export function DieselSection() {
               <div>
                 <p className="text-sm font-semibold text-[#5F6773]">Capacidad del Tanque</p>
                 <p className="text-2xl font-bold text-[#2475C7]">
-                  {formatNumber(diesel.tank_capacity_gallons ?? 0)} galones
+                  {formatNumber(diesel.tank_capacity_gallons ?? 0)} {dieselUnits.displayLabel || 'galones'}
                 </p>
               </div>
               <div className="sm:text-right">
                 <p className="text-sm font-semibold text-[#5F6773]">Método de Medición</p>
                 <p className="text-lg font-bold text-[#3B3A36]">
-                  Lectura en {diesel.reading_uom}
+                  Lectura en {dieselUnits.captureLabel || diesel.reading_uom}
                 </p>
               </div>
             </div>
@@ -390,7 +411,7 @@ export function DieselSection() {
             reading={numericReading}
             calculatedGallons={numericCalculatedGallons}
             tankCapacity={numericTankCapacity}
-            readingUom={diesel.reading_uom || 'inches'}
+            readingUom={dieselUnits.captureLabel || diesel.reading_uom || 'inches'}
             calibrationTable={diesel.calibration_table}
             plantName={currentPlant?.name}
           />
@@ -407,7 +428,7 @@ export function DieselSection() {
                 </p>
               </div>
               <p className="text-2xl font-bold text-blue-600 ml-7">
-                {formatNumber(diesel.beginning_inventory || 0)} galones
+                {formatNumber(diesel.beginning_inventory || 0)} {dieselUnits.displayLabel || 'galones'}
               </p>
             </div>
           )}
@@ -421,12 +442,12 @@ export function DieselSection() {
                 value={diesel.reading_inches}
                 onChange={(val) => handleFieldChange('reading_inches', val)}
                 type="number"
-                unit={diesel.reading_uom}
+                unit={dieselUnits.captureLabel || diesel.reading_uom}
                 required={true}
                 min={0}
                 step={0.01}
                 placeholder="0.00"
-                helperText="Ingresa la lectura del medidor en pulgadas (0 es válido)"
+                helperText={`Ingresa la lectura del medidor en ${dieselUnits.captureLabel || diesel.reading_uom || 'pulgadas'} (0 es válido)`}
               />
             </div>
           </div>
@@ -440,7 +461,7 @@ export function DieselSection() {
                 value={diesel.purchases_gallons}
                 onChange={(val) => handleFieldChange('purchases_gallons', val)}
                 type="number"
-                unit="galones"
+                unit={dieselUnits.displayLabel || 'galones'}
                 required={false}
                 min={0}
                 step={0.01}
@@ -458,7 +479,7 @@ export function DieselSection() {
                 <p className="text-2xl font-bold text-[#3B3A36]">
                   {formatNumber(diesel.beginning_inventory || 0)}
                 </p>
-                <p className="text-xs text-[#5F6773]">galones</p>
+                <p className="text-xs text-[#5F6773]">{dieselUnits.displayLabel || 'galones'}</p>
               </div>
               <div className="flex items-center justify-center">
                 <div className="text-center">
@@ -477,7 +498,7 @@ export function DieselSection() {
                 <p className="text-4xl font-bold">
                   {formatNumber(diesel.consumption_gallons || 0)}
                 </p>
-                <p className="text-sm mt-1">galones</p>
+                <p className="text-sm mt-1">{dieselUnits.displayLabel || 'galones'}</p>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-[#2475C7]/20">

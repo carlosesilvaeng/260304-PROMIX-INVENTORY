@@ -61,6 +61,32 @@ export interface ResolveMeasurementConfigInput {
   equipmentId?: string | null;
 }
 
+export interface EffectiveMeasurementConfig {
+  config: MeasurementConfig | null;
+  captureUnitId: string;
+  calculationUnitId: string;
+  displayUnitId: string;
+  inventoryUnitId: string;
+  captureLabel: string;
+  calculationLabel: string;
+  displayLabel: string;
+  inventoryLabel: string;
+  ruleLabel: string;
+  ruleDetail: string;
+  source: 'contextual' | 'legacy';
+}
+
+export interface ResolveEffectiveMeasurementConfigInput extends ResolveMeasurementConfigInput {
+  units: UnitDefinition[];
+  configs: MeasurementConfig[];
+  fallbackCaptureUnitId?: string | null;
+  fallbackCalculationUnitId?: string | null;
+  fallbackDisplayUnitId?: string | null;
+  fallbackInventoryUnitId?: string | null;
+  fallbackRuleLabel?: string;
+  fallbackRuleDetail?: string;
+}
+
 function asNumber(value: number | string | null | undefined, fallback = 0) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : fallback;
@@ -206,4 +232,131 @@ export function resolveMeasurementConfig(
 export function getUnitSymbol(units: UnitDefinition[], unitId: string | null | undefined, fallback = '') {
   if (!unitId) return fallback;
   return units.find((unit) => unit.id === unitId)?.symbol || fallback || unitId;
+}
+
+export function getUnitDisplay(
+  units: UnitDefinition[],
+  unitId: string | null | undefined,
+  fallback = '',
+) {
+  if (!unitId) return fallback;
+  const unit = units.find((candidate) => candidate.id === unitId || candidate.code === unitId);
+  return unit?.symbol || fallback || unitId;
+}
+
+export function findUnitBySymbolOrId(
+  units: UnitDefinition[],
+  unitIdOrSymbol: string | null | undefined,
+) {
+  if (!unitIdOrSymbol) return null;
+  const normalized = unitIdOrSymbol.toLowerCase();
+  return units.find((unit) => (
+    unit.id.toLowerCase() === normalized ||
+    unit.code.toLowerCase() === normalized ||
+    unit.symbol.toLowerCase() === normalized
+  )) || null;
+}
+
+export function describeEffectiveRule(
+  units: UnitDefinition[],
+  config: MeasurementConfig | null,
+  fallbackRuleLabel = 'Configuracion legacy',
+  fallbackRuleDetail = 'Usa la unidad guardada en la configuracion del modulo.',
+) {
+  if (!config) {
+    return { ruleLabel: fallbackRuleLabel, ruleDetail: fallbackRuleDetail };
+  }
+
+  const captureUnit = findUnitBySymbolOrId(units, config.capture_unit_id);
+  const calculationUnit = findUnitBySymbolOrId(units, config.calculation_unit_id);
+  const inventoryUnit = findUnitBySymbolOrId(units, config.inventory_unit_id);
+  const crossesCaptureCategory = captureUnit?.category_id && calculationUnit?.category_id && captureUnit.category_id !== calculationUnit.category_id;
+  const crossesInventoryCategory = calculationUnit?.category_id && inventoryUnit?.category_id && calculationUnit.category_id !== inventoryUnit.category_id;
+
+  if (config.calibration_curve_id || crossesCaptureCategory) {
+    return {
+      ruleLabel: config.calibration_curve_id ? 'Curva de calibracion' : 'Curva legacy',
+      ruleDetail: 'La lectura se convierte con la tabla/curva configurada para el equipo.',
+    };
+  }
+
+  if (config.material_conversion_factor_id || crossesInventoryCategory) {
+    return {
+      ruleLabel: config.material_conversion_factor_id ? 'Factor por material' : 'Factor requerido',
+      ruleDetail: 'La unidad de inventario cruza categoria y requiere factor por material.',
+    };
+  }
+
+  return {
+    ruleLabel: 'Conversion estandar',
+    ruleDetail: 'Las unidades pertenecen a la misma categoria fisica.',
+  };
+}
+
+export function resolveEffectiveMeasurementConfig(input: ResolveEffectiveMeasurementConfigInput): EffectiveMeasurementConfig {
+  const config = resolveMeasurementConfig(input.configs, input);
+  const captureUnitId = config?.capture_unit_id || input.fallbackCaptureUnitId || '';
+  const calculationUnitId = config?.calculation_unit_id || input.fallbackCalculationUnitId || captureUnitId;
+  const displayUnitId = config?.display_unit_id || input.fallbackDisplayUnitId || calculationUnitId;
+  const inventoryUnitId = config?.inventory_unit_id || input.fallbackInventoryUnitId || displayUnitId;
+  const rule = describeEffectiveRule(
+    input.units,
+    config,
+    input.fallbackRuleLabel,
+    input.fallbackRuleDetail,
+  );
+
+  return {
+    config,
+    captureUnitId,
+    calculationUnitId,
+    displayUnitId,
+    inventoryUnitId,
+    captureLabel: getUnitDisplay(input.units, captureUnitId, input.fallbackCaptureUnitId || ''),
+    calculationLabel: getUnitDisplay(input.units, calculationUnitId, input.fallbackCalculationUnitId || ''),
+    displayLabel: getUnitDisplay(input.units, displayUnitId, input.fallbackDisplayUnitId || ''),
+    inventoryLabel: getUnitDisplay(input.units, inventoryUnitId, input.fallbackInventoryUnitId || ''),
+    ruleLabel: rule.ruleLabel,
+    ruleDetail: rule.ruleDetail,
+    source: config ? 'contextual' : 'legacy',
+  };
+}
+
+export function convertForCaptureToCalculation(
+  value: number,
+  effectiveConfig: EffectiveMeasurementConfig,
+  units: UnitDefinition[],
+  curve?: CalibrationCurveLike | null,
+) {
+  if (effectiveConfig.captureUnitId === effectiveConfig.calculationUnitId) return value;
+  try {
+    return convertUnit(value, effectiveConfig.captureUnitId, effectiveConfig.calculationUnitId, units);
+  } catch (standardError) {
+    if (curve) return convertWithCalibrationCurve(value, effectiveConfig.captureUnitId, effectiveConfig.calculationUnitId, curve);
+    throw standardError;
+  }
+}
+
+export function convertForCalculationToDisplay(
+  value: number,
+  effectiveConfig: EffectiveMeasurementConfig,
+  units: UnitDefinition[],
+) {
+  if (effectiveConfig.calculationUnitId === effectiveConfig.displayUnitId) return value;
+  return convertUnit(value, effectiveConfig.calculationUnitId, effectiveConfig.displayUnitId, units);
+}
+
+export function convertForCalculationToInventory(
+  value: number,
+  effectiveConfig: EffectiveMeasurementConfig,
+  units: UnitDefinition[],
+  factor?: MaterialConversionFactor | null,
+) {
+  if (effectiveConfig.calculationUnitId === effectiveConfig.inventoryUnitId) return value;
+  try {
+    return convertUnit(value, effectiveConfig.calculationUnitId, effectiveConfig.inventoryUnitId, units);
+  } catch (standardError) {
+    if (factor) return convertWithMaterialFactor(value, effectiveConfig.calculationUnitId, effectiveConfig.inventoryUnitId, factor);
+    throw standardError;
+  }
 }

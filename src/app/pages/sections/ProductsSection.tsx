@@ -3,6 +3,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
+import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import {
@@ -14,6 +15,11 @@ import {
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
 import { saveProductsEntries } from '../../utils/api';
+import {
+  resolveEffectiveMeasurementConfig,
+  type MeasurementConfig,
+  type UnitDefinition,
+} from '../../utils/unitConversion';
 
 // Category badge colors
 const CATEGORY_COLORS: Record<string, string> = {
@@ -32,12 +38,24 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER: 'Otro',
 };
 
+function getProductModeLabel(producto: any) {
+  const unit = producto.uom || 'units';
+  const unitVolume = Number(producto.unit_volume || 0);
+  if (producto.measure_mode === 'TANK_READING') return '📊 Tanque con Lectura';
+  if (producto.measure_mode === 'DRUM') return `🛢️ Tambores (${unitVolume || 55} ${unit}/unidad)`;
+  if (producto.measure_mode === 'PAIL') return `🪣 Pailas (${unitVolume || 5} ${unit}/unidad)`;
+  if (producto.measure_mode === 'COUNT') return '🔢 Conteo Directo';
+  return 'Producto';
+}
+
 export function ProductsSection() {
   const { currentPlant } = useAuth();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
+  const measurementConfigs = (prefillData.config?.measurement_configs || []) as MeasurementConfig[];
 
   // Load data when component mounts
   useEffect(() => {
@@ -283,6 +301,28 @@ export function ProductsSection() {
 
   const renderProductCard = (producto: any) => {
     const isComplete = isProductComplete(producto);
+    const productUnits = resolveEffectiveMeasurementConfig({
+      units: unitCatalog,
+      configs: measurementConfigs.filter((config) => (
+        config.section_code !== 'products' ||
+        Boolean(config.inventory_type_id || config.material_id || config.equipment_id)
+      )),
+      plantId: currentPlant?.id,
+      sectionCode: 'products',
+      inventoryTypeId: producto.measure_mode,
+      materialId: producto.product_config_id || producto.producto_config_id || null,
+      fallbackCaptureUnitId: producto.measure_mode === 'TANK_READING' ? producto.reading_uom : (producto.measure_mode === 'COUNT' ? producto.uom : 'unit'),
+      fallbackCalculationUnitId: producto.uom || 'unit',
+      fallbackDisplayUnitId: producto.uom || 'unit',
+      fallbackInventoryUnitId: producto.uom || 'unit',
+      fallbackRuleLabel: producto.measure_mode === 'TANK_READING' ? 'Curva de tanque' : producto.measure_mode === 'COUNT' ? 'Conteo directo' : 'Factor operacional',
+      fallbackRuleDetail: producto.measure_mode === 'TANK_READING'
+        ? 'La lectura se convierte con la tabla de calibracion del producto.'
+        : producto.measure_mode === 'COUNT'
+          ? 'La cantidad capturada se usa directamente como inventario.'
+          : 'El inventario se calcula como cantidad de envases por volumen unitario.',
+    });
+    const productOutputUnit = productUnits.displayLabel || producto.uom || 'units';
     
     return (
       <Card key={producto.id} className={`${isComplete ? 'border-green-300 bg-green-50/30' : ''}`}>
@@ -303,14 +343,12 @@ export function ProductsSection() {
                   {CATEGORY_LABELS[producto.category] || 'Otro'}
                 </span>
                 <span className="text-sm text-[#5F6773]">
-                  {producto.measure_mode === 'TANK_READING' && '📊 Tanque con Lectura'}
-                  {producto.measure_mode === 'DRUM' && '🛢️ Tambores (55 gal)'}
-                  {producto.measure_mode === 'PAIL' && '🪣 Pailas (5 gal)'}
-                  {producto.measure_mode === 'COUNT' && '🔢 Conteo Directo'}
+                  {getProductModeLabel(producto)}
                 </span>
               </div>
             </div>
           </div>
+          <UnitFlowSummary effectiveConfig={productUnits} />
 
           {/* INPUTS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -318,7 +356,7 @@ export function ProductsSection() {
             {producto.measure_mode === 'TANK_READING' && (
               <>
                 <NumericInput
-                  label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
+                  label={getProductInputLabel(producto.measure_mode, productUnits.captureLabel || producto.reading_uom, productOutputUnit)}
                   value={producto.reading_value ?? ''}
                   onValueChange={(val) => handleFieldChange(producto, 'reading_value', val)}
                   placeholder="0.00"
@@ -327,13 +365,13 @@ export function ProductsSection() {
                 />
                 <div>
                   <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                    {getProductCalculatedLabel(producto.measure_mode, producto.uom)}
+                    {getProductCalculatedLabel(producto.measure_mode, productOutputUnit)}
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                     <span className="text-[#2475C7] font-bold text-lg">
                       {formatNumber(producto.calculated_quantity || 0)}
                     </span>
-                    <span className="text-[#5F6773] ml-2 text-sm">{producto.uom}</span>
+                    <span className="text-[#5F6773] ml-2 text-sm">{productOutputUnit}</span>
                   </div>
                   <p className="text-xs text-[#5F6773] mt-1">
                     Calculado automáticamente según tabla de calibración
@@ -345,7 +383,7 @@ export function ProductsSection() {
             {(producto.measure_mode === 'DRUM' || producto.measure_mode === 'PAIL') && (
               <>
                 <NumericInput
-                  label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
+                  label={getProductInputLabel(producto.measure_mode, productUnits.captureLabel || producto.reading_uom, productOutputUnit)}
                   value={producto.unit_count ?? ''}
                   onValueChange={(val) => handleFieldChange(producto, 'unit_count', val)}
                   placeholder="0"
@@ -354,16 +392,16 @@ export function ProductsSection() {
                 />
                 <div>
                   <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                    Volumen Total (galones)
+                    Volumen Total ({productOutputUnit})
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                     <span className="text-[#2475C7] font-bold text-lg">
                       {formatNumber(producto.total_volume || 0)}
                     </span>
-                    <span className="text-[#5F6773] ml-2 text-sm">galones</span>
+                    <span className="text-[#5F6773] ml-2 text-sm">{productOutputUnit}</span>
                   </div>
                   <p className="text-xs text-[#5F6773] mt-1">
-                    = {producto.unit_count || 0} × {producto.unit_volume || 0} gal/unidad
+                    = {producto.unit_count || 0} × {producto.unit_volume || 0} {productOutputUnit}/unidad
                   </p>
                 </div>
               </>
@@ -371,7 +409,7 @@ export function ProductsSection() {
 
             {producto.measure_mode === 'COUNT' && (
               <NumericInput
-                label={getProductInputLabel(producto.measure_mode, producto.reading_uom, producto.uom)}
+                label={getProductInputLabel(producto.measure_mode, productUnits.captureLabel || producto.reading_uom, productOutputUnit)}
                 value={producto.quantity ?? ''}
                 onValueChange={(val) => handleFieldChange(producto, 'quantity', val)}
                 placeholder="0"

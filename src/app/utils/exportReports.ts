@@ -91,14 +91,41 @@ function safeNum(v: any): string {
 }
 
 function getAggregateVolumeUnit(entry: any): string {
-  if (entry?.unit === 'm3') return 'm³';
-  if (entry?.unit === 'ft3') return 'ft³';
-  if (entry?.unit === 'CUBIC_YARDS') return 'yd³';
-  return 'ft³';
+  return formatStoredUnit(entry?.unit, 'ft³');
 }
 
 function getAggregateLengthUnit(entry: any): string {
   return entry?.unit === 'm3' ? 'm' : 'ft';
+}
+
+function formatStoredUnit(unit: string | null | undefined, fallback = '-'): string {
+  const normalized = String(unit || '').trim().toLowerCase();
+  const labels: Record<string, string> = {
+    m: 'm',
+    ft: 'ft',
+    in: 'in',
+    cm: 'cm',
+    m2: 'm²',
+    ft2: 'ft²',
+    m3: 'm³',
+    ft3: 'ft³',
+    cubic_yards: 'yd³',
+    gal_us: 'gal',
+    gallons: 'gal',
+    gallon: 'gal',
+    galones: 'gal',
+    liter: 'L',
+    litre: 'L',
+    lb: 'lb',
+    lbs: 'lb',
+    short_ton: 'ton corta',
+    metric_ton: 't',
+    sack: 'sacos',
+    unit: 'unidades',
+    units: 'unidades',
+    trip_truck: 'viajes',
+  };
+  return labels[normalized] || unit || fallback;
 }
 
 function formatAggregateBoxDetail(entry: any): string {

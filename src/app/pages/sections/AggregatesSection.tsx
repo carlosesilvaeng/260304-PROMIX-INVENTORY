@@ -3,6 +3,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
+import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { saveAggregatesEntries } from '../../utils/api';
@@ -11,6 +12,7 @@ import {
   convertWithMaterialFactor,
   convertUnit,
   getUnitSymbol,
+  resolveEffectiveMeasurementConfig,
   resolveMeasurementConfig,
   type MaterialConversionFactor,
   type MeasurementConfig,
@@ -42,6 +44,18 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const lengthUnitLabel = getUnitSymbol(unitCatalog, captureUnit, captureUnit === 'm' ? 'm' : 'ft');
   const volumeUnitLabel = getUnitSymbol(unitCatalog, displayUnit, displayUnit === 'm3' ? 'm³' : 'ft³');
   const inventoryUnitLabel = getUnitSymbol(unitCatalog, inventoryUnit, inventoryUnit);
+  const aggregateUnits = resolveEffectiveMeasurementConfig({
+    units: unitCatalog,
+    configs: measurementConfigs,
+    plantId: currentPlant?.id,
+    sectionCode: 'aggregates',
+    fallbackCaptureUnitId: captureUnit,
+    fallbackCalculationUnitId: calculationUnit,
+    fallbackDisplayUnitId: displayUnit,
+    fallbackInventoryUnitId: inventoryUnit,
+    fallbackRuleLabel: 'Formula de seccion',
+    fallbackRuleDetail: 'El volumen se calcula con la geometria configurada del agregado.',
+  });
 
   // Load data when component mounts
   useEffect(() => {
@@ -321,6 +335,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
               </span>
             )}
           </div>
+          <UnitFlowSummary effectiveConfig={aggregateUnits} className="mt-4" />
         </div>
 
         {/* Save Message */}

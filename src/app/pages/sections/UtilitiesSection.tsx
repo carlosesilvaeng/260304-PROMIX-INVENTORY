@@ -3,6 +3,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
+import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import {
@@ -14,6 +15,11 @@ import {
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
 import { saveUtilitiesEntries } from '../../utils/api';
+import {
+  resolveEffectiveMeasurementConfig,
+  type MeasurementConfig,
+  type UnitDefinition,
+} from '../../utils/unitConversion';
 
 export function UtilitiesSection() {
   const { currentPlant } = useAuth();
@@ -21,6 +27,8 @@ export function UtilitiesSection() {
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
+  const measurementConfigs = (prefillData.config?.measurement_configs || []) as MeasurementConfig[];
 
   // Load data when component mounts
   useEffect(() => {
@@ -223,6 +231,24 @@ export function UtilitiesSection() {
   const renderUtilityCard = (utility: any) => {
     const isComplete = isUtilityComplete(utility);
     const hasConsumption = utility.consumption > 0;
+    const effectiveUtilityUnits = resolveEffectiveMeasurementConfig({
+      units: unitCatalog,
+      configs: measurementConfigs.filter((config) => (
+        config.section_code !== 'utilities' ||
+        Boolean(config.inventory_type_id || config.material_id || config.equipment_id)
+      )),
+      plantId: currentPlant?.id,
+      sectionCode: 'utilities',
+      inventoryTypeId: utility.utility_type || null,
+      equipmentId: utility.utility_meter_config_id || utility.utility_config_id || utility.meter_number || null,
+      fallbackCaptureUnitId: utility.uom || 'unit',
+      fallbackCalculationUnitId: utility.uom || 'unit',
+      fallbackDisplayUnitId: utility.uom || 'unit',
+      fallbackInventoryUnitId: utility.uom || 'unit',
+      fallbackRuleLabel: 'Lectura directa',
+      fallbackRuleDetail: 'El consumo se calcula como lectura actual menos lectura anterior.',
+    });
+    const utilityUnitLabel = effectiveUtilityUnits.displayLabel || utility.uom;
     
     return (
       <Card key={utility.id} className={`${isComplete ? 'border-green-300 bg-green-50/30' : ''}`}>
@@ -254,6 +280,8 @@ export function UtilitiesSection() {
             </div>
           </div>
 
+          <UnitFlowSummary effectiveConfig={effectiveUtilityUnits} />
+
           {/* READINGS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* PREVIOUS READING - READ-ONLY */}
@@ -265,7 +293,7 @@ export function UtilitiesSection() {
                 <span className="text-[#5F6773] font-bold text-xl">
                   {formatNumber(utility.previous_reading || 0)}
                 </span>
-                <span className="text-[#5F6773] ml-2 text-sm">{utility.uom}</span>
+                <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
               </div>
               <p className="text-xs text-[#5F6773] mt-1">
                 {prefillData.previousMonth 
@@ -289,7 +317,7 @@ export function UtilitiesSection() {
                   className="h-[50px] border-4 border-[#2475C7] bg-white pr-24 text-xl font-bold focus:border-[#2475C7] focus:ring-4 focus:ring-[#2475C7]/30"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <span className="text-sm text-[#5F6773] font-semibold">{utility.uom}</span>
+                  <span className="text-sm text-[#5F6773] font-semibold">{utilityUnitLabel}</span>
                 </div>
               </div>
               <p className="text-xs font-semibold text-[#2475C7] mt-1">
@@ -312,7 +340,7 @@ export function UtilitiesSection() {
                 }`}>
                   {formatNumber(utility.consumption || 0)}
                 </span>
-                <span className="text-[#5F6773] ml-2 text-sm">{utility.uom}</span>
+                <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
               </div>
               <p className="text-xs text-[#5F6773] mt-1">
                 = Actual - Anterior
@@ -329,7 +357,7 @@ export function UtilitiesSection() {
                   <div>
                     <p className="text-sm font-semibold text-[#5F6773]">Consumo del Mes</p>
                     <p className="text-3xl font-bold text-[#2475C7]">
-                      {formatNumber(utility.consumption)} {utility.uom}
+                      {formatNumber(utility.consumption)} {utilityUnitLabel}
                     </p>
                   </div>
                 </div>
