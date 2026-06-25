@@ -64,8 +64,8 @@ import { isPlantManagerLike } from "./utils/permissions";
 const APP_KEY = Date.now();
 
 // Build version for tracking - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
-// 26/02/18 20:00 = February 18, 2026 at 8:00 PM
-const BUILD_VERSION = '2603131812';
+// 26/06/24 22:37 = June 24, 2026 at 10:37 PM
+const BUILD_VERSION = '2606242237';
 
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
