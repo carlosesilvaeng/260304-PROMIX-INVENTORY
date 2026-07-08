@@ -1277,6 +1277,18 @@ export async function updatePlantSilos(
     reading_uom?: string | null;
     conversion_table?: Record<string, number> | null;
     allowed_products?: string[];
+    calculation_method?: 'CALIBRATION_CURVE' | 'GEOMETRIC_CYLINDER_CONE';
+    diameter_in?: number | null;
+    total_height_in?: number | null;
+    cone_height_in?: number | null;
+    bottom_diameter_in?: number | null;
+    cylinder_height_mode?: string;
+    slope_divisor_mode?: string;
+    reading_reference?: string;
+    calculation_unit_id?: string | null;
+    inventory_unit_id?: string | null;
+    material_conversion_factor_id?: string | null;
+    requires_photo?: boolean;
   }[]
 ): Promise<ApiResponse> {
   return apiRequest(`/plants/${plantId}/silos`, 'PUT', { silos });

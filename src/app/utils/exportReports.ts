@@ -272,12 +272,17 @@ async function fetchDetail(
     if (data.silos?.length) {
       sections.push({
         name: 'Silos',
-        headers: ['Silo', 'Producto', 'Lectura', 'Resultado', 'Foto'],
+        headers: ['Silo', 'Método', 'Producto', 'Lectura', 'Referencia', 'Volumen ft³', 'Resultado', 'Unidad', 'Foto'],
         rows: data.silos.map((e: any) => [
           e.silo_name ?? '-',
+          e.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'Geometría' : 'Curva',
           e.product_name ?? '-',
           safeNum(e.reading_value),
-          safeNum(e.calculated_result_cy),
+          e.reading_reference === 'EMPTY_HEIGHT_INCHES' ? 'Altura vacía' :
+            e.reading_reference === 'FILLED_HEIGHT_INCHES' ? 'Altura llena' : '-',
+          e.calculated_volume_ft3 == null ? '-' : safeNum(e.calculated_volume_ft3),
+          safeNum(e.calculated_result ?? e.calculated_result_cy),
+          formatStoredUnit(e.calculated_result_unit_id),
           e.photo_url ? 'Sí' : 'No',
         ]),
       });

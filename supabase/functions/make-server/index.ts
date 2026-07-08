@@ -5,13 +5,14 @@ import * as kv from "./kv_store.tsx";
 import * as db from "./database.tsx";
 import * as seed from "./seed.tsx";
 import * as auth from "./auth.tsx";
+import { calculateSiloGeometry, roundSiloResult } from "./silo_geometry.ts";
 
 const app = new Hono();
 
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2603152329';
+const BUILD_VERSION = '2607081200';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -1613,7 +1614,7 @@ app.get("/make-server/plants", async (c) => {
     const [{ data: allSilos }, { data: allCajones }, { data: allAggregates }] = await Promise.all([
       supabase
         .from('plant_silos_config')
-        .select('plant_id, id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, is_active, sort_order')
+        .select('plant_id, id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, calculation_method, diameter_in, total_height_in, cone_height_in, bottom_diameter_in, cylinder_height_mode, slope_divisor_mode, reading_reference, calculation_unit_id, inventory_unit_id, material_conversion_factor_id, requires_photo, is_active, sort_order')
         .in('plant_id', plantIds)
         .order('sort_order', { ascending: true }),
       supabase
@@ -2042,7 +2043,7 @@ app.get("/make-server/plants/:plantId/silos", async (c) => {
     const [{ data, error }, { data: allowedProducts, error: allowedProductsError }] = await Promise.all([
       supabase
       .from('plant_silos_config')
-      .select('id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, is_active, sort_order')
+      .select('id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, calculation_method, diameter_in, total_height_in, cone_height_in, bottom_diameter_in, cylinder_height_mode, slope_divisor_mode, reading_reference, calculation_unit_id, inventory_unit_id, material_conversion_factor_id, requires_photo, is_active, sort_order')
       .eq('plant_id', plantId)
       .order('sort_order', { ascending: true }),
       supabase
@@ -2135,6 +2136,18 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
       tank_name?: string | null;
       reading_uom?: string | null;
       conversion_table?: Record<string, number> | null;
+      calculation_method?: string;
+      diameter_in?: number | null;
+      total_height_in?: number | null;
+      cone_height_in?: number | null;
+      bottom_diameter_in?: number | null;
+      cylinder_height_mode?: string;
+      slope_divisor_mode?: string;
+      reading_reference?: string;
+      calculation_unit_id?: string | null;
+      inventory_unit_id?: string | null;
+      material_conversion_factor_id?: string | null;
+      requires_photo?: boolean;
       sort_order?: number;
       is_active?: boolean;
     }[] = body.additives ?? [];
@@ -2878,11 +2891,15 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
     }[] = body.silos ?? [];
 
     const rows = await Promise.all(silos.map(async (s, i) => {
+      const calculationMethod = s.calculation_method || 'CALIBRATION_CURVE';
       const calibrationCurveName = s.calibration_curve_name?.trim() || null;
       let readingUom = s.reading_uom?.trim() || null;
       let conversionTable = s.conversion_table || null;
 
-      if (calibrationCurveName) {
+      if (calculationMethod === 'CALIBRATION_CURVE' && !calibrationCurveName) {
+        throw new Error(`${s.silo_name}: debes seleccionar una curva de conversión.`);
+      }
+      if (calculationMethod === 'CALIBRATION_CURVE' && calibrationCurveName) {
         const { curve } = await db.findPlantCalibrationCurveByName(plantId, calibrationCurveName);
         if (!curve) {
           throw new Error(`La curva "${calibrationCurveName}" del silo "${s.silo_name}" no existe para esta planta.`);
@@ -2893,6 +2910,21 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
         readingUom = curve.reading_uom;
         conversionTable = curve.data_points;
       }
+      if (calculationMethod === 'GEOMETRIC_CYLINDER_CONE') {
+        calculateSiloGeometry({
+          diameter_in: Number(s.diameter_in),
+          total_height_in: Number(s.total_height_in),
+          cone_height_in: Number(s.cone_height_in),
+          bottom_diameter_in: Number(s.bottom_diameter_in),
+          cylinder_height_mode: (s.cylinder_height_mode || 'FULL_H') as any,
+          slope_divisor_mode: (s.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE') as any,
+          reading_reference: (s.reading_reference || 'EMPTY_HEIGHT_INCHES') as any,
+          reading_in: 0,
+        });
+        readingUom = 'in';
+        conversionTable = null;
+        if (!s.inventory_unit_id) throw new Error(`${s.silo_name}: selecciona la unidad de inventario.`);
+      }
 
       return {
         id: s.id || crypto.randomUUID(),
@@ -2902,6 +2934,18 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
         calibration_curve_name: calibrationCurveName,
         reading_uom: readingUom,
         conversion_table: conversionTable,
+        calculation_method: calculationMethod,
+        diameter_in: s.diameter_in ?? null,
+        total_height_in: s.total_height_in ?? null,
+        cone_height_in: s.cone_height_in ?? null,
+        bottom_diameter_in: s.bottom_diameter_in ?? null,
+        cylinder_height_mode: s.cylinder_height_mode || 'FULL_H',
+        slope_divisor_mode: s.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE',
+        reading_reference: s.reading_reference || 'EMPTY_HEIGHT_INCHES',
+        calculation_unit_id: s.calculation_unit_id || 'ft3',
+        inventory_unit_id: s.inventory_unit_id || null,
+        material_conversion_factor_id: s.material_conversion_factor_id || null,
+        requires_photo: s.requires_photo ?? true,
         sort_order: i,
         is_active: s.is_active ?? true,
       };
@@ -3207,42 +3251,125 @@ app.post("/make-server/inventory/silos", async (c) => {
     const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
     if (payloadError) return payloadError;
 
-    const dbEntries = entries.map((e: any) => {
-      if (!hasCalibrationPoints(e.conversion_table)) {
-        throw new Error(`${e.silo_name || 'Silo'}: falta tabla de calibración para calcular la lectura del silo.`);
-      }
-      const readingValue = Number(e.reading_value ?? e.reading ?? 0) || 0;
-      const calculatedVolume = interpolateCalibrationTable(readingValue, e.conversion_table);
+    const configIds = entries.map((e: any) => e.silo_config_id).filter(Boolean);
+    const { data: configs, error: configsError } = await supabase
+      .from('plant_silos_config')
+      .select('*')
+      .in('id', configIds);
+    if (configsError) throw configsError;
+    const configById = new Map((configs || []).map((config: any) => [config.id, config]));
 
+    const dbEntries = await Promise.all(entries.map(async (e: any) => {
+      const config: any = configById.get(e.silo_config_id);
+      if (!config) throw new Error(`${e.silo_name || 'Silo'}: configuración no encontrada.`);
+      const readingValue = Number(e.reading_value ?? e.reading);
+      if (!Number.isFinite(readingValue) || readingValue < 0) {
+        throw new Error(`${config.silo_name}: ingresa una lectura válida.`);
+      }
+      if ((config.requires_photo ?? true) && !e.photo_url) {
+        throw new Error(`${config.silo_name}: la fotografía es obligatoria.`);
+      }
+
+      const calculationMethod = config.calculation_method || 'CALIBRATION_CURVE';
+      let calculatedVolumeFt3: number | null = null;
+      let calculatedResult: number;
+      let resultUnitId: string | null = null;
+      let presentationLbs: number | null = null;
+      let presentationMetricTons: number | null = null;
+      let metadata: any;
+
+      if (calculationMethod === 'GEOMETRIC_CYLINDER_CONE') {
+        const selectedProduct = String(e.product_name || e.product_in_silo || '').trim();
+        if (!selectedProduct) throw new Error(`${config.silo_name}: selecciona el producto almacenado.`);
+        const geometry = calculateSiloGeometry({
+          diameter_in: config.diameter_in,
+          total_height_in: config.total_height_in,
+          cone_height_in: config.cone_height_in,
+          bottom_diameter_in: config.bottom_diameter_in,
+          cylinder_height_mode: config.cylinder_height_mode,
+          slope_divisor_mode: config.slope_divisor_mode,
+          reading_reference: config.reading_reference,
+          reading_in: readingValue,
+        });
+        calculatedVolumeFt3 = geometry.calculated_volume_ft3;
+        resultUnitId = config.inventory_unit_id || config.calculation_unit_id || 'ft3';
+
+        const { data: units, error: unitsError } = await supabase
+          .from('units').select('id, category_id, factor_to_base').in('id', ['ft3', resultUnitId]);
+        if (unitsError) throw unitsError;
+        const unitMap = new Map((units || []).map((unit: any) => [unit.id, unit]));
+        const fromUnit: any = unitMap.get('ft3');
+        const toUnit: any = unitMap.get(resultUnitId);
+        if (!fromUnit || !toUnit) throw new Error(`${config.silo_name}: unidad de cálculo o inventario no encontrada.`);
+
+        let factor: any = null;
+        if (fromUnit.category_id === toUnit.category_id) {
+          calculatedResult = calculatedVolumeFt3 * Number(fromUnit.factor_to_base) / Number(toUnit.factor_to_base);
+        } else {
+          let factorQuery = supabase.from('material_conversion_factors').select('*')
+            .eq('active', true).eq('from_unit_id', 'ft3').eq('to_unit_id', resultUnitId);
+          if (config.material_conversion_factor_id) factorQuery = factorQuery.eq('id', config.material_conversion_factor_id);
+          const { data: factors, error: factorError } = await factorQuery.limit(20);
+          if (factorError) throw factorError;
+          const { data: material } = await supabase.from('materiales_catalog').select('id,nombre')
+            .ilike('nombre', selectedProduct).maybeSingle();
+          factor = (factors || []).find((candidate: any) => !candidate.material_id || candidate.material_id === material?.id);
+          if (!factor) {
+            throw new Error(`${config.silo_name}: no existe un factor activo de ft³ a ${resultUnitId} para ${selectedProduct}.`);
+          }
+          calculatedResult = calculatedVolumeFt3 * Number(factor.factor);
+        }
+        if (resultUnitId === 'lb') presentationLbs = calculatedResult;
+        if (resultUnitId === 'metric_ton') presentationMetricTons = calculatedResult;
+        metadata = { geometry, factor: factor ? { id: factor.id, factor: factor.factor } : null, product: selectedProduct };
+      } else {
+        if (!hasCalibrationPoints(config.conversion_table)) {
+          throw new Error(`${config.silo_name}: falta tabla de calibración para calcular la lectura del silo.`);
+        }
+        calculatedResult = interpolateCalibrationTable(readingValue, config.conversion_table);
+        resultUnitId = config.inventory_unit_id || null;
+        metadata = { calibration_curve_name: config.calibration_curve_name };
+      }
+
+      const persistedResult = roundSiloResult(calculatedResult);
       return {
         ...(e.id ? { id: e.id } : {}),
         inventory_month_id: inventoryMonth.id,
-        silo_config_id: e.silo_config_id,
-        silo_name: e.silo_name,
-        measurement_method: e.measurement_method,
+        silo_config_id: config.id,
+        silo_name: config.silo_name,
+        measurement_method: config.measurement_method,
         allowed_products: e.allowed_products,
         product_id: e.product_id,
         product_name: e.product_name,
         product_in_silo: e.product_in_silo,
-        reading_uom: e.reading_uom,
+        reading_uom: config.reading_uom,
         reading_value: readingValue,
         reading: readingValue,
         previous_reading: e.previous_reading,
-        calculated_result_cy: calculatedVolume,
-        calculated_volume: calculatedVolume,
-        conversion_table: e.conversion_table,
+        calculated_result_cy: persistedResult,
+        calculated_volume: persistedResult,
+        conversion_table: config.conversion_table,
+        calculation_method: calculationMethod,
+        reading_reference: config.reading_reference,
+        calculated_volume_ft3: calculatedVolumeFt3 === null ? null : roundSiloResult(calculatedVolumeFt3),
+        calculated_result: persistedResult,
+        calculated_result_unit_id: resultUnitId,
+        presentation_lbs: presentationLbs === null ? null : roundSiloResult(presentationLbs),
+        presentation_metric_tons: presentationMetricTons === null ? null : roundSiloResult(presentationMetricTons),
+        calculation_metadata: metadata,
+        requires_photo: config.requires_photo ?? true,
         photo_url: e.photo_url,
         notes: e.notes,
       };
-    });
-    await db.replaceInventorySectionRowsAtomic('silos', inventoryMonth.id, dbEntries);
+    }));
+    await db.replaceInventorySilosAtomic(inventoryMonth.id, dbEntries);
     const { data, error } = await supabase
       .from('inventory_silos_entries')
       .select('*')
       .eq('inventory_month_id', inventoryMonth.id);
 
     if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'silos' } });
+    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'silos', methods: dbEntries.map((entry: any) => ({ silo: entry.silo_name, method: entry.calculation_method })) } });
     return c.json({ success: true, data });
   } catch (error) {
     console.error("Error saving silos entries:", error);

@@ -33,6 +33,18 @@ interface SiloEntry {
   reading_uom?: string | null;
   conversion_table?: Record<string, number> | null;
   allowed_products: string[];
+  calculation_method: 'CALIBRATION_CURVE' | 'GEOMETRIC_CYLINDER_CONE';
+  diameter_in?: number | null;
+  total_height_in?: number | null;
+  cone_height_in?: number | null;
+  bottom_diameter_in?: number | null;
+  cylinder_height_mode: 'FULL_H' | 'H_MINUS_24';
+  slope_divisor_mode: 'SLOPE_DIVISOR_H' | 'SLOPE_DIVISOR_H_MINUS_24' | 'SLOPE_DIVISOR_EFFECTIVE';
+  reading_reference: 'FILLED_HEIGHT_INCHES' | 'EMPTY_HEIGHT_INCHES';
+  calculation_unit_id?: string | null;
+  inventory_unit_id?: string | null;
+  material_conversion_factor_id?: string | null;
+  requires_photo: boolean;
 }
 
 interface CurvePointRow {
@@ -73,6 +85,13 @@ function createEmptySilo(): SiloEntry {
     reading_uom: null,
     conversion_table: null,
     allowed_products: [],
+    calculation_method: 'CALIBRATION_CURVE',
+    cylinder_height_mode: 'FULL_H',
+    slope_divisor_mode: 'SLOPE_DIVISOR_EFFECTIVE',
+    reading_reference: 'EMPTY_HEIGHT_INCHES',
+    calculation_unit_id: 'ft3',
+    inventory_unit_id: 'ft3',
+    requires_photo: true,
   };
 }
 
@@ -164,6 +183,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
   const [silos, setSilos] = useState<SiloEntry[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [curveItems, setCurveItems] = useState<CalibrationCurveCatalogItem[]>([]);
+  const [unitOptions, setUnitOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,6 +213,18 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
               reading_uom: s.reading_uom || null,
               conversion_table: s.conversion_table || null,
               allowed_products: s.allowed_products ?? [],
+              calculation_method: s.calculation_method || 'CALIBRATION_CURVE',
+              diameter_in: s.diameter_in ?? null,
+              total_height_in: s.total_height_in ?? null,
+              cone_height_in: s.cone_height_in ?? null,
+              bottom_diameter_in: s.bottom_diameter_in ?? null,
+              cylinder_height_mode: s.cylinder_height_mode || 'FULL_H',
+              slope_divisor_mode: s.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE',
+              reading_reference: s.reading_reference || 'EMPTY_HEIGHT_INCHES',
+              calculation_unit_id: s.calculation_unit_id || 'ft3',
+              inventory_unit_id: s.inventory_unit_id || 'ft3',
+              material_conversion_factor_id: s.material_conversion_factor_id || null,
+              requires_photo: s.requires_photo ?? true,
             }))
           );
         } else {
@@ -200,6 +232,10 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
         }
 
         if (configResponse.success && configResponse.data) {
+          setUnitOptions((configResponse.data.units || []).map((unit: any) => ({
+            value: unit.id,
+            label: `${unit.name_es || unit.code} (${unit.symbol || unit.code})`,
+          })));
           setProductOptions(
             (configResponse.data.products ?? [])
               .map((product: any) => String(product.product_name || '').trim())
@@ -254,8 +290,14 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
       if (!normalizedName) return `Todos los silos deben tener un nombre`;
       if (normalizedNames.has(normalizedName)) return `Hay nombres de silos repetidos. Revisa "${label}"`;
       normalizedNames.add(normalizedName);
-      if (!silo.calibration_curve_name?.trim()) return `${label}: debes seleccionar una curva de conversión`;
-      if (!silo.reading_uom?.trim()) return `${label}: la curva seleccionada debe tener unidad de lectura`;
+      if (silo.calculation_method === 'CALIBRATION_CURVE' && !silo.calibration_curve_name?.trim()) return `${label}: debes seleccionar una curva de conversión`;
+      if (silo.calculation_method === 'CALIBRATION_CURVE' && !silo.reading_uom?.trim()) return `${label}: la curva seleccionada debe tener unidad de lectura`;
+      if (silo.calculation_method === 'GEOMETRIC_CYLINDER_CONE') {
+        if (![silo.diameter_in, silo.total_height_in].every((value) => Number(value) > 0)) return `${label}: diámetro y altura deben ser mayores que cero`;
+        if (Number(silo.cone_height_in) < 0 || Number(silo.bottom_diameter_in) < 0) return `${label}: las dimensiones del cono no pueden ser negativas`;
+        if (Number(silo.bottom_diameter_in) > Number(silo.diameter_in)) return `${label}: el diámetro inferior no puede exceder el superior`;
+        if (!silo.inventory_unit_id) return `${label}: selecciona la unidad de inventario`;
+      }
     }
 
     return null;
@@ -282,6 +324,18 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
           reading_uom: silo.reading_uom || null,
           conversion_table: silo.conversion_table || null,
           allowed_products: silo.allowed_products ?? [],
+          calculation_method: silo.calculation_method,
+          diameter_in: silo.diameter_in,
+          total_height_in: silo.total_height_in,
+          cone_height_in: silo.cone_height_in,
+          bottom_diameter_in: silo.bottom_diameter_in,
+          cylinder_height_mode: silo.cylinder_height_mode,
+          slope_divisor_mode: silo.slope_divisor_mode,
+          reading_reference: silo.reading_reference,
+          calculation_unit_id: silo.calculation_unit_id || 'ft3',
+          inventory_unit_id: silo.inventory_unit_id,
+          material_conversion_factor_id: silo.material_conversion_factor_id,
+          requires_photo: silo.requires_photo,
         }))
       );
       if (res.success) {
@@ -520,24 +574,41 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                           placeholder="Ej: Silo Cemento 1"
                           required
                         />
-                        <Input
-                          label="Método"
-                          value={silo.measurement_method || 'SILO_LEVEL'}
-                          disabled
-                        />
                         <Select
-                          label="Curva de conversión"
-                          value={silo.calibration_curve_name || ''}
-                          onChange={(e) => handleCurveChange(index, e.target.value)}
+                          label="Método de cálculo"
+                          value={silo.calculation_method}
+                          onChange={(e) => updateSilo(index, {
+                            calculation_method: e.target.value as SiloEntry['calculation_method'],
+                            reading_uom: e.target.value === 'GEOMETRIC_CYLINDER_CONE' ? 'in' : silo.reading_uom,
+                          })}
                           options={[
-                            { value: '', label: '-- Selecciona curva --' },
-                            ...siloCurveOptions.map((curve) => ({
-                              value: curve.curve_name,
-                              label: `${curve.curve_name}${curve.reading_uom ? ` (${curve.reading_uom})` : ''}`,
-                            })),
+                            { value: 'CALIBRATION_CURVE', label: 'Curva de calibración' },
+                            { value: 'GEOMETRIC_CYLINDER_CONE', label: 'Geometría cilindro + cono' },
                           ]}
-                          required
                         />
+                        {silo.calculation_method === 'CALIBRATION_CURVE' ? (
+                          <Select
+                            label="Curva de conversión"
+                            value={silo.calibration_curve_name || ''}
+                            onChange={(e) => handleCurveChange(index, e.target.value)}
+                            options={[
+                              { value: '', label: '-- Selecciona curva --' },
+                              ...siloCurveOptions.map((curve) => ({
+                                value: curve.curve_name,
+                                label: `${curve.curve_name}${curve.reading_uom ? ` (${curve.reading_uom})` : ''}`,
+                              })),
+                            ]}
+                            required
+                          />
+                        ) : (
+                          <Select
+                            label="Unidad de inventario"
+                            value={silo.inventory_unit_id || ''}
+                            onChange={(e) => updateSilo(index, { inventory_unit_id: e.target.value })}
+                            options={[{ value: '', label: '-- Selecciona unidad --' }, ...unitOptions]}
+                            required
+                          />
+                        )}
                         <Input
                           label="Unidad de lectura"
                           value={silo.reading_uom || ''}
@@ -553,7 +624,47 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                         </label>
                       </div>
 
-                      {silo.calibration_curve_name && (() => {
+                      {silo.calculation_method === 'GEOMETRIC_CYLINDER_CONE' && (
+                        <div className="mt-4 grid grid-cols-1 gap-4 rounded border border-blue-200 bg-blue-50 p-4 md:grid-cols-4">
+                          {([
+                            ['diameter_in', 'Diámetro superior (in)'],
+                            ['total_height_in', 'Altura H (in)'],
+                            ['cone_height_in', 'Altura cono (in)'],
+                            ['bottom_diameter_in', 'Diámetro descarga (in)'],
+                          ] as const).map(([field, label]) => (
+                            <Input
+                              key={field}
+                              label={label}
+                              type="number"
+                              value={silo[field] ?? ''}
+                              onChange={(e) => updateSilo(index, { [field]: e.target.value === '' ? null : Number(e.target.value) })}
+                            />
+                          ))}
+                          <Select label="Altura efectiva" value={silo.cylinder_height_mode}
+                            onChange={(e) => updateSilo(index, { cylinder_height_mode: e.target.value as SiloEntry['cylinder_height_mode'] })}
+                            options={[{ value: 'FULL_H', label: 'H completa' }, { value: 'H_MINUS_24', label: 'H menos 24 in' }]} />
+                          <Select label="Divisor pendiente" value={silo.slope_divisor_mode}
+                            onChange={(e) => updateSilo(index, { slope_divisor_mode: e.target.value as SiloEntry['slope_divisor_mode'] })}
+                            options={[
+                              { value: 'SLOPE_DIVISOR_EFFECTIVE', label: 'Altura efectiva' },
+                              { value: 'SLOPE_DIVISOR_H', label: 'H completa' },
+                              { value: 'SLOPE_DIVISOR_H_MINUS_24', label: 'H menos 24 in' },
+                            ]} />
+                          <Select label="La lectura representa" value={silo.reading_reference}
+                            onChange={(e) => updateSilo(index, { reading_reference: e.target.value as SiloEntry['reading_reference'] })}
+                            options={[
+                              { value: 'EMPTY_HEIGHT_INCHES', label: 'Altura vacía' },
+                              { value: 'FILLED_HEIGHT_INCHES', label: 'Altura llena' },
+                            ]} />
+                          <label className="flex items-center gap-2 text-sm text-[#3B3A36]">
+                            <input type="checkbox" checked={silo.requires_photo}
+                              onChange={(e) => updateSilo(index, { requires_photo: e.target.checked })} />
+                            Requiere fotografía
+                          </label>
+                        </div>
+                      )}
+
+                      {silo.calculation_method === 'CALIBRATION_CURVE' && silo.calibration_curve_name && (() => {
                         const selectedCurve = curveItems.find(
                           (curve) => normalizeCurveName(curve.curve_name) === normalizeCurveName(silo.calibration_curve_name)
                         );
@@ -604,6 +715,34 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                           Productos permitidos: {silo.allowed_products.join(', ')}
                         </p>
                       )}
+                      <div className="mt-3">
+                        <Select
+                          label="Agregar producto permitido"
+                          value=""
+                          onChange={(e) => {
+                            const product = e.target.value;
+                            if (product && !silo.allowed_products.includes(product)) {
+                              updateSilo(index, { allowed_products: [...silo.allowed_products, product] });
+                            }
+                          }}
+                          options={[
+                            { value: '', label: '-- Selecciona para agregar --' },
+                            ...productOptions.filter((product) => !silo.allowed_products.includes(product))
+                              .map((product) => ({ value: product, label: product })),
+                          ]}
+                        />
+                        {silo.allowed_products.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {silo.allowed_products.map((product) => (
+                              <button key={product} type="button"
+                                onClick={() => updateSilo(index, { allowed_products: silo.allowed_products.filter((item) => item !== product) })}
+                                className="rounded bg-[#EEF4FB] px-2 py-1 text-xs text-[#2475C7]">
+                                {product} ×
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

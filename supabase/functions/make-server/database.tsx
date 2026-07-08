@@ -68,6 +68,18 @@ export async function replaceInventorySectionRowsAtomic(
   if (error) throw error;
 }
 
+export async function replaceInventorySilosAtomic(
+  inventoryMonthId: string,
+  rows: Record<string, unknown>[],
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc('replace_inventory_silos_atomic', {
+    p_inventory_month_id: inventoryMonthId,
+    p_rows: rows ?? [],
+  });
+  if (error) throw error;
+}
+
 export async function upsertSilosImportAtomic(
   plantId: string,
   silos: Record<string, unknown>[],

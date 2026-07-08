@@ -189,6 +189,18 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       calibration_curve_name: silo.calibration_curve_name || null,
       reading_uom: silo.reading_uom || null,
       conversion_table: silo.conversion_table || null,
+      calculation_method: silo.calculation_method || 'CALIBRATION_CURVE',
+      diameter_in: silo.diameter_in ?? null,
+      total_height_in: silo.total_height_in ?? null,
+      cone_height_in: silo.cone_height_in ?? null,
+      bottom_diameter_in: silo.bottom_diameter_in ?? null,
+      cylinder_height_mode: silo.cylinder_height_mode || 'FULL_H',
+      slope_divisor_mode: silo.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE',
+      reading_reference: silo.reading_reference || 'EMPTY_HEIGHT_INCHES',
+      calculation_unit_id: silo.calculation_unit_id || 'ft3',
+      inventory_unit_id: silo.inventory_unit_id || null,
+      material_conversion_factor_id: silo.material_conversion_factor_id || null,
+      requires_photo: silo.requires_photo ?? true,
       allowed_products: silo.allowed_products || [], // Products allowed for this silo
       product_id: null, // To be selected by manager
       product_name: null, // To be selected by manager

@@ -16,13 +16,11 @@ import {
   type UnitDefinition,
 } from '../../utils/unitConversion';
 import siloMeasurementReference from '../../../assets/silo-measurement-reference.png';
+import { calculateSiloGeometry } from '../../../../supabase/functions/make-server/silo_geometry';
 
 interface SilosSectionProps {
   onBack?: () => void;
 }
-
-const CEMENT_SACK_WEIGHT_LBS = 94;
-const LBS_PER_METRIC_TON = 2204.62;
 
 function roundTo(value: number, decimals = 2) {
   const factor = 10 ** decimals;
@@ -68,12 +66,42 @@ function getStatusForReading(points: ReturnType<typeof normalizeCalibrationPoint
 
 function getSiloVolumeMetrics(entry: any, calibrationCurves: Record<string, any> | undefined) {
   const reading = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
+  if (entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE') {
+    try {
+      const geometry = calculateSiloGeometry({
+        diameter_in: entry.diameter_in,
+        total_height_in: entry.total_height_in,
+        cone_height_in: entry.cone_height_in,
+        bottom_diameter_in: entry.bottom_diameter_in,
+        cylinder_height_mode: entry.cylinder_height_mode,
+        slope_divisor_mode: entry.slope_divisor_mode,
+        reading_reference: entry.reading_reference,
+        reading_in: reading,
+      });
+      return {
+        sacks: geometry.calculated_volume_ft3,
+        resultLabel: 'ft³ preliminares',
+        lbs: null,
+        metricTons: null,
+        volumePercentage: geometry.total_volume_ft3 > 0
+          ? roundTo(geometry.calculated_volume_ft3 / geometry.total_volume_ft3 * 100)
+          : null,
+        status: 'Cálculo preliminar',
+        calculatedVolumeFt3: geometry.calculated_volume_ft3,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        sacks: 0, resultLabel: 'ft³ preliminares', lbs: null, metricTons: null,
+        volumePercentage: null, status: null, calculatedVolumeFt3: 0,
+        error: error instanceof Error ? error.message : 'Geometría inválida',
+      };
+    }
+  }
   const conversionTable = entry.conversion_table || {};
   const sacks = hasCalibrationPoints(conversionTable)
     ? convertReadingToVolume(reading, conversionTable)
     : Number(entry.calculated_volume ?? entry.calculated_result_cy ?? 0) || 0;
-  const lbs = roundTo(sacks * CEMENT_SACK_WEIGHT_LBS);
-  const metricTons = roundTo(lbs / LBS_PER_METRIC_TON);
   const curve = entry.calibration_curve_name
     ? calibrationCurves?.[entry.calibration_curve_name]
     : null;
@@ -88,10 +116,13 @@ function getSiloVolumeMetrics(entry: any, calibrationCurves: Record<string, any>
 
   return {
     sacks,
-    lbs,
-    metricTons,
+    resultLabel: 'resultado por curva',
+    lbs: entry.presentation_lbs ?? null,
+    metricTons: entry.presentation_metric_tons ?? null,
     volumePercentage,
     status,
+    calculatedVolumeFt3: entry.calculated_volume_ft3 ?? null,
+    error: null,
   };
 }
 
@@ -110,10 +141,12 @@ function SiloLevelIndicator({
   percentage,
   sacks,
   status,
+  resultLabel = 'resultado',
 }: {
   percentage: number | null | undefined;
   sacks: number;
   status: string | null | undefined;
+  resultLabel?: string;
 }) {
   const safePercentage = clampPercentage(percentage);
   const fillColor = getSiloLevelColor(safePercentage);
@@ -136,7 +169,7 @@ function SiloLevelIndicator({
             {percentage === null || percentage === undefined ? '-' : `${formatNumber(safePercentage)}%`}
           </p>
           <p className="mt-2 text-sm font-semibold" style={{ color: fillColor }}>
-            {formatNumber(sacks)} sacos
+            {formatNumber(sacks)} {resultLabel}
           </p>
           <p className="mt-1 truncate text-sm font-semibold" style={{ color: fillColor }}>
             {status || '-'}
@@ -283,12 +316,21 @@ export function SilosSection({ onBack }: SilosSectionProps) {
     try {
       // Prepare entries for saving (remove temp IDs and internal flags)
       const entriesToSave = prefillData.silosEntries.map(entry => {
-        if (!hasCalibrationPoints(entry.conversion_table)) {
+        const isGeometric = entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE';
+        if (!isGeometric && !hasCalibrationPoints(entry.conversion_table)) {
           throw new Error(`${entry.silo_name}: falta tabla de calibración para calcular la lectura del silo.`);
+        }
+        if (isGeometric && !entry.product_name) {
+          throw new Error(`${entry.silo_name}: selecciona el producto almacenado.`);
+        }
+        if ((entry.requires_photo ?? true) && !entry.photo_url) {
+          throw new Error(`${entry.silo_name}: la fotografía es obligatoria.`);
         }
 
         const readingValue = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
-        const calculatedVolume = convertReadingToVolume(readingValue, entry.conversion_table);
+        const calculatedVolume = isGeometric
+          ? getSiloVolumeMetrics(entry, prefillData.config?.calibration_curves).calculatedVolumeFt3 || 0
+          : convertReadingToVolume(readingValue, entry.conversion_table);
 
         return {
           ...(entry._isNew ? {} : { id: entry.id }),
@@ -297,9 +339,9 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           silo_name: entry.silo_name,
           measurement_method: entry.measurement_method,
           allowed_products: entry.allowed_products || [],
-          product_id: null,
-          product_name: null,
-          product_in_silo: null,
+          product_id: entry.product_id || entry.product_name || null,
+          product_name: entry.product_name || null,
+          product_in_silo: entry.product_name || null,
           reading_uom: entry.reading_uom || null,
           reading_value: readingValue,
           reading: readingValue,
@@ -307,6 +349,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           calculated_result_cy: calculatedVolume,
           calculated_volume: calculatedVolume,
           conversion_table: entry.conversion_table || null,
+          calculation_method: entry.calculation_method || 'CALIBRATION_CURVE',
+          reading_reference: entry.reading_reference || null,
           photo_url: entry.photo_url,
           notes: entry.notes || '',
         };
@@ -344,7 +388,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
       entry.reading_value !== null &&
       entry.reading_value !== undefined &&
       entry.reading_value !== '' &&
-      entry.photo_url
+      (!(entry.requires_photo ?? true) || entry.photo_url) &&
+      (entry.calculation_method !== 'GEOMETRIC_CYLINDER_CONE' || entry.product_name)
     );
   };
 
@@ -419,8 +464,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
             <li><strong>Nombre del Silo 🔒:</strong> Preconfigurado por administrativos</li>
             <li><strong>Unidad de Medida 🔒:</strong> Fija según configuración (no editable)</li>
             <li><strong>Lectura:</strong> Ingresa el valor de la lectura del medidor</li>
-            <li><strong>Resultado:</strong> Se calculan automáticamente sacos, libras, toneladas métricas y status</li>
-            <li><strong>Evidencia fotográfica:</strong> Requerida para cada silo</li>
+            <li><strong>Resultado:</strong> El cliente muestra una vista previa; el servidor recalcula el valor autoritativo.</li>
+            <li><strong>Evidencia fotográfica:</strong> Requerida cuando así lo indique la configuración del silo.</li>
           </ul>
         </Card>
 
@@ -438,7 +483,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     {entry.silo_name}
                   </h3>
                   <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
-                    <span>📏 {entry.measurement_method || 'SILO_LEVEL'}</span>
+                    <span>📏 {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'Geometría cilindro + cono' : 'Curva de calibración'}</span>
                     <span className="font-medium text-[#2B7DE9]">
                       Lectura: {siloUnits.captureLabel || entry.reading_uom || 'nivel'} 🔒
                     </span>
@@ -454,7 +499,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                         ✓ Completo
                       </span>
                     )}
-                    {!entry.photo_url && (
+                    {(entry.requires_photo ?? true) && !entry.photo_url && (
                       <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
                         ⚠️ Falta Foto
                       </span>
@@ -470,10 +515,25 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
               {/* Reading and Result */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-4">
+                {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#1A1D1F] mb-2">Producto almacenado *</label>
+                    <select
+                      value={entry.product_name || ''}
+                      onChange={(event) => handleFieldChange(entry.id, 'product_name', event.target.value)}
+                      className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2.5"
+                    >
+                      <option value="">-- Selecciona --</option>
+                      {(entry.allowed_products || []).map((product: string) => (
+                        <option key={product} value={product}>{product}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {/* Reading - EDITABLE */}
                 <div>
                   <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                    Lectura ({siloUnits.captureLabel || entry.reading_uom || 'nivel'}) *
+                    Lectura ({entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'in' : (siloUnits.captureLabel || entry.reading_uom || 'nivel')}) *
                   </label>
                   <NumericInput
                     value={entry.reading_value ?? ''}
@@ -481,7 +541,10 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     placeholder="0.00"
                     className="w-full"
                   />
-                  <p className="text-xs text-[#6F767E] mt-1">Ingresa la lectura del medidor</p>
+                  <p className="text-xs text-[#6F767E] mt-1">
+                    {entry.reading_reference === 'EMPTY_HEIGHT_INCHES' ? 'Altura vacía desde la parte superior' :
+                      entry.reading_reference === 'FILLED_HEIGHT_INCHES' ? 'Altura ocupada por material' : 'Ingresa la lectura del medidor'}
+                  </p>
                 </div>
 
                 {/* Feet - AUTO CONVERTED */}
@@ -500,16 +563,16 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 {/* Result - AUTO CALCULATED */}
                 <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                    Sacos disponibles 📊
+                    {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'Volumen disponible (vista previa)' : 'Resultado disponible'} 📊
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {formatNumber(siloMetrics.sacks)} sacos
+                      {formatNumber(siloMetrics.sacks)} {siloMetrics.resultLabel}
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Cálculo automático</p>
                 </div>
-                <div>
+                {siloMetrics.lbs !== null && <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
                     Libras (lbs)
                   </label>
@@ -519,8 +582,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Sacos × 94</p>
-                </div>
-                <div>
+                </div>}
+                {siloMetrics.metricTons !== null && <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
                     Toneladas métricas
                   </label>
@@ -530,7 +593,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Lbs ÷ 2204.62</p>
-                </div>
+                </div>}
                 <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
                     Status
@@ -563,12 +626,12 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 <div>
                   <PhotoCapture
                     label="Evidencia Fotográfica del Medidor"
-                    required
+                    required={entry.requires_photo ?? true}
                     onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
                     currentPhoto={entry.photo_url}
                     fit="contain"
                   />
-                  {!entry.photo_url && (
+                  {(entry.requires_photo ?? true) && !entry.photo_url && (
                     <p className="text-xs text-red-600 mt-2">
                       ⚠️ La foto del medidor es obligatoria
                     </p>
@@ -579,6 +642,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     percentage={siloMetrics.volumePercentage}
                     sacks={siloMetrics.sacks}
                     status={siloMetrics.status}
+                    resultLabel={siloMetrics.resultLabel}
                   />
                 </div>
               </div>
