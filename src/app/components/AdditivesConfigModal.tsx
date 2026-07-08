@@ -7,11 +7,20 @@ import {
   getAdditivesCatalog,
   getCalibrationCurvesCatalog,
   getPlantAdditivesConfigEntries,
+  getUnits,
   updatePlantAdditivesConfigEntries,
 } from '../utils/api';
 import type { Plant } from '../contexts/AuthContext';
 
 type AdditiveType = 'TANK' | 'MANUAL';
+type MeasurementMethod = 'MANUAL' | 'CURVE' | 'CYLINDER_VERTICAL' | 'RECTANGULAR_IBC';
+
+interface UnitItem {
+  id: string;
+  category_id: string;
+  name_es: string;
+  symbol: string;
+}
 
 interface AdditiveCatalogItem {
   id: string;
@@ -41,7 +50,7 @@ interface AdditiveConfigRow {
   catalog_additive_id?: string | null;
   additive_name: string;
   additive_type: AdditiveType;
-  measurement_method: string;
+  measurement_method: MeasurementMethod;
   calibration_curve_name?: string | null;
   brand: string;
   uom: string;
@@ -49,6 +58,13 @@ interface AdditiveConfigRow {
   tank_name?: string | null;
   reading_uom?: string | null;
   conversion_table: Record<string, number>;
+  diameter?: number | null;
+  length?: number | null;
+  width?: number | null;
+  total_height?: number | null;
+  capacity?: number | null;
+  dimension_unit_id?: string | null;
+  capacity_unit_id?: string | null;
   is_active: boolean;
 }
 
@@ -57,7 +73,7 @@ function createEmptyRow(): AdditiveConfigRow {
     catalog_additive_id: null,
     additive_name: '',
     additive_type: 'TANK',
-    measurement_method: 'TANK_LEVEL',
+    measurement_method: 'CURVE',
     calibration_curve_name: null,
     brand: '',
     uom: '',
@@ -65,6 +81,13 @@ function createEmptyRow(): AdditiveConfigRow {
     tank_name: null,
     reading_uom: 'inches',
     conversion_table: {},
+    diameter: null,
+    length: null,
+    width: null,
+    total_height: null,
+    capacity: null,
+    dimension_unit_id: 'in',
+    capacity_unit_id: 'gal_us',
     is_active: true,
   };
 }
@@ -156,6 +179,7 @@ export function AdditivesConfigModal({
   const [rows, setRows] = useState<AdditiveConfigRow[]>([]);
   const [catalogItems, setCatalogItems] = useState<AdditiveCatalogItem[]>([]);
   const [curveItems, setCurveItems] = useState<CalibrationCurveItem[]>([]);
+  const [units, setUnits] = useState<UnitItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,8 +191,9 @@ export function AdditivesConfigModal({
       getPlantAdditivesConfigEntries(plant.id),
       getAdditivesCatalog(),
       getCalibrationCurvesCatalog(plant.id),
+      getUnits(),
     ])
-      .then(([configResponse, catalogResponse, curvesResponse]) => {
+      .then(([configResponse, catalogResponse, curvesResponse, unitsResponse]) => {
         if (!configResponse.success) {
           setError(configResponse.error ?? 'Error cargando aditivos');
           return;
@@ -178,6 +203,7 @@ export function AdditivesConfigModal({
         const curveData = (curvesResponse.success ? curvesResponse.data : []) || [];
         setCatalogItems(catalogData);
         setCurveItems(curveData);
+        setUnits((unitsResponse.success ? unitsResponse.data : []) || []);
 
         const catalogById = new Map(catalogData.map((item: AdditiveCatalogItem) => [item.id, item]));
         const catalogByName = new Map(
@@ -197,12 +223,18 @@ export function AdditivesConfigModal({
             ? curvesByName.get(String(entry.calibration_curve_name).trim().toUpperCase()) || null
             : null;
 
+          const rawMethod = String(entry.measurement_method || '').toUpperCase();
+          const method: MeasurementMethod = ['TANK', 'TANK_LEVEL', 'CALIBRATION_CURVE', 'CURVE'].includes(rawMethod)
+            ? 'CURVE'
+            : rawMethod === 'CYLINDER_VERTICAL' || rawMethod === 'RECTANGULAR_IBC'
+              ? rawMethod
+              : 'MANUAL';
           return {
             id: entry.id,
             catalog_additive_id: entry.catalog_additive_id || matchedCatalog?.id || null,
             additive_name: entry.additive_name || matchedCatalog?.nombre || '',
-            additive_type: 'TANK',
-            measurement_method: 'TANK_LEVEL',
+            additive_type: method === 'MANUAL' ? 'MANUAL' : 'TANK',
+            measurement_method: method,
             calibration_curve_name: matchedCurve ? entry.calibration_curve_name || null : null,
             brand: entry.brand || matchedCatalog?.marca || '',
             uom: entry.uom || matchedCatalog?.uom || '',
@@ -210,6 +242,13 @@ export function AdditivesConfigModal({
             tank_name: entry.tank_name || '',
             reading_uom: entry.reading_uom || matchedCurve?.reading_uom || null,
             conversion_table: entry.conversion_table || matchedCurve?.data_points || {},
+            diameter: entry.diameter ?? null,
+            length: entry.length ?? null,
+            width: entry.width ?? null,
+            total_height: entry.total_height ?? null,
+            capacity: entry.capacity ?? null,
+            dimension_unit_id: entry.dimension_unit_id || 'in',
+            capacity_unit_id: entry.capacity_unit_id || 'gal_us',
             is_active: entry.is_active ?? true,
           } as AdditiveConfigRow;
         });
@@ -237,8 +276,7 @@ export function AdditivesConfigModal({
     updateRow(index, {
       catalog_additive_id: selected?.id || null,
       additive_name: selected?.nombre || '',
-      additive_type: 'TANK',
-      measurement_method: 'TANK_LEVEL',
+      additive_type: rows[index].measurement_method === 'MANUAL' ? 'MANUAL' : 'TANK',
       brand: selected?.marca || '',
       uom: selected?.uom || '',
     });
@@ -263,6 +301,18 @@ export function AdditivesConfigModal({
   ];
 
   const tankCurveItems = curveItems.filter(isTankLevelCurve);
+  const methodOptions = [
+    { value: 'MANUAL', label: 'Manual' },
+    { value: 'CURVE', label: 'Curva de calibración' },
+    { value: 'CYLINDER_VERTICAL', label: 'Cilindro vertical' },
+    { value: 'RECTANGULAR_IBC', label: 'IBC rectangular' },
+  ];
+  const dimensionUnitOptions = units
+    .filter((unit) => unit.category_id === 'length')
+    .map((unit) => ({ value: unit.id, label: `${unit.name_es} (${unit.symbol})` }));
+  const capacityUnitOptions = units
+    .filter((unit) => unit.category_id === 'capacity' || unit.category_id === 'volume')
+    .map((unit) => ({ value: unit.id, label: `${unit.name_es} (${unit.symbol})` }));
   const curveOptions = [
     { value: '', label: '-- Selecciona una curva --' },
     ...tankCurveItems.map((curve) => ({
@@ -290,11 +340,13 @@ export function AdditivesConfigModal({
         return `${label}: la unidad es requerida`;
       }
 
-      if (row.additive_type === 'TANK') {
+      if (row.measurement_method !== 'MANUAL') {
         if (!row.tank_name?.trim()) {
           return `${label}: el nombre del tanque es requerido`;
         }
+      }
 
+      if (row.measurement_method === 'CURVE') {
         if (!row.calibration_curve_name?.trim()) {
           return `${label}: debes seleccionar una curva de conversión`;
         }
@@ -311,6 +363,20 @@ export function AdditivesConfigModal({
         if (!selectedCurve || Object.keys(selectedCurve.data_points || {}).length === 0) {
           return `${label}: la curva seleccionada no tiene puntos de conversión`;
         }
+      }
+
+      if (row.measurement_method === 'CYLINDER_VERTICAL' || row.measurement_method === 'RECTANGULAR_IBC') {
+        if (!(Number(row.total_height) > 0)) return `${label}: la altura total debe ser mayor que cero`;
+        if (!(Number(row.capacity) > 0)) return `${label}: la capacidad nominal debe ser mayor que cero`;
+        if (!row.dimension_unit_id) return `${label}: selecciona la unidad dimensional`;
+        if (!row.capacity_unit_id) return `${label}: selecciona la unidad de capacidad`;
+      }
+      if (row.measurement_method === 'CYLINDER_VERTICAL' && !(Number(row.diameter) > 0)) {
+        return `${label}: el diámetro debe ser mayor que cero`;
+      }
+      if (row.measurement_method === 'RECTANGULAR_IBC') {
+        if (!(Number(row.length) > 0)) return `${label}: el largo debe ser mayor que cero`;
+        if (!(Number(row.width) > 0)) return `${label}: el ancho debe ser mayor que cero`;
       }
     }
 
@@ -332,15 +398,24 @@ export function AdditivesConfigModal({
         ...(row.id ? { id: row.id } : {}),
         catalog_additive_id: row.catalog_additive_id || null,
         additive_name: row.additive_name.trim(),
-        additive_type: 'TANK',
-        measurement_method: 'TANK_LEVEL',
-        calibration_curve_name: row.calibration_curve_name || null,
+        additive_type: row.measurement_method === 'MANUAL' ? 'MANUAL' : 'TANK',
+        measurement_method: row.measurement_method,
+        calibration_curve_name: row.measurement_method === 'CURVE' ? row.calibration_curve_name || null : null,
         brand: row.brand.trim(),
         uom: row.uom.trim(),
         requires_photo: row.requires_photo,
-        tank_name: row.tank_name?.trim() || null,
-        reading_uom: row.reading_uom?.trim() || null,
-        conversion_table: tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.conversion_table,
+        tank_name: row.measurement_method === 'MANUAL' ? null : row.tank_name?.trim() || null,
+        reading_uom: row.measurement_method === 'CURVE' ? row.reading_uom?.trim() || null : null,
+        conversion_table: row.measurement_method === 'CURVE'
+          ? tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.conversion_table
+          : null,
+        diameter: row.measurement_method === 'CYLINDER_VERTICAL' ? row.diameter : null,
+        length: row.measurement_method === 'RECTANGULAR_IBC' ? row.length : null,
+        width: row.measurement_method === 'RECTANGULAR_IBC' ? row.width : null,
+        total_height: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.total_height : null,
+        capacity: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.capacity : null,
+        dimension_unit_id: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.dimension_unit_id : null,
+        capacity_unit_id: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.capacity_unit_id : null,
         sort_order: index,
         is_active: row.is_active,
       }));
@@ -367,7 +442,7 @@ export function AdditivesConfigModal({
             Configuración de Aditivos — {plant.name}
           </h3>
           <p className="mt-1 text-sm text-[#5F6773]">
-            Selecciona el aditivo desde catálogo y, si es tanque, enlázalo a una curva de conversión de esta planta.
+            Selecciona el método de medición y configura únicamente los parámetros físicos que le corresponden.
           </p>
         </div>
 
@@ -386,7 +461,7 @@ export function AdditivesConfigModal({
 
           {!loading && tankCurveItems.length === 0 && (
             <div className="mb-4">
-              <Alert type="warning" message="No hay curvas de conversión tipo TANK_LEVEL para esta planta. Los aditivos requieren una curva de tanque creada en Catálogos." />
+              <Alert type="warning" message="No hay curvas TANK_LEVEL. El método CURVE no estará disponible hasta crear una en Catálogos." />
             </div>
           )}
 
@@ -430,7 +505,7 @@ export function AdditivesConfigModal({
                       />
                       <Input
                         label="Tipo"
-                        value="Tanque"
+                        value={row.measurement_method === 'MANUAL' ? 'Manual' : 'Tanque'}
                         disabled
                       />
                       <Input
@@ -457,10 +532,17 @@ export function AdditivesConfigModal({
                         />
                         Requiere foto
                       </label>
-                      <Input
+                      <Select
                         label="Método"
-                        value="TANK_LEVEL"
-                        disabled
+                        value={row.measurement_method}
+                        options={methodOptions}
+                        onChange={(event) => {
+                          const method = event.target.value as MeasurementMethod;
+                          updateRow(index, {
+                            measurement_method: method,
+                            additive_type: method === 'MANUAL' ? 'MANUAL' : 'TANK',
+                          });
+                        }}
                         required
                       />
                       <Input
@@ -471,6 +553,7 @@ export function AdditivesConfigModal({
                       />
                     </div>
 
+                    {row.measurement_method !== 'MANUAL' && (
                     <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                         <Input
@@ -480,26 +563,70 @@ export function AdditivesConfigModal({
                           placeholder="Ej: Tanque WR200"
                           required
                         />
-                        <Select
+                        {row.measurement_method === 'CURVE' && <Select
                           label="Curva de conversión"
                           value={row.calibration_curve_name || ''}
                           onChange={(e) => handleCurveChange(index, e.target.value)}
                           options={curveOptions}
                           required
                           helperText="La tabla y la unidad de lectura salen de esta curva."
-                        />
-                        <Input
+                        />}
+                        {row.measurement_method === 'CURVE' && <Input
                           label="Unidad de lectura"
                           value={row.reading_uom || ''}
                           disabled
                           placeholder="Se llena desde la curva"
                           required
-                        />
+                        />}
                       </div>
-                      <CurvePreviewTable
+                      {row.measurement_method === 'CURVE' && <CurvePreviewTable
                         curve={tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name)}
-                      />
+                      />}
+                      {(row.measurement_method === 'CYLINDER_VERTICAL' || row.measurement_method === 'RECTANGULAR_IBC') && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            {row.measurement_method === 'CYLINDER_VERTICAL' && (
+                              <Input label="Diámetro" type="number" min="0" step="any" required
+                                value={row.diameter ?? ''}
+                                onChange={(event) => updateRow(index, { diameter: event.target.value === '' ? null : Number(event.target.value) })}
+                              />
+                            )}
+                            {row.measurement_method === 'RECTANGULAR_IBC' && (
+                              <>
+                                <Input label="Largo" type="number" min="0" step="any" required
+                                  value={row.length ?? ''}
+                                  onChange={(event) => updateRow(index, { length: event.target.value === '' ? null : Number(event.target.value) })}
+                                />
+                                <Input label="Ancho" type="number" min="0" step="any" required
+                                  value={row.width ?? ''}
+                                  onChange={(event) => updateRow(index, { width: event.target.value === '' ? null : Number(event.target.value) })}
+                                />
+                              </>
+                            )}
+                            <Input label="Altura total" type="number" min="0" step="any" required
+                              value={row.total_height ?? ''}
+                              onChange={(event) => updateRow(index, { total_height: event.target.value === '' ? null : Number(event.target.value) })}
+                            />
+                            <Select label="Unidad dimensional" value={row.dimension_unit_id || ''}
+                              onChange={(event) => updateRow(index, { dimension_unit_id: event.target.value })}
+                              options={dimensionUnitOptions} required
+                            />
+                            <Input label="Capacidad nominal" type="number" min="0" step="any" required
+                              value={row.capacity ?? ''}
+                              onChange={(event) => updateRow(index, { capacity: event.target.value === '' ? null : Number(event.target.value) })}
+                            />
+                            <Select label="Unidad de capacidad" value={row.capacity_unit_id || ''}
+                              onChange={(event) => updateRow(index, { capacity_unit_id: event.target.value })}
+                              options={capacityUnitOptions} required
+                            />
+                          </div>
+                          <p className="text-xs text-[#5F6773]">
+                            La altura del líquido se capturará en la unidad dimensional. El servidor limitará el resultado a la capacidad nominal.
+                          </p>
+                        </div>
+                      )}
                     </div>
+                    )}
                   </div>
                 ))
               )}

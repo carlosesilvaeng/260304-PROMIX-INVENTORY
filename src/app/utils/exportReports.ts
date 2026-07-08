@@ -292,13 +292,13 @@ async function fetchDetail(
     if (data.aditivos?.length) {
       sections.push({
         name: 'Aditivos',
-        headers: ['Producto', 'Marca', 'Tipo', 'Cantidad', 'UOM', 'Foto'],
+        headers: ['Producto', 'Marca', 'Método', 'Cantidad inventario', 'UOM inventario', 'Foto'],
         rows: data.aditivos.map((e: any) => [
           e.product_name ?? '-',
           e.brand ?? '-',
-          e.additive_type ?? '-',
-          safeNum(e.additive_type === 'TANK' ? e.calculated_volume : e.quantity),
-          e.uom ?? '-',
+          e.measurement_method ?? e.additive_type ?? '-',
+          safeNum(e.inventory_quantity ?? (e.additive_type === 'TANK' ? e.calculated_volume : e.quantity)),
+          e.inventory_unit_id ?? e.uom ?? '-',
           e.photo_url ? 'Sí' : 'No',
         ]),
       });

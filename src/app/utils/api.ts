@@ -1276,6 +1276,13 @@ export async function updatePlantSilos(
     calibration_curve_name?: string | null;
     reading_uom?: string | null;
     conversion_table?: Record<string, number> | null;
+    diameter?: number | null;
+    length?: number | null;
+    width?: number | null;
+    total_height?: number | null;
+    capacity?: number | null;
+    dimension_unit_id?: string | null;
+    capacity_unit_id?: string | null;
     allowed_products?: string[];
     calculation_method?: 'CALIBRATION_CURVE' | 'GEOMETRIC_CYLINDER_CONE';
     diameter_in?: number | null;

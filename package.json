@@ -9,6 +9,7 @@
     "dev": "vite",
     "test:units": "node scripts/validate-unit-conversions.mjs",
     "test:silo-geometry": "node --experimental-strip-types scripts/test-silo-geometry.mjs",
+    "test:additive-measurement": "node --experimental-strip-types scripts/test-additive-measurement.mjs",
     "migrate:effective-catalogs": "node scripts/migrate-effective-catalogs.mjs",
     "backfill:measurement-configs": "node scripts/backfill-measurement-configs.mjs",
     "deploy:make-server": "supabase functions deploy make-server --project-ref jnlsahsxqiufusfamccz --no-verify-jwt",

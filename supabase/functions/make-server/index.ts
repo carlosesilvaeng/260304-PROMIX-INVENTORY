@@ -6,13 +6,18 @@ import * as db from "./database.tsx";
 import * as seed from "./seed.tsx";
 import * as auth from "./auth.tsx";
 import { calculateSiloGeometry, roundSiloResult } from "./silo_geometry.ts";
+import {
+  calculateAdditiveMeasurement,
+  normalizeAdditiveMeasurementMethod,
+  roundAdditiveMeasurement,
+} from "./additive_measurement.ts";
 
 const app = new Hono();
 
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2607081200';
+const BUILD_VERSION = '2607081530';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -71,6 +76,69 @@ function interpolateCalibrationTable(reading: unknown, table: NumericCalibration
   }
 
   return roundTo(lastPoint.value);
+}
+
+const US_GALLON_TO_CUBIC_METERS = 0.003785411784;
+
+function scoreMeasurementConfig(config: any, input: { plantId: string; equipmentId: string }) {
+  if (config.active === false) return -1;
+  if (config.plant_id && config.plant_id !== input.plantId) return -1;
+  if (config.section_code && config.section_code !== 'additives') return -1;
+  if (config.equipment_id && config.equipment_id !== input.equipmentId) return -1;
+  let score = 0;
+  if (config.plant_id) score += 16;
+  if (config.section_code) score += 8;
+  if (config.equipment_id) score += 4;
+  return score;
+}
+
+function resolveAdditiveMeasurementConfig(configs: any[], plantId: string, equipmentId: string) {
+  return (configs || [])
+    .map((config) => ({ config, score: scoreMeasurementConfig(config, { plantId, equipmentId }) }))
+    .filter((candidate) => candidate.score >= 0)
+    .sort((left, right) => right.score - left.score)[0]?.config || null;
+}
+
+function unitFactorToCubicMeters(unit: any) {
+  const factor = Number(unit?.factor_to_base);
+  if (!Number.isFinite(factor) || factor <= 0) {
+    throw new Error(`La unidad ${unit?.id || '(desconocida)'} no tiene un factor válido.`);
+  }
+  if (unit.category_id === 'volume') return factor;
+  if (unit.category_id === 'capacity') return factor * US_GALLON_TO_CUBIC_METERS;
+  throw new Error(`La unidad ${unit.id} debe ser de volumen o capacidad.`);
+}
+
+function requireUnit(unitsById: Map<string, any>, unitId: string | null | undefined, label: string) {
+  const unit = unitId ? unitsById.get(unitId) : null;
+  if (!unit) throw new Error(`${label}: unidad no encontrada (${unitId || 'vacía'}).`);
+  return unit;
+}
+
+function convertAdditiveVolume(
+  value: number,
+  fromUnit: any,
+  toUnit: any,
+  materialFactor?: any,
+) {
+  if (fromUnit.id === toUnit.id) return value;
+  if (fromUnit.category_id === toUnit.category_id) {
+    return value * Number(fromUnit.factor_to_base) / Number(toUnit.factor_to_base);
+  }
+  const volumeLike = new Set(['volume', 'capacity']);
+  if (volumeLike.has(fromUnit.category_id) && volumeLike.has(toUnit.category_id)) {
+    return value * unitFactorToCubicMeters(fromUnit) / unitFactorToCubicMeters(toUnit);
+  }
+  if (materialFactor?.active !== false) {
+    const factor = Number(materialFactor?.factor);
+    if (factor > 0 && materialFactor.from_unit_id === fromUnit.id && materialFactor.to_unit_id === toUnit.id) {
+      return value * factor;
+    }
+    if (factor > 0 && materialFactor.from_unit_id === toUnit.id && materialFactor.to_unit_id === fromUnit.id) {
+      return value / factor;
+    }
+  }
+  throw new Error(`No existe conversión válida entre ${fromUnit.id} y ${toUnit.id}.`);
 }
 
 // Decode and check key algorithms
@@ -2096,6 +2164,13 @@ app.get("/make-server/plants/:plantId/additives", async (c) => {
         tank_name,
         reading_uom,
         conversion_table,
+        diameter,
+        length,
+        width,
+        total_height,
+        capacity,
+        dimension_unit_id,
+        capacity_unit_id,
         is_active,
         sort_order
       `)
@@ -2136,18 +2211,13 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
       tank_name?: string | null;
       reading_uom?: string | null;
       conversion_table?: Record<string, number> | null;
-      calculation_method?: string;
-      diameter_in?: number | null;
-      total_height_in?: number | null;
-      cone_height_in?: number | null;
-      bottom_diameter_in?: number | null;
-      cylinder_height_mode?: string;
-      slope_divisor_mode?: string;
-      reading_reference?: string;
-      calculation_unit_id?: string | null;
-      inventory_unit_id?: string | null;
-      material_conversion_factor_id?: string | null;
-      requires_photo?: boolean;
+      diameter?: number | null;
+      length?: number | null;
+      width?: number | null;
+      total_height?: number | null;
+      capacity?: number | null;
+      dimension_unit_id?: string | null;
+      capacity_unit_id?: string | null;
       sort_order?: number;
       is_active?: boolean;
     }[] = body.additives ?? [];
@@ -2156,9 +2226,21 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
 
     if (additives.length > 0) {
       const catalogCache = new Map<string, Awaited<ReturnType<typeof db.getAdditiveCatalogById>>>();
+      const supabase = db.getSupabaseClient();
+      const [{ data: units, error: unitsError }, { data: measurementConfigs, error: configsError }] = await Promise.all([
+        supabase.from('units').select('*').eq('active', true),
+        supabase.from('measurement_configs').select('*').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true),
+      ]);
+      if (unitsError) throw unitsError;
+      if (configsError) throw configsError;
+      const unitsById = new Map((units || []).map((unit: any) => [unit.id, unit]));
+
       rows = await Promise.all(additives.map(async (additive, index) => {
-        const additiveType = String(additive.additive_type || 'MANUAL').toUpperCase();
-        const measurementMethod = additive.measurement_method || (additiveType === 'TANK' ? 'TANK_LEVEL' : 'MANUAL_QUANTITY');
+        const id = additive.id || crypto.randomUUID();
+        const measurementMethod = normalizeAdditiveMeasurementMethod(
+          additive.measurement_method || (String(additive.additive_type).toUpperCase() === 'TANK' ? 'CURVE' : 'MANUAL'),
+        );
+        const additiveType = measurementMethod === 'MANUAL' ? 'MANUAL' : 'TANK';
         const catalogId = additive.catalog_additive_id?.trim() || null;
 
         if (!catalogId) {
@@ -2174,23 +2256,72 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
           throw new Error(`El aditivo de catálogo seleccionado en la fila ${index + 1} ya no existe.`);
         }
 
-        if (additiveType !== 'TANK') {
+        const baseRow = {
+          id,
+          plant_id: plantId,
+          catalog_additive_id: catalogAdditive.id,
+          additive_name: catalogAdditive.nombre,
+          additive_type: additiveType,
+          measurement_method: measurementMethod,
+          brand: catalogAdditive.marca || '',
+          uom: catalogAdditive.uom || '',
+          requires_photo: additive.requires_photo ?? false,
+          tank_name: additiveType === 'TANK' ? additive.tank_name?.trim() || null : null,
+          sort_order: additive.sort_order ?? index,
+          is_active: additive.is_active ?? true,
+        };
+
+        if (measurementMethod === 'MANUAL') {
           return {
-            ...(additive.id ? { id: additive.id } : {}),
-            plant_id: plantId,
-            catalog_additive_id: catalogAdditive.id,
-            additive_name: catalogAdditive.nombre,
-            additive_type: additiveType,
-            measurement_method: measurementMethod,
+            ...baseRow,
             calibration_curve_name: null,
-            brand: catalogAdditive.marca || '',
-            uom: catalogAdditive.uom || '',
-            requires_photo: additive.requires_photo ?? false,
-            tank_name: null,
             reading_uom: null,
             conversion_table: null,
-            sort_order: additive.sort_order ?? index,
-            is_active: additive.is_active ?? true,
+            diameter: null, length: null, width: null, total_height: null, capacity: null,
+            dimension_unit_id: null, capacity_unit_id: null,
+          };
+        }
+
+        if (!baseRow.tank_name) {
+          throw new Error(`El aditivo "${catalogAdditive.nombre}" requiere nombre de tanque.`);
+        }
+
+        if (measurementMethod !== 'CURVE') {
+          const dimensionUnit = requireUnit(unitsById, additive.dimension_unit_id, catalogAdditive.nombre);
+          const capacityUnit = requireUnit(unitsById, additive.capacity_unit_id, catalogAdditive.nombre);
+          if (dimensionUnit.category_id !== 'length') {
+            throw new Error(`${catalogAdditive.nombre}: la unidad dimensional debe ser de longitud.`);
+          }
+          const effective = resolveAdditiveMeasurementConfig(measurementConfigs || [], plantId, id);
+          const calculationUnit = requireUnit(
+            unitsById,
+            effective?.calculation_unit_id || additive.capacity_unit_id,
+            `${catalogAdditive.nombre}: unidad de cálculo`,
+          );
+          calculateAdditiveMeasurement({
+            method: measurementMethod,
+            diameter: additive.diameter,
+            length: additive.length,
+            width: additive.width,
+            total_height: additive.total_height,
+            capacity: additive.capacity,
+            dimension_factor_to_base: Number(dimensionUnit.factor_to_base),
+            calculation_volume_factor_to_base: unitFactorToCubicMeters(calculationUnit),
+            capacity_volume_factor_to_base: unitFactorToCubicMeters(capacityUnit),
+          }, { reading: 0 });
+
+          return {
+            ...baseRow,
+            calibration_curve_name: null,
+            reading_uom: dimensionUnit.code,
+            conversion_table: null,
+            diameter: measurementMethod === 'CYLINDER_VERTICAL' ? additive.diameter : null,
+            length: measurementMethod === 'RECTANGULAR_IBC' ? additive.length : null,
+            width: measurementMethod === 'RECTANGULAR_IBC' ? additive.width : null,
+            total_height: additive.total_height,
+            capacity: additive.capacity,
+            dimension_unit_id: dimensionUnit.id,
+            capacity_unit_id: capacityUnit.id,
           };
         }
 
@@ -2209,26 +2340,17 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
         }
 
         return {
-          ...(additive.id ? { id: additive.id } : {}),
-          plant_id: plantId,
-          catalog_additive_id: catalogAdditive.id,
-          additive_name: catalogAdditive.nombre,
-          additive_type: additiveType,
-          measurement_method: measurementMethod,
+          ...baseRow,
           calibration_curve_name: curve.curve_name,
-          brand: catalogAdditive.marca || '',
-          uom: catalogAdditive.uom || '',
-          requires_photo: additive.requires_photo ?? false,
-          tank_name: additive.tank_name || null,
           reading_uom: curve.reading_uom,
           conversion_table: curve.data_points,
-          sort_order: additive.sort_order ?? index,
-          is_active: additive.is_active ?? true,
+          diameter: null, length: null, width: null, total_height: null, capacity: null,
+          dimension_unit_id: null, capacity_unit_id: null,
         };
       }));
     }
 
-    await db.replacePlantConfigRowsAtomic('additives', plantId, rows);
+    await db.replacePlantAdditivesConfigAtomic(plantId, rows);
 
     console.log(`✅ [PUT /plants/${plantId}/additives] Saved ${additives.length} additives by ${user.email}`);
     return c.json({ success: true, count: additives.length });
@@ -3395,38 +3517,135 @@ app.post("/make-server/inventory/additives", async (c) => {
     const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
     if (payloadError) return payloadError;
 
-    const dbEntries = entries.map((e: any) => {
-      const isTank = String(e.additive_type || '').toUpperCase() === 'TANK';
-      if (isTank && !hasCalibrationPoints(e.conversion_table)) {
-        throw new Error(`${e.product_name || 'Aditivo'}: falta tabla de calibración para calcular la lectura del tanque.`);
+    if (!Array.isArray(entries)) {
+      return c.json({ success: false, error: 'Payload inválido: entries debe ser un arreglo.' }, 400);
+    }
+
+    const additiveConfigIds = Array.from(new Set(entries.map((entry: any) => entry.additive_config_id).filter(Boolean)));
+    const additiveConfigsQuery = additiveConfigIds.length > 0
+      ? supabase.from('plant_additives_config').select('*').eq('plant_id', inventoryMonth.plant_id).in('id', additiveConfigIds)
+      : Promise.resolve({ data: [], error: null });
+    const [{ data: additiveConfigs, error: additivesError }, { data: units, error: unitsError }, { data: measurementConfigs, error: measurementError }] = await Promise.all([
+      additiveConfigsQuery,
+      supabase.from('units').select('*').eq('active', true),
+      supabase.from('measurement_configs').select('*').or(`plant_id.eq.${inventoryMonth.plant_id},plant_id.is.null`).eq('active', true),
+    ]);
+    if (additivesError) throw additivesError;
+    if (unitsError) throw unitsError;
+    if (measurementError) throw measurementError;
+
+    const configById = new Map((additiveConfigs || []).map((config: any) => [config.id, config]));
+    const unitsById = new Map((units || []).map((unit: any) => [unit.id, unit]));
+
+    const dbEntries = await Promise.all(entries.map(async (e: any) => {
+      const config: any = configById.get(e.additive_config_id);
+      if (!config) {
+        throw new Error(`${e.product_name || 'Aditivo'}: configuración inexistente o ajena a la planta.`);
       }
-      const readingValue = Number(e.reading_value ?? e.reading ?? 0) || 0;
-      const calculatedVolume = isTank
-        ? interpolateCalibrationTable(readingValue, e.conversion_table)
-        : Number(e.calculated_volume ?? 0) || 0;
+      const method = normalizeAdditiveMeasurementMethod(
+        config.measurement_method || (String(config.additive_type).toUpperCase() === 'TANK' ? 'CURVE' : 'MANUAL'),
+      );
+      const effective = resolveAdditiveMeasurementConfig(
+        measurementConfigs || [],
+        inventoryMonth.plant_id,
+        config.id,
+      );
+      const captureUnitId = effective?.capture_unit_id || config.dimension_unit_id || config.reading_uom || 'in';
+      const calculationUnitId = effective?.calculation_unit_id || config.capacity_unit_id || 'gal_us';
+      const displayUnitId = effective?.display_unit_id || calculationUnitId;
+      const inventoryUnitId = effective?.inventory_unit_id || calculationUnitId;
+      const readingValue = Number(e.reading_value ?? e.reading);
+
+      const calculationUnit = method === 'MANUAL'
+        ? unitsById.get(calculationUnitId)
+        : requireUnit(unitsById, calculationUnitId, `${config.additive_name}: unidad de cálculo`);
+      let measurement;
+      if (method === 'CURVE') {
+        measurement = calculateAdditiveMeasurement({
+          method,
+          conversion_table: config.conversion_table,
+        }, { reading: readingValue });
+      } else if (method === 'MANUAL') {
+        measurement = calculateAdditiveMeasurement({ method }, { quantity: e.quantity });
+      } else {
+        const dimensionUnit = requireUnit(unitsById, config.dimension_unit_id, config.additive_name);
+        const capacityUnit = requireUnit(unitsById, config.capacity_unit_id, config.additive_name);
+        measurement = calculateAdditiveMeasurement({
+          method,
+          diameter: config.diameter,
+          length: config.length,
+          width: config.width,
+          total_height: config.total_height,
+          capacity: config.capacity,
+          dimension_factor_to_base: Number(dimensionUnit.factor_to_base),
+          calculation_volume_factor_to_base: unitFactorToCubicMeters(calculationUnit),
+          capacity_volume_factor_to_base: unitFactorToCubicMeters(capacityUnit),
+        }, { reading: readingValue });
+      }
+
+      const calculatedVolume = roundAdditiveMeasurement(measurement.calculated_volume);
+      const percentage = measurement.inventory_percentage === null
+        ? null
+        : roundAdditiveMeasurement(measurement.inventory_percentage);
+      let displayVolume = calculatedVolume;
+      let inventoryQuantity = calculatedVolume;
+      if (method !== 'MANUAL') {
+        const displayUnit = requireUnit(unitsById, displayUnitId, `${config.additive_name}: unidad visible`);
+        const inventoryUnit = requireUnit(unitsById, inventoryUnitId, `${config.additive_name}: unidad de inventario`);
+        let materialFactor = null;
+        if (effective?.material_conversion_factor_id) {
+          const { data: factor, error: factorError } = await supabase
+            .from('material_conversion_factors')
+            .select('*')
+            .eq('id', effective.material_conversion_factor_id)
+            .eq('active', true)
+            .maybeSingle();
+          if (factorError) throw factorError;
+          materialFactor = factor;
+        }
+        displayVolume = roundAdditiveMeasurement(convertAdditiveVolume(calculatedVolume, calculationUnit, displayUnit));
+        inventoryQuantity = roundAdditiveMeasurement(
+          convertAdditiveVolume(calculatedVolume, calculationUnit, inventoryUnit, materialFactor),
+        );
+      }
 
       return {
         ...(e.id ? { id: e.id } : {}),
         inventory_month_id: inventoryMonth.id,
-        additive_config_id: e.additive_config_id,
-        additive_type: e.additive_type,
-        product_name: e.product_name,
-        brand: e.brand,
-        uom: e.uom,
-        requires_photo: e.requires_photo,
-        tank_name: e.tank_name,
-        reading_uom: e.reading_uom,
-        reading_value: readingValue,
-        reading: readingValue,
+        additive_config_id: config.id,
+        additive_type: method === 'MANUAL' ? 'MANUAL' : 'TANK',
+        measurement_method: method,
+        product_name: config.additive_name,
+        brand: config.brand,
+        uom: config.uom,
+        requires_photo: config.requires_photo,
+        tank_name: config.tank_name,
+        reading_uom: method === 'CURVE' ? config.reading_uom : captureUnitId,
+        reading_value: method === 'MANUAL' ? null : readingValue,
+        reading: method === 'MANUAL' ? null : readingValue,
         calculated_volume: calculatedVolume,
-        calculated_gallons: isTank ? calculatedVolume : e.calculated_gallons,
-        conversion_table: e.conversion_table,
-        quantity: e.quantity,
+        calculated_gallons: calculationUnitId === 'gal_us' ? calculatedVolume : null,
+        conversion_table: method === 'CURVE' ? config.conversion_table : null,
+        quantity: method === 'MANUAL' ? calculatedVolume : e.quantity,
+        diameter: config.diameter,
+        length: config.length,
+        width: config.width,
+        total_height: config.total_height,
+        capacity: config.capacity,
+        dimension_unit_id: config.dimension_unit_id,
+        capacity_unit_id: config.capacity_unit_id,
+        capture_unit_id: captureUnitId,
+        calculation_unit_id: calculationUnitId,
+        display_unit_id: displayUnitId,
+        inventory_unit_id: inventoryUnitId,
+        inventory_percentage: percentage,
+        display_volume: displayVolume,
+        inventory_quantity: inventoryQuantity,
         photo_url: e.photo_url,
         notes: e.notes,
       };
-    });
-    await db.replaceInventorySectionRowsAtomic('additives', inventoryMonth.id, dbEntries);
+    }));
+    await db.replaceInventoryAdditivesAtomic(inventoryMonth.id, dbEntries);
     const { data, error } = await supabase
       .from('inventory_additives_entries')
       .select('*')

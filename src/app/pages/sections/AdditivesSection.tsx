@@ -11,10 +11,15 @@ import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatOptionalNumber, formatNumber } from '../../utils/numberFormatting';
 import { saveAdditivesEntries } from '../../utils/api';
 import {
+  convertForCalculationToDisplay,
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
   type UnitDefinition,
 } from '../../utils/unitConversion';
+import {
+  calculateAdditiveMeasurement,
+  normalizeAdditiveMeasurementMethod,
+} from '../../../../supabase/functions/make-server/additive_measurement';
 import additiveTankMeasurementReference from '../../../assets/additive-tank-measurement-reference.png';
 
 type TabType = 'tanks' | 'manual';
@@ -168,6 +173,17 @@ function getAdditiveTankMetrics(entry: any) {
   };
 }
 
+const GALLON_TO_M3 = 0.003785411784;
+
+function volumeFactorToM3(unit: UnitDefinition | undefined) {
+  if (!unit) return null;
+  const factor = Number(unit.factor_to_base);
+  if (!Number.isFinite(factor) || factor <= 0) return null;
+  if (unit.category_id === 'volume') return factor;
+  if (unit.category_id === 'capacity') return factor * GALLON_TO_M3;
+  return null;
+}
+
 function formatMetricValue(value: number | null | undefined, fallback = '-') {
   return formatOptionalNumber(value, 2, fallback);
 }
@@ -238,6 +254,66 @@ export function AdditivesSection() {
     fallbackRuleLabel: 'Curva de tanque',
     fallbackRuleDetail: 'La lectura se convierte con la curva configurada del tanque de aditivo.',
   });
+  const getEffectiveUnitsForEntry = (entry: any) => resolveEffectiveMeasurementConfig({
+    units: unitCatalog,
+    configs: measurementConfigs,
+    plantId: currentPlant?.id,
+    sectionCode: 'additives',
+    equipmentId: entry.additive_config_id,
+    fallbackCaptureUnitId: entry.dimension_unit_id || 'in',
+    fallbackCalculationUnitId: entry.capacity_unit_id || 'gal_us',
+    fallbackDisplayUnitId: entry.capacity_unit_id || 'gal_us',
+    fallbackInventoryUnitId: entry.capacity_unit_id || 'gal_us',
+    fallbackRuleLabel: 'Método de medición del tanque',
+    fallbackRuleDetail: 'El servidor recalcula el volumen usando la configuración del equipo.',
+  });
+
+  const getEntryMetrics = (entry: any) => {
+    const method = normalizeAdditiveMeasurementMethod(
+      entry.measurement_method || (entry.additive_type === 'TANK' ? 'CURVE' : 'MANUAL'),
+    );
+    if (method === 'CURVE') return getAdditiveTankMetrics(entry);
+    if (method === 'MANUAL') {
+      return { availableVolume: Number(entry.quantity ?? 0), consumedVolume: null, volumePercentage: null, status: null };
+    }
+    const effective = getEffectiveUnitsForEntry(entry);
+    const dimensionUnit = unitCatalog.find((unit) => unit.id === entry.dimension_unit_id);
+    const calculationUnit = unitCatalog.find((unit) => unit.id === effective.calculationUnitId);
+    const capacityUnit = unitCatalog.find((unit) => unit.id === entry.capacity_unit_id);
+    try {
+      const result = calculateAdditiveMeasurement({
+        method,
+        diameter: entry.diameter,
+        length: entry.length,
+        width: entry.width,
+        total_height: entry.total_height,
+        capacity: entry.capacity,
+        dimension_factor_to_base: Number(dimensionUnit?.factor_to_base),
+        calculation_volume_factor_to_base: volumeFactorToM3(calculationUnit),
+        capacity_volume_factor_to_base: volumeFactorToM3(capacityUnit),
+      }, { reading: entry.reading_value });
+      const displayedVolume = convertForCalculationToDisplay(
+        result.calculated_volume,
+        effective,
+        unitCatalog,
+      );
+      return {
+        availableVolume: displayedVolume,
+        consumedVolume: null,
+        volumePercentage: result.inventory_percentage,
+        status: result.inventory_percentage !== null
+          ? result.inventory_percentage <= 20 ? 'Bajo' : result.inventory_percentage <= 40 ? 'Medio' : 'Disponible'
+          : null,
+      };
+    } catch {
+      return {
+        availableVolume: Number(entry.calculated_volume ?? 0) || 0,
+        consumedVolume: null,
+        volumePercentage: entry.inventory_percentage ?? null,
+        status: null,
+      };
+    }
+  };
 
   // Load data when component mounts
   useEffect(() => {
@@ -330,8 +406,12 @@ export function AdditivesSection() {
     const updates: any = { [field]: value };
     const hasNumericValue = value !== null && value !== undefined && value !== '';
 
-    // If it's a TANK and reading_value changes, recalculate volume
-    if (entry.additive_type === 'TANK' && field === 'reading_value' && entry.conversion_table) {
+    const method = normalizeAdditiveMeasurementMethod(
+      entry.measurement_method || (entry.additive_type === 'TANK' ? 'CURVE' : 'MANUAL'),
+    );
+
+    // Client preview only; the server recalculates authoritatively on save.
+    if (method === 'CURVE' && field === 'reading_value' && entry.conversion_table) {
       const readingNum = typeof value === 'string' ? parseFloat(value) : value;
       if (hasNumericValue && !isNaN(readingNum)) {
         const metrics = getAdditiveTankMetrics({
@@ -346,9 +426,16 @@ export function AdditivesSection() {
         updates.calculated_gallons = 0;
       }
     }
+    if ((method === 'CYLINDER_VERTICAL' || method === 'RECTANGULAR_IBC') && field === 'reading_value') {
+      const previewEntry = { ...entry, reading_value: value };
+      const metrics = getEntryMetrics(previewEntry);
+      updates.calculated_volume = metrics.availableVolume;
+      updates.calculated_gallons = metrics.availableVolume;
+      updates.inventory_percentage = metrics.volumePercentage;
+    }
 
     // For MANUAL type, keep empty distinct from an explicit 0 while editing.
-    if (entry.additive_type === 'MANUAL' && field === 'quantity') {
+    if (method === 'MANUAL' && field === 'quantity') {
       const quantityNum = typeof value === 'string' ? parseFloat(value) : value;
       updates.quantity = hasNumericValue && !isNaN(quantityNum) ? quantityNum : null;
     }
@@ -373,17 +460,20 @@ export function AdditivesSection() {
       console.log('[AdditivesSection] Saving entries:', prefillData.aditivosEntries);
 
       const entriesToSave = prefillData.aditivosEntries.map((entry: any) => {
-        const isTank = entry.additive_type === 'TANK';
-        if (isTank && !hasCalibrationPoints(entry.conversion_table)) {
+        const method = normalizeAdditiveMeasurementMethod(
+          entry.measurement_method || (entry.additive_type === 'TANK' ? 'CURVE' : 'MANUAL'),
+        );
+        const isTank = method !== 'MANUAL';
+        if (method === 'CURVE' && !hasCalibrationPoints(entry.conversion_table)) {
           throw new Error(`${entry.product_name}: falta tabla de calibración para calcular la lectura del tanque.`);
         }
 
         const readingValue = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
-        const rawCalculatedVolume = isTank
+        const rawCalculatedVolume = method === 'CURVE'
           ? convertReadingToVolume(readingValue, entry.conversion_table)
           : Number(entry.calculated_volume ?? 0) || 0;
         const tankMetrics = isTank
-          ? getAdditiveTankMetrics({
+          ? getEntryMetrics({
             ...entry,
             reading_value: readingValue,
             calculated_volume: rawCalculatedVolume,
@@ -396,6 +486,7 @@ export function AdditivesSection() {
           inventory_month_id: entry.inventory_month_id,
           additive_config_id: entry.additive_config_id,
           additive_type: entry.additive_type,
+          measurement_method: method,
           product_name: entry.product_name,
           brand: entry.brand || '',
           uom: entry.uom,
@@ -408,6 +499,14 @@ export function AdditivesSection() {
           calculated_gallons: isTank ? calculatedVolume : entry.calculated_gallons ?? calculatedVolume,
           conversion_table: entry.conversion_table || null,
           quantity: entry.quantity ?? 0,
+          diameter: entry.diameter ?? null,
+          length: entry.length ?? null,
+          width: entry.width ?? null,
+          total_height: entry.total_height ?? null,
+          capacity: entry.capacity ?? null,
+          dimension_unit_id: entry.dimension_unit_id || null,
+          capacity_unit_id: entry.capacity_unit_id || null,
+          inventory_percentage: tankMetrics?.volumePercentage ?? null,
           photo_url: entry.photo_url || null,
           notes: entry.notes || '',
         };
@@ -524,7 +623,13 @@ export function AdditivesSection() {
             </Card>
           ) : (
             tankEntries.map((entry: any) => {
-              const tankMetrics = getAdditiveTankMetrics(entry);
+              const method = normalizeAdditiveMeasurementMethod(entry.measurement_method || 'CURVE');
+              const effectiveUnits = getEffectiveUnitsForEntry(entry);
+              const tankMetrics = getEntryMetrics(entry);
+              const isCurve = method === 'CURVE';
+              const methodLabel = method === 'CYLINDER_VERTICAL'
+                ? 'CILINDRO VERTICAL'
+                : method === 'RECTANGULAR_IBC' ? 'IBC RECTANGULAR' : 'CURVA';
 
               return (
               <Card key={entry.id} className="p-6">
@@ -537,7 +642,7 @@ export function AdditivesSection() {
                           {entry.tank_name || entry.product_name}
                         </h3>
                         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#2475C7]/10 text-[#2475C7]">
-                          TANQUE
+                          {methodLabel}
                         </span>
                       </div>
                       <div className="space-y-1">
@@ -560,31 +665,43 @@ export function AdditivesSection() {
                     </div>
                   </div>
 
+                  {!isCurve && (
+                    <div className="rounded border border-[#D7D9DE] bg-[#F9FAFB] px-4 py-3 text-sm text-[#5F6773]">
+                      <span className="font-semibold text-[#3B3A36]">Dimensiones configuradas: </span>
+                      {method === 'CYLINDER_VERTICAL'
+                        ? `diámetro ${entry.diameter}`
+                        : `largo ${entry.length} × ancho ${entry.width}`}
+                      {` × altura ${entry.total_height} ${effectiveUnits.captureLabel || entry.dimension_unit_id || ''}`}
+                      {` · capacidad ${entry.capacity} ${entry.capacity_unit_id || ''}`}
+                    </div>
+                  )}
+
                   {/* READING AND VOLUME */}
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                     <NumericInput
-                      label={`Lectura (${additiveUnits.captureLabel || entry.reading_uom || 'inches'})`}
+                      label={`${isCurve ? 'Lectura' : 'Altura del líquido'} (${effectiveUnits.captureLabel || entry.reading_uom || 'in'})`}
                       value={entry.reading_value ?? ''}
                       onValueChange={(val) => handleFieldChange(entry.id, 'reading_value', val)}
                       placeholder="0.00"
                       required
-                      helpText="Ingresa la lectura del medidor del tanque"
+                      max={!isCurve && entry.total_height ? entry.total_height : undefined}
+                      helpText={isCurve ? 'Ingresa la lectura del medidor del tanque' : `Altura máxima: ${entry.total_height} ${effectiveUnits.captureLabel}`}
                     />
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                        Volumen disponible ({additiveUnits.displayLabel || entry.uom})
+                        Volumen disponible ({effectiveUnits.displayLabel || entry.uom})
                       </label>
                       <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                         <span className="text-[#2475C7] font-bold text-lg">
                           {formatMetricValue(tankMetrics.availableVolume, '0.00')}
                         </span>
-                        <span className="text-[#5F6773] ml-2 text-sm">{additiveUnits.displayLabel || entry.uom}</span>
+                        <span className="text-[#5F6773] ml-2 text-sm">{effectiveUnits.displayLabel || entry.uom}</span>
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">
-                        Inventario tomado según curva de conversión
+                        {isCurve ? 'Inventario tomado según curva de conversión' : 'Cálculo geométrico limitado a la capacidad nominal'}
                       </p>
                     </div>
-                    <div>
+                    {isCurve && <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
                         Volumen consumido ({additiveUnits.displayLabel || entry.uom})
                       </label>
@@ -593,13 +710,13 @@ export function AdditivesSection() {
                           {formatMetricValue(tankMetrics.consumedVolume)}
                         </span>
                         {tankMetrics.consumedVolume !== null && tankMetrics.consumedVolume !== undefined && (
-                          <span className="text-[#5F6773] ml-2 text-sm">{additiveUnits.displayLabel || entry.uom}</span>
+                          <span className="text-[#5F6773] ml-2 text-sm">{effectiveUnits.displayLabel || entry.uom}</span>
                         )}
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">
                         Según curva de calibración
                       </p>
-                    </div>
+                    </div>}
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
                         Porcentaje de volumen
@@ -613,7 +730,7 @@ export function AdditivesSection() {
                         )}
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">
-                        Según curva de calibración
+                        {isCurve ? 'Según curva de calibración' : `Capacidad nominal: ${entry.capacity} ${entry.capacity_unit_id || ''}`}
                       </p>
                     </div>
                     <div>

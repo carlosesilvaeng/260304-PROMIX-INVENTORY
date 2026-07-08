@@ -263,6 +263,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         inventory_month_id: inventoryMonthId,
         additive_config_id: aditivo.id,
         additive_type: additiveType,
+        measurement_method: aditivo.measurement_method || (additiveType === 'TANK' ? 'CURVE' : 'MANUAL'),
         product_name: aditivo.product_name || aditivo.additive_name,
         brand: aditivo.brand || '',
         uom: aditivo.uom || '',
@@ -280,6 +281,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         calculated_volume: 0,
         calculated_gallons: 0,
         conversion_table: aditivo.conversion_table || null,
+        diameter: aditivo.diameter ?? null,
+        length: aditivo.length ?? null,
+        width: aditivo.width ?? null,
+        total_height: aditivo.total_height ?? null,
+        capacity: aditivo.capacity ?? null,
+        dimension_unit_id: aditivo.dimension_unit_id || null,
+        capacity_unit_id: aditivo.capacity_unit_id || null,
         // Manual-specific fields
         quantity: null,
         // Common fields
@@ -853,6 +861,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
               ...entry,
               additive_config_id: configKey || freshAdditive.additive_config_id,
               additive_type: entry.additive_type || freshAdditive.additive_type,
+              measurement_method: freshAdditive.measurement_method || entry.measurement_method,
               product_name: freshAdditive.product_name || freshAdditive.additive_name || entry.product_name,
               brand: freshAdditive.brand || entry.brand,
               uom: freshAdditive.uom || entry.uom,
@@ -862,6 +871,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
               calibration_points: freshAdditive.calibration_points || entry.calibration_points,
               reading_uom: freshAdditive.reading_uom || entry.reading_uom,
               conversion_table: freshAdditive.conversion_table || entry.conversion_table,
+              diameter: freshAdditive.diameter ?? entry.diameter,
+              length: freshAdditive.length ?? entry.length,
+              width: freshAdditive.width ?? entry.width,
+              total_height: freshAdditive.total_height ?? entry.total_height,
+              capacity: freshAdditive.capacity ?? entry.capacity,
+              dimension_unit_id: freshAdditive.dimension_unit_id || entry.dimension_unit_id,
+              capacity_unit_id: freshAdditive.capacity_unit_id || entry.capacity_unit_id,
             };
           });
           console.log('[PlantPrefill] Enriched additives entries with current config values');
