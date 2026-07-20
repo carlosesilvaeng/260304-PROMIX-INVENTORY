@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Eye, FileSpreadsheet, Upload } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, Pencil, Trash2, Upload, X } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -93,6 +93,34 @@ import {
   downloadCalibrationCurvesImportWorkbook,
   type CalibrationCurvesImportWorkbookRow,
 } from '../../utils/calibrationCurvesImportWorkbook';
+
+type TableActionButtonTone = 'edit' | 'view' | 'danger';
+
+function TableActionButton({
+  tone,
+  className = '',
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  tone: TableActionButtonTone;
+  children: React.ReactNode;
+}) {
+  const toneStyles = {
+    edit: 'border-blue-200 text-blue-600 hover:bg-blue-50',
+    view: 'border-blue-200 text-blue-600 hover:bg-blue-50',
+    danger: 'border-red-200 text-red-600 hover:bg-red-50',
+  };
+
+  return (
+    <button
+      type="button"
+      className={`inline-flex h-8 w-8 items-center justify-center rounded border bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${toneStyles[tone]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
 
 interface CatalogItem {
   id: string;
@@ -505,12 +533,12 @@ function CatalogTable({
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
-                            ✏️
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
-                            🗑️
-                          </Button>
+                          <TableActionButton tone="edit" onClick={() => startEdit(item)} title="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </TableActionButton>
+                          <TableActionButton tone="danger" onClick={() => setConfirmDeleteId(item.id)} title="Eliminar">
+                            <Trash2 className="h-4 w-4" />
+                          </TableActionButton>
                         </div>
                       )}
                     </td>
@@ -732,12 +760,12 @@ function AdditiveCatalogTable({
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
-                            ✏️
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
-                            🗑️
-                          </Button>
+                          <TableActionButton tone="edit" onClick={() => startEdit(item)} title="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </TableActionButton>
+                          <TableActionButton tone="danger" onClick={() => setConfirmDeleteId(item.id)} title="Eliminar">
+                            <Trash2 className="h-4 w-4" />
+                          </TableActionButton>
                         </div>
                       )}
                     </td>
@@ -1241,9 +1269,9 @@ function CurvePointsEditor({
             className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="OK"
           />
-          <Button variant="destructive" size="sm" onClick={() => handleRemovePoint(point.id)}>
-            ✕
-          </Button>
+          <TableActionButton tone="danger" onClick={() => handleRemovePoint(point.id)} title="Quitar punto">
+            <X className="h-4 w-4" />
+          </TableActionButton>
         </div>
       ))}
       <div className="flex items-center justify-between">
@@ -1507,20 +1535,15 @@ function CalibrationCurvesTable({
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
-                            ✏️
-                          </Button>
-                          <button
-                            type="button"
-                            onClick={() => setVisualizingCurve(item)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#9D9B9A] bg-white text-[#2475C7] transition-colors hover:bg-[#EEF4FB]"
-                            title="Visualizar curva"
-                          >
+                          <TableActionButton tone="edit" onClick={() => startEdit(item)} title="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </TableActionButton>
+                          <TableActionButton tone="view" onClick={() => setVisualizingCurve(item)} title="Visualizar curva">
                             <Eye className="h-4 w-4" />
-                          </button>
-                          <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
-                            🗑️
-                          </Button>
+                          </TableActionButton>
+                          <TableActionButton tone="danger" onClick={() => setConfirmDeleteId(item.id)} title="Eliminar">
+                            <Trash2 className="h-4 w-4" />
+                          </TableActionButton>
                         </div>
                       )}
                     </td>
