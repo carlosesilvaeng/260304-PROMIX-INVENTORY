@@ -175,7 +175,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
         {/* Footer */}
         <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex gap-3">
           <Button
-            variant="secondary"
+            variant="dangerOutline"
             onClick={onClose}
             disabled={loading}
             className="flex-1"
@@ -183,7 +183,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
             Salir
           </Button>
           <Button
-            variant="primary"
+            variant="success"
             onClick={handleSubmit}
             disabled={loading || success}
             className="flex-1"

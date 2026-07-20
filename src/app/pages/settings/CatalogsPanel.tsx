@@ -223,7 +223,7 @@ function CatalogImportPreviewModal({
       size="xl"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="dangerOutline" onClick={onClose}>
             Cancelar
           </Button>
           <Button
@@ -482,32 +482,33 @@ function CatalogTable({
                     <td className="px-4 py-2 text-center">
                       {editingId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={saving || !editValue.trim()}>
+                          <Button variant="success" size="sm" onClick={handleSaveEdit} disabled={saving || !editValue.trim()}>
                             ✓
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                          <Button variant="dangerOutline" size="sm" onClick={cancelEdit}>
                             ✕
                           </Button>
                         </div>
                       ) : confirmDeleteId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
-                          <button
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => handleDelete(item.id)}
                             disabled={saving}
-                            className="rounded px-2 py-1 text-xs text-[#C94A4A] transition-colors hover:bg-[#C94A4A]/20 bg-[#C94A4A]/10"
                           >
                             Eliminar
-                          </button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+                          </Button>
+                          <Button variant="dangerOutline" size="sm" onClick={() => setConfirmDeleteId(null)}>
                             ✕
                           </Button>
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
+                          <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
                             ✏️
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
+                          <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
                             🗑️
                           </Button>
                         </div>
@@ -708,32 +709,33 @@ function AdditiveCatalogTable({
                     <td className="px-4 py-2 text-center">
                       {editingId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editUom.trim()}>
+                          <Button variant="success" size="sm" onClick={handleSaveEdit} disabled={saving || !editName.trim() || !editUom.trim()}>
                             ✓
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                          <Button variant="dangerOutline" size="sm" onClick={cancelEdit}>
                             ✕
                           </Button>
                         </div>
                       ) : confirmDeleteId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
-                          <button
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => handleDelete(item.id)}
                             disabled={saving}
-                            className="rounded bg-[#C94A4A]/10 px-2 py-1 text-xs text-[#C94A4A] transition-colors hover:bg-[#C94A4A]/20"
                           >
                             Eliminar
-                          </button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+                          </Button>
+                          <Button variant="dangerOutline" size="sm" onClick={() => setConfirmDeleteId(null)}>
                             ✕
                           </Button>
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
+                          <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
                             ✏️
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
+                          <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
                             🗑️
                           </Button>
                         </div>
@@ -1239,14 +1241,14 @@ function CurvePointsEditor({
             className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
             placeholder="OK"
           />
-          <Button variant="ghost" size="sm" onClick={() => handleRemovePoint(point.id)}>
+          <Button variant="destructive" size="sm" onClick={() => handleRemovePoint(point.id)}>
             ✕
           </Button>
         </div>
       ))}
       <div className="flex items-center justify-between">
         <span className="text-xs text-[#5F6773]">{points.length} punto{points.length === 1 ? '' : 's'} en edición</span>
-        <Button variant="ghost" size="sm" onClick={handleAddPoint}>
+        <Button variant="outline" size="sm" onClick={handleAddPoint}>
           + Punto
         </Button>
       </div>
@@ -1482,40 +1484,41 @@ function CalibrationCurvesTable({
                     <td className="px-4 py-2 text-center">
                       {editingId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={saving || !editCurveName.trim()}>
+                          <Button variant="success" size="sm" onClick={handleSaveEdit} disabled={saving || !editCurveName.trim()}>
                             ✓
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                          <Button variant="dangerOutline" size="sm" onClick={cancelEdit}>
                             ✕
                           </Button>
                         </div>
                       ) : confirmDeleteId === item.id ? (
                         <div className="flex items-center justify-center gap-1">
-                          <button
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => handleDelete(item.id)}
                             disabled={saving}
-                            className="rounded bg-[#C94A4A]/10 px-2 py-1 text-xs text-[#C94A4A] transition-colors hover:bg-[#C94A4A]/20"
                           >
                             Eliminar
-                          </button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+                          </Button>
+                          <Button variant="dangerOutline" size="sm" onClick={() => setConfirmDeleteId(null)}>
                             ✕
                           </Button>
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
+                          <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
                             ✏️
                           </Button>
                           <button
                             type="button"
                             onClick={() => setVisualizingCurve(item)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded text-[#2475C7] transition-colors hover:bg-[#EEF4FB]"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#9D9B9A] bg-white text-[#2475C7] transition-colors hover:bg-[#EEF4FB]"
                             title="Visualizar curva"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
+                          <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteId(item.id)}>
                             🗑️
                           </Button>
                         </div>

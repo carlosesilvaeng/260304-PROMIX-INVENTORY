@@ -595,7 +595,7 @@ export function ProductsConfigModal({
                               onChange={(e) => updateRow(index, { is_active: e.target.checked })}
                             />
                           </label>
-                          <Button variant="ghost" size="sm" onClick={() => setRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index))}>
+                          <Button variant="destructive" size="sm" onClick={() => setRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index))}>
                             🗑️
                           </Button>
                         </div>
@@ -725,10 +725,10 @@ export function ProductsConfigModal({
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
-            <Button variant="ghost" onClick={onClose} disabled={saving || previewingImport || executingImport}>
+            <Button variant="dangerOutline" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={loading || previewingImport || executingImport}>
+            <Button variant="success" onClick={handleSave} loading={saving} disabled={loading || previewingImport || executingImport}>
               Guardar Configuración
             </Button>
           </div>
@@ -742,7 +742,7 @@ export function ProductsConfigModal({
         size="xl"
         footer={
           <>
-            <Button variant="secondary" onClick={resetImportFlow}>
+            <Button variant="dangerOutline" onClick={resetImportFlow}>
               Cancelar
             </Button>
             <Button

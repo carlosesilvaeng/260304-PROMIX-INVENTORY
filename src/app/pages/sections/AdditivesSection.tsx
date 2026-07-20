@@ -891,6 +891,7 @@ export function AdditivesSection() {
           )}
         </div>
         <Button 
+          variant="success"
           onClick={handleSave}
           disabled={saving || !isValid()}
           size="lg"

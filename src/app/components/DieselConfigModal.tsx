@@ -637,10 +637,10 @@ export function DieselConfigModal({
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
-            <Button variant="ghost" onClick={onClose} disabled={saving || deleting || previewingImport || executingImport}>
+            <Button variant="dangerOutline" onClick={onClose} disabled={saving || deleting || previewingImport || executingImport}>
               Salir
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={loading || Boolean(dieselLoadError) || deleting || previewingImport || executingImport}>
+            <Button variant="success" onClick={handleSave} loading={saving} disabled={loading || Boolean(dieselLoadError) || deleting || previewingImport || executingImport}>
               Guardar Configuración
             </Button>
           </div>
@@ -654,7 +654,7 @@ export function DieselConfigModal({
         size="xl"
         footer={
           <>
-            <Button variant="secondary" onClick={resetImportFlow}>
+            <Button variant="dangerOutline" onClick={resetImportFlow}>
               Cancelar
             </Button>
             <Button

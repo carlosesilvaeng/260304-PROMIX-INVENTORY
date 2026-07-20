@@ -606,7 +606,7 @@ export function AggregatesConfigModal({
                                 onChange={(e) => updateRow(index, { is_active: e.target.checked })}
                               />
                             </label>
-                            <Button variant="ghost" size="sm" onClick={() => removeRow(index)} disabled={saving || previewingImport || executingImport}>
+                            <Button variant="destructive" size="sm" onClick={() => removeRow(index)} disabled={saving || previewingImport || executingImport}>
                               🗑️
                             </Button>
                           </div>
@@ -702,10 +702,11 @@ export function AggregatesConfigModal({
 
           <div className="border-t border-[#9D9B9A] p-6">
             <div className="flex items-center justify-end gap-3">
-            <Button variant="ghost" onClick={onClose} disabled={saving || previewingImport || executingImport}>
+            <Button variant="dangerOutline" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
             </Button>
             <Button
+              variant="success"
               onClick={handleSave}
               loading={saving}
               disabled={loading || previewingImport || executingImport || Boolean(saveValidationMessage)}
@@ -729,7 +730,7 @@ export function AggregatesConfigModal({
         size="xl"
         footer={
           <>
-            <Button variant="secondary" onClick={resetImportFlow}>
+            <Button variant="dangerOutline" onClick={resetImportFlow}>
               Cancelar
             </Button>
             <Button

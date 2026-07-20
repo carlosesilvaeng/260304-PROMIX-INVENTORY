@@ -35,10 +35,9 @@ export function MigrationAlert({ show, onClose }: MigrationAlertProps) {
                 🔄 Recargar Ahora
               </Button>
               <Button
-                variant="ghost"
+                variant="dangerOutline"
                 onClick={onClose}
                 size="sm"
-                className="text-yellow-800"
               >
                 Cerrar
               </Button>

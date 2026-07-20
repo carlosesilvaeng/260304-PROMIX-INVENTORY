@@ -418,7 +418,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => {
                               onNavigate?.(
@@ -431,7 +431,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                             {primaryActionLabel}
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             title="Previsualizar PDF de este reporte"
                             disabled={previewingRowPDFId === report.id || generatingRowPDFId === report.id}
@@ -459,7 +459,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                             {previewingRowPDFId === report.id ? '⏳' : '👁️'}
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             title="Descargar PDF de este reporte"
                             disabled={generatingRowPDFId === report.id || previewingRowPDFId === report.id}
@@ -479,7 +479,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                           </Button>
                           {(user?.role === 'admin' || user?.role === 'super_admin') && (
                             <Button
-                              variant="ghost"
+                              variant="destructive"
                               size="sm"
                               title="Eliminar reporte"
                               onClick={() => setConfirmDeleteReport(report)}
@@ -529,14 +529,14 @@ export function Reports({ onNavigate }: ReportsProps) {
             </p>
             <div className="flex justify-end gap-3">
               <Button
-                variant="outline"
+                variant="dangerOutline"
                 onClick={() => setConfirmDeleteReport(null)}
                 disabled={!!deletingReportId}
               >
                 Cancelar
               </Button>
               <Button
-                className="bg-[#C94A4A] hover:bg-[#a03838] text-white"
+                variant="destructive"
                 disabled={!!deletingReportId}
                 onClick={() => handleDeleteReport(confirmDeleteReport)}
               >
@@ -554,7 +554,7 @@ export function Reports({ onNavigate }: ReportsProps) {
         size="xl"
         footer={
           <>
-            <Button variant="secondary" onClick={closePreview}>
+            <Button variant="dangerOutline" onClick={closePreview}>
               Cerrar
             </Button>
             <Button

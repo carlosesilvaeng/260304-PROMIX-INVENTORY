@@ -587,22 +587,23 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
           </div>
           <div className="flex gap-4">
             <Button
-              variant="outline"
+              variant="dangerOutline"
               onClick={() => onBack?.()}
             >
               Salir
             </Button>
             <Button
+              variant="success"
               onClick={handleSave}
               disabled={saving}
-              className="bg-[#2B7DE9] hover:bg-[#1E5DB8] text-white"
+              className="min-w-[180px]"
             >
               {saving ? 'Guardando...' : 'Guardar Agregados'}
             </Button>
             {completedCount === totalCount && totalCount > 0 && (
               <Button
+                variant="success"
                 onClick={() => onBack?.()}
-                className="bg-[#2ecc71] hover:bg-[#27ae60] text-white"
               >
                 ✅ Terminar
               </Button>

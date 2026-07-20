@@ -667,14 +667,14 @@ export function UserManagement() {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleOpenEdit(user)}
-                            className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors"
+                            className="rounded border border-blue-200 bg-white p-2 text-blue-600 transition-colors hover:bg-blue-50"
                             title="Editar usuario"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleOpenResetPassword(user)}
-                            className="p-2 hover:bg-amber-50 rounded-lg text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="rounded border border-amber-200 bg-white p-2 text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
                             title={user.id === currentUser?.id ? 'Usa Cambiar Contraseña para tu propia cuenta' : 'Resetear contraseña'}
                             disabled={user.id === currentUser?.id}
                           >
@@ -682,7 +682,7 @@ export function UserManagement() {
                           </button>
                           <button
                             onClick={() => handleOpenDelete(user)}
-                            className="p-2 hover:bg-red-50 rounded-lg text-red-600 transition-colors"
+                            className="rounded border border-red-200 bg-white p-2 text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                             title="Eliminar usuario"
                             disabled={user.id === currentUser?.id || !canDeleteUserAccounts}
                           >
@@ -793,12 +793,12 @@ export function UserManagement() {
               )}
 
               <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
+                <Button type="submit" variant="success" className="flex-1">
                   Crear Usuario
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="dangerOutline"
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1"
                 >
@@ -909,12 +909,12 @@ export function UserManagement() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
+                <Button type="submit" variant="success" className="flex-1">
                   Guardar Cambios
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="dangerOutline"
                   onClick={() => setShowEditModal(false)}
                   className="flex-1"
                 >
@@ -951,13 +951,14 @@ export function UserManagement() {
               <div className="flex gap-3">
                 <Button
                   onClick={handleDeleteUser}
-                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  variant="destructive"
+                  className="flex-1"
                 >
                   Eliminar
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="dangerOutline"
                   onClick={() => setShowDeleteConfirm(false)}
                   className="flex-1"
                 >
@@ -1020,12 +1021,12 @@ export function UserManagement() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="submit" className="flex-1" loading={resetPasswordLoading}>
+                <Button type="submit" variant="success" className="flex-1" loading={resetPasswordLoading}>
                   Resetear
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="dangerOutline"
                   onClick={handleCloseResetPassword}
                   className="flex-1"
                   disabled={resetPasswordLoading}

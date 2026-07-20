@@ -105,7 +105,7 @@ export function ConfirmModal({
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="dangerOutline" onClick={onClose}>
             {cancelText}
           </Button>
           <Button 

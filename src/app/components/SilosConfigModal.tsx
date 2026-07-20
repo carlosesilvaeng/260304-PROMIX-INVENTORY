@@ -558,7 +558,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                           Silo #{index + 1}
                         </h4>
                         <Button
-                          variant="ghost"
+                          variant="destructive"
                           size="sm"
                           onClick={() => setSilos((prev) => prev.filter((_, rowIndex) => rowIndex !== index))}
                         >
@@ -755,10 +755,10 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
           </div>
 
           <div className="p-6 border-t border-[#9D9B9A] flex items-center justify-end gap-3">
-            <Button variant="ghost" onClick={onClose} disabled={saving || previewingImport || executingImport}>
+            <Button variant="dangerOutline" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
             </Button>
-            <Button onClick={handleSave} loading={saving} disabled={loading || previewingImport || executingImport}>
+            <Button variant="success" onClick={handleSave} loading={saving} disabled={loading || previewingImport || executingImport}>
               Guardar Configuración
             </Button>
           </div>
@@ -772,7 +772,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
         size="xl"
         footer={
           <>
-            <Button variant="secondary" onClick={resetImportFlow}>
+            <Button variant="dangerOutline" onClick={resetImportFlow}>
               Cancelar
             </Button>
             <Button

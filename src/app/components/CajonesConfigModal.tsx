@@ -74,7 +74,7 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                       Cajón #{index + 1}
                     </h4>
                     <Button
-                      variant="ghost"
+                      variant="destructive"
                       size="sm"
                       onClick={() => removeCajon(index)}
                     >
@@ -165,10 +165,10 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
 
         {/* Footer */}
         <div className="p-6 border-t border-[#9D9B9A] flex items-center justify-end gap-3">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="dangerOutline" onClick={onClose}>
             Salir
           </Button>
-          <Button onClick={handleSave}>
+          <Button variant="success" onClick={handleSave}>
             Guardar Configuración
           </Button>
         </div>

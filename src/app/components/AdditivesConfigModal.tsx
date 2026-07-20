@@ -488,7 +488,7 @@ export function AdditivesConfigModal({
                             onChange={(e) => updateRow(index, { is_active: e.target.checked })}
                           />
                         </label>
-                        <Button variant="ghost" size="sm" onClick={() => removeRow(index)}>
+                        <Button variant="destructive" size="sm" onClick={() => removeRow(index)}>
                           🗑️
                         </Button>
                       </div>
@@ -639,10 +639,10 @@ export function AdditivesConfigModal({
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
+          <Button variant="dangerOutline" onClick={onClose} disabled={saving}>
             Salir
           </Button>
-          <Button onClick={handleSave} loading={saving} disabled={loading}>
+          <Button variant="success" onClick={handleSave} loading={saving} disabled={loading}>
             Guardar Configuración
           </Button>
         </div>

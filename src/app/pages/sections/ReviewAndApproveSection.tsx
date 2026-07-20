@@ -656,7 +656,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
             {isInProgress && canSubmit && (
               <Button
                 onClick={handleSaveDraft}
-                variant="secondary"
+                variant="success"
                 size="lg"
               >
                 💾 Guardar Borrador
@@ -679,9 +679,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
             {isSubmitted && canReject && (
               <Button
                 onClick={() => setShowRejectModal(true)}
-                variant="secondary"
+                variant="destructive"
                 size="lg"
-                className="bg-red-600 hover:bg-red-700 text-white"
               >
                 ❌ Rechazar
               </Button>
@@ -692,8 +691,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
               <Button
                 onClick={handleApprove}
                 disabled={!validation.canApprove || approving}
+                variant="success"
                 size="lg"
-                className="bg-green-600 hover:bg-green-700"
               >
                 {approving ? 'Aprobando...' : '✅ Aprobar Inventario'}
               </Button>
@@ -728,7 +727,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                     setShowRejectModal(false);
                     setRejectionNotes('');
                   }}
-                  variant="secondary"
+                  variant="dangerOutline"
                   disabled={rejecting}
                 >
                   Cancelar
@@ -736,7 +735,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                 <Button
                   onClick={handleReject}
                   disabled={!rejectionNotes.trim() || rejecting}
-                  className="bg-red-600 hover:bg-red-700"
+                  variant="destructive"
                 >
                   {rejecting ? 'Rechazando...' : 'Confirmar Rechazo'}
                 </Button>

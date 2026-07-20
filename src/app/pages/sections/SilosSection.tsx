@@ -659,15 +659,16 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           </div>
           <div className="flex gap-4">
             <Button
-              variant="outline"
+              variant="dangerOutline"
               onClick={() => onBack?.()}
             >
               Salir
             </Button>
             <Button
+              variant="success"
               onClick={handleSave}
               disabled={saving}
-              className="bg-[#2B7DE9] hover:bg-[#1E5DB8] text-white"
+              className="min-w-[180px]"
             >
               {saving ? 'Guardando...' : 'Guardar Silos'}
             </Button>

@@ -567,6 +567,7 @@ export function DieselSection() {
           )}
         </div>
         <Button 
+          variant="success"
           onClick={handleSave}
           disabled={saving}
           size="lg"

@@ -73,7 +73,7 @@ export function PlantSelection() {
                 {user && getRoleLabel(user.role)}
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={logout} className="text-white hover:bg-white/10">
+            <Button variant="dangerOutline" size="sm" onClick={logout}>
               {t('topbar.logout')}
             </Button>
           </div>
@@ -107,7 +107,7 @@ export function PlantSelection() {
                 </p>
               </div>
               <div className="pt-4">
-                <Button variant="secondary" onClick={logout}>
+                <Button variant="dangerOutline" onClick={logout}>
                   Cerrar Sesión
                 </Button>
               </div>

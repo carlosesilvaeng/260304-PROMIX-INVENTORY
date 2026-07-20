@@ -559,7 +559,7 @@ export function DataControlPanel() {
               </p>
               <div className="flex gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   disabled={currentPage <= 1}
                   onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
@@ -567,7 +567,7 @@ export function DataControlPanel() {
                   Anterior
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   disabled={currentPage >= totalPages}
                   onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
@@ -736,7 +736,7 @@ export function DataControlPanel() {
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={resetCleanupState}>
+            <Button variant="dangerOutline" onClick={resetCleanupState}>
               Cancelar
             </Button>
             <Button
@@ -807,7 +807,7 @@ export function DataControlPanel() {
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={resetConfigCleanupState}>
+            <Button variant="dangerOutline" onClick={resetConfigCleanupState}>
               Cancelar
             </Button>
             <Button
@@ -887,7 +887,7 @@ export function DataControlPanel() {
         size="md"
         footer={
           <>
-            <Button variant="secondary" onClick={resetCleanupState}>
+            <Button variant="dangerOutline" onClick={resetCleanupState}>
               Cancelar
             </Button>
             <Button
@@ -940,7 +940,7 @@ export function DataControlPanel() {
         size="md"
         footer={
           <>
-            <Button variant="secondary" onClick={resetConfigCleanupState}>
+            <Button variant="dangerOutline" onClick={resetConfigCleanupState}>
               Cancelar
             </Button>
             <Button

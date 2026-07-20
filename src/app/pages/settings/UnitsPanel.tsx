@@ -744,7 +744,7 @@ export function UnitsPanel() {
                         {getUnit(units, config.inventory_unit_id)?.symbol || config.inventory_unit_id}
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => removeConfig(index)} disabled={!canEdit}>
+                    <Button variant="destructive" size="sm" onClick={() => removeConfig(index)} disabled={!canEdit}>
                       Quitar
                     </Button>
                   </div>
@@ -836,7 +836,7 @@ export function UnitsPanel() {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={addConfig} disabled={!canEdit || loading}>Agregar configuracion</Button>
-              <Button onClick={handleSave} disabled={!canEdit || loading} className="bg-[#2475C7] text-white hover:bg-[#1f66ad]">
+              <Button variant="success" onClick={handleSave} disabled={!canEdit || loading}>
                 {loading ? 'Guardando...' : 'Guardar unidades'}
               </Button>
             </div>
@@ -901,15 +901,15 @@ export function UnitsPanel() {
               <span className="font-semibold">Formula:</span> {unitFormulaPreview}
             </div>
             <div className="mt-4 flex gap-3">
-              <Button onClick={saveUnit} disabled={!canEdit || loading} className="bg-[#2475C7] text-white hover:bg-[#1f66ad]">
+              <Button variant="success" onClick={saveUnit} disabled={!canEdit || loading}>
                 {editingUnitId ? 'Actualizar unidad' : 'Crear unidad'}
               </Button>
-              {editingUnitId && <Button variant="outline" onClick={resetUnitForm}>Cancelar edicion</Button>}
+              {editingUnitId && <Button variant="dangerOutline" onClick={resetUnitForm}>Cancelar edicion</Button>}
             </div>
           </Card>
 
           <Card noPadding>
-            <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_120px] gap-3 bg-[#3B3A36] px-4 py-3 text-sm font-medium text-white">
+            <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_180px] gap-3 bg-[#3B3A36] px-4 py-3 text-sm font-medium text-white">
               <span>Unidad</span>
               <span>Categoria</span>
               <span>Base</span>
@@ -921,15 +921,15 @@ export function UnitsPanel() {
               {units.map((unit) => {
                 const baseUnit = getBaseUnitForCategory(categories, units, unit.category_id);
                 return (
-                  <div key={unit.id} className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_120px] items-center gap-3 px-4 py-3 text-sm">
+                  <div key={unit.id} className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_180px] items-center gap-3 px-4 py-3 text-sm">
                     <span className="font-medium text-[#3B3A36]">{unit.symbol} - {unit.name_es}</span>
                     <span>{getCategoryLabel(categories, unit.category_id)}</span>
                     <span>{baseUnit?.symbol || '-'}</span>
                     <span>{formatFactor(Number(unit.factor_to_base))}</span>
                     <span>1 {unit.symbol} x {formatFactor(Number(unit.factor_to_base))} = {baseUnit?.symbol || '-'}</span>
                     <span className="flex gap-2">
-                      <button type="button" onClick={() => editUnit(unit)} className="text-[#2475C7] hover:underline">Editar</button>
-                      <button type="button" onClick={() => deactivateUnit(unit)} className="text-red-700 hover:underline">Desactivar</button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => editUnit(unit)}>Editar</Button>
+                      <Button type="button" variant="destructive" size="sm" onClick={() => deactivateUnit(unit)}>Desactivar</Button>
                     </span>
                   </div>
                 );
@@ -984,15 +984,15 @@ export function UnitsPanel() {
               <span className="font-semibold">Formula:</span> {factorFormulaPreview}
             </div>
             <div className="mt-4 flex gap-3">
-              <Button onClick={saveFactor} disabled={!canEdit || loading} className="bg-[#2475C7] text-white hover:bg-[#1f66ad]">
+              <Button variant="success" onClick={saveFactor} disabled={!canEdit || loading}>
                 {editingFactorId ? 'Actualizar factor' : 'Crear factor'}
               </Button>
-              {editingFactorId && <Button variant="outline" onClick={resetFactorForm}>Cancelar edicion</Button>}
+              {editingFactorId && <Button variant="dangerOutline" onClick={resetFactorForm}>Cancelar edicion</Button>}
             </div>
           </Card>
 
           <Card noPadding>
-            <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_120px] gap-3 bg-[#3B3A36] px-4 py-3 text-sm font-medium text-white">
+            <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_180px] gap-3 bg-[#3B3A36] px-4 py-3 text-sm font-medium text-white">
               <span>Origen</span>
               <span>Destino</span>
               <span>Material</span>
@@ -1002,7 +1002,7 @@ export function UnitsPanel() {
             </div>
             <div className="divide-y divide-[#F2F3F5]">
               {factors.map((factor: any) => (
-                <div key={factor.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_120px] items-center gap-3 px-4 py-3 text-sm">
+                <div key={factor.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_180px] items-center gap-3 px-4 py-3 text-sm">
                   <span>{getUnit(units, factor.from_unit_id)?.symbol || factor.from_unit_id}</span>
                   <span>{getUnit(units, factor.to_unit_id)?.symbol || factor.to_unit_id}</span>
                   <span>{factor.material?.nombre || materials.find((material) => material.id === factor.material_id)?.nombre || 'Cualquiera'}</span>
@@ -1012,8 +1012,8 @@ export function UnitsPanel() {
                     {factor.factor_source ? ` · ${factor.factor_source}` : ''}
                   </span>
                   <span className="flex gap-2">
-                    <button type="button" onClick={() => editFactor(factor)} className="text-[#2475C7] hover:underline">Editar</button>
-                    <button type="button" onClick={() => deactivateFactor(factor)} className="text-red-700 hover:underline">Desactivar</button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => editFactor(factor)}>Editar</Button>
+                    <Button type="button" variant="destructive" size="sm" onClick={() => deactivateFactor(factor)}>Desactivar</Button>
                   </span>
                 </div>
               ))}

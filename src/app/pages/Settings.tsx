@@ -163,7 +163,7 @@ export function Settings() {
     onClick: () => void;
   }) => (
     <Button
-      variant="ghost"
+      variant="outline"
       size="sm"
       onClick={onClick}
       className="min-w-[92px] flex-col gap-0.5 px-2 py-2 leading-tight"
@@ -477,7 +477,7 @@ export function Settings() {
                 <span>Exportar configuración activa</span>
               </Button>
               {(user?.role === 'super_admin' || user?.role === 'admin') && (
-                <Button variant="secondary" onClick={() => setShowCreatePlantModal(true)}>
+                <Button variant="outline" onClick={() => setShowCreatePlantModal(true)}>
                   + Agregar Planta
                 </Button>
               )}
@@ -549,7 +549,7 @@ export function Settings() {
                               onClick: () => setEditingProducts(plant),
                             })}
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => openLayoutModal(plant)}
                               className="min-w-[92px] flex-col gap-0.5 px-2 py-2 leading-tight"
@@ -561,7 +561,7 @@ export function Settings() {
                               </span>
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               className="min-w-[110px] self-center"
                               onClick={() => setViewingPlantDetails(plant)}
@@ -617,7 +617,7 @@ export function Settings() {
               <div className="flex items-center justify-between">
                 <p className="text-sm text-[#5F6773]">Cambiar Contraseña</p>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowChangePassword(true)}
                 >
@@ -791,7 +791,7 @@ export function Settings() {
 
             <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5]">
               <Button
-                variant="secondary"
+                variant="dangerOutline"
                 onClick={() => setEditingLayout(null)}
                 className="w-full"
               >
@@ -900,7 +900,7 @@ export function Settings() {
             {/* Footer */}
             <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5]">
               <Button
-                variant="secondary"
+                variant="dangerOutline"
                 onClick={() => setViewingPlantDetails(null)}
                 className="w-full"
               >
@@ -963,7 +963,7 @@ export function Settings() {
 
             <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex gap-3">
               <Button
-                variant="ghost"
+                variant="dangerOutline"
                 className="flex-1"
                 onClick={() => {
                   setShowCreatePlantModal(false);
@@ -974,7 +974,7 @@ export function Settings() {
               >
                 Salir
               </Button>
-              <Button variant="secondary" className="flex-1" onClick={handleCreatePlant}>
+              <Button variant="success" className="flex-1" onClick={handleCreatePlant}>
                 Guardar
               </Button>
             </div>

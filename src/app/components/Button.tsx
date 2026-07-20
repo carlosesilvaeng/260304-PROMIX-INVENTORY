@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'dangerOutline' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -24,7 +24,10 @@ export function Button({
   const variantStyles = {
     primary: 'bg-[#2475C7] text-white hover:bg-[#1a5a9f] active:bg-[#134578]',
     secondary: 'bg-[#F2F3F5] text-[#3B3A36] hover:bg-[#9D9B9A] border border-[#9D9B9A]',
+    outline: 'bg-white text-[#3B3A36] border border-[#9D9B9A] hover:bg-[#F2F3F5] active:bg-[#E6E8EB]',
     ghost: 'bg-transparent text-[#3B3A36] hover:bg-[#F2F3F5]',
+    success: 'bg-[#1D8F4E] text-white hover:bg-[#176F3E] active:bg-[#115A31]',
+    dangerOutline: 'bg-white text-[#C94A4A] border border-[#C94A4A] hover:bg-[#FBEAEA] active:bg-[#F4D7D7]',
     destructive: 'bg-[#C94A4A] text-white hover:bg-[#a03838]'
   };
   
