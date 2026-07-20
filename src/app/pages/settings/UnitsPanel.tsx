@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { exportSettingsWorkbook } from '../../utils/exportSettingsWorkbooks';
 import {
   createMaterialConversionFactor,
   createUnit,
@@ -185,6 +186,7 @@ export function UnitsPanel() {
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [editingFactorId, setEditingFactorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -541,6 +543,94 @@ export function UnitsPanel() {
     setMessage({ type: 'success', text: 'Factor desactivado.' });
   };
 
+  const handleExportExcel = async () => {
+    const selectedPlant = allPlants.find((plant) => plant.id === selectedPlantId);
+
+    setExportingExcel(true);
+    setMessage(null);
+    try {
+      await exportSettingsWorkbook(
+        `Unidades por Contexto${selectedPlant ? ` - ${selectedPlant.name}` : ''}`,
+        [
+          {
+            name: 'Configuraciones',
+            headers: [
+              'Planta',
+              'Seccion',
+              'Captura',
+              'Calculo',
+              'Visible',
+              'Inventario',
+              'Regla',
+              'Curva',
+              'Factor por material',
+              'Activo',
+              'Orden',
+            ],
+            rows: configs.map((config) => ({
+              config,
+              ruleState: getRuleState(config),
+              sectionLabel: SECTION_OPTIONS.find((section) => section.value === config.section_code)?.label || config.section_code || '-',
+            })).map(({ config, ruleState, sectionLabel }) => [
+              selectedPlant?.name || selectedPlantId,
+              sectionLabel,
+              getUnitLabel(units, config.capture_unit_id),
+              getUnitLabel(units, config.calculation_unit_id),
+              getUnitLabel(units, config.display_unit_id),
+              getUnitLabel(units, config.inventory_unit_id),
+              ruleState.label,
+              getCurveLabel(curves, config.calibration_curve_id) || '-',
+              getFactorLabel(factors, config.material_conversion_factor_id) || '-',
+              config.active,
+              config.sort_order,
+            ]),
+          },
+          {
+            name: 'Catalogo unidades',
+            headers: ['Codigo', 'Nombre ES', 'Nombre EN', 'Simbolo', 'Categoria', 'Sistema', 'Unidad base', 'Factor contra base', 'Precision', 'Activo', 'Orden'],
+            rows: units.map((unit) => {
+              const baseUnit = getBaseUnitForCategory(categories, units, unit.category_id);
+              return [
+                unit.code,
+                unit.name_es,
+                unit.name_en,
+                unit.symbol,
+                getCategoryLabel(categories, unit.category_id),
+                unit.measurement_system,
+                baseUnit?.symbol || '-',
+                Number(unit.factor_to_base),
+                unit.decimal_precision,
+                unit.active,
+                unit.sort_order,
+              ];
+            }),
+          },
+          {
+            name: 'Factores conversion',
+            headers: ['Origen', 'Destino', 'Material', 'Planta', 'Factor', 'Fuente', 'Vigente desde', 'Vigente hasta', 'Activo'],
+            rows: factors.map((factor: any) => [
+              getUnitLabel(units, factor.from_unit_id),
+              getUnitLabel(units, factor.to_unit_id),
+              factor.material?.nombre || materials.find((material) => material.id === factor.material_id)?.nombre || 'Cualquiera',
+              allPlants.find((plant) => plant.id === factor.plant_id)?.name || 'Todas',
+              Number(factor.factor),
+              factor.factor_source || '-',
+              factor.effective_from || '-',
+              factor.effective_to || '-',
+              factor.active,
+            ]),
+          },
+        ],
+        'PROMIX-Unidades'
+      );
+      setMessage({ type: 'success', text: 'Unidades exportadas exitosamente a Excel.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'No se pudo exportar unidades a Excel.' });
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -550,15 +640,26 @@ export function UnitsPanel() {
             Define unidades por planta y seccion. Los defaults globales solo se usan cuando una planta no tiene configuracion especifica.
           </p>
         </div>
-        <select
-          value={selectedPlantId}
-          onChange={(event) => setSelectedPlantId(event.target.value)}
-          className="rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
-        >
-          {allPlants.map((plant) => (
-            <option key={plant.id} value={plant.id}>{plant.name}</option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select
+            value={selectedPlantId}
+            onChange={(event) => setSelectedPlantId(event.target.value)}
+            className="rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+          >
+            {allPlants.map((plant) => (
+              <option key={plant.id} value={plant.id}>{plant.name}</option>
+            ))}
+          </select>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportExcel}
+            loading={exportingExcel}
+            disabled={loading}
+          >
+            {exportingExcel ? 'Exportando...' : 'Exportar Excel'}
+          </Button>
+        </div>
       </div>
 
       {message && (

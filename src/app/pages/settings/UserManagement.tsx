@@ -6,8 +6,9 @@ import { Select } from '../../components/Select';
 import { Alert } from '../../components/Alert';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { UserPlus, Edit2, Trash2, X, AlertCircle, KeyRound } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, X, AlertCircle, KeyRound, Download } from 'lucide-react';
 import { canDeleteUsers, canManagePlantManagers, UserRole } from '../../utils/permissions';
+import { exportSettingsWorkbook } from '../../utils/exportSettingsWorkbooks';
 
 // ============================================================================
 // TYPES
@@ -114,6 +115,7 @@ export function UserManagement() {
   const [success, setSuccess] = useState('');
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [statusUpdatingUserId, setStatusUpdatingUserId] = useState<string | null>(null);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -460,6 +462,56 @@ export function UserManagement() {
     });
   };
 
+  const getAssignedPlantsLabel = (assignedPlants: string[]) => {
+    if (assignedPlants.length === 0) return 'Ninguna';
+    return assignedPlants
+      .map((plantId) => allPlants.find((plant) => plant.id === plantId)?.name || plantId)
+      .join(', ');
+  };
+
+  const handleExportExcel = async () => {
+    setError('');
+    setSuccess('');
+    setExportingExcel(true);
+    try {
+      await exportSettingsWorkbook(
+        'Gestion de Usuarios',
+        [
+          {
+            name: 'Usuarios',
+            headers: [
+              'Nombre',
+              'Correo electronico',
+              'Rol',
+              'Plantas asignadas',
+              'Estado',
+              'Ultimo login',
+              'Creado',
+              'Actualizado',
+            ],
+            rows: users.map((managedUser) => [
+              managedUser.name,
+              managedUser.email,
+              getRoleDisplayName(managedUser.role),
+              getAssignedPlantsLabel(managedUser.assigned_plants),
+              managedUser.is_active ? 'Activo' : 'Inactivo',
+              formatDate(managedUser.last_login_at),
+              formatDate(managedUser.created_at),
+              formatDate(managedUser.updated_at),
+            ]),
+          },
+        ],
+        'PROMIX-Usuarios'
+      );
+      setSuccess('Usuarios exportados exitosamente a Excel.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message || 'No se pudo exportar usuarios a Excel.');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   // ============================================================================
   // PERMISSION CHECK
   // ============================================================================
@@ -482,7 +534,7 @@ export function UserManagement() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-[#3B3A36]">Gestión de Usuarios</h3>
           <p className="text-sm text-[#5F6773] mt-1">
@@ -491,16 +543,27 @@ export function UserManagement() {
           <p className="text-xs text-[#9D9B9A] mt-1">
             {currentUser?.role === 'operations_manager'
               ? 'Como Gerente de Operaciones, solo puedes gestionar usuarios con rol de Gerente de Planta.'
-              : 'Solo el Super Administrador puede ver y crear usuarios con rol de Super Administrador.'}
+            : 'Solo el Super Administrador puede ver y crear usuarios con rol de Super Administrador.'}
           </p>
         </div>
-        <Button 
-          variant="secondary" 
-          onClick={() => setShowCreateModal(true)}
-          icon={<UserPlus className="w-4 h-4" />}
-        >
-          Nuevo Usuario
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleExportExcel}
+            loading={exportingExcel}
+            disabled={loading || users.length === 0}
+          >
+            <Download className="w-4 h-4" />
+            Exportar Excel
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <UserPlus className="w-4 h-4" />
+            Nuevo Usuario
+          </Button>
+        </div>
       </div>
 
       {/* Alerts */}
@@ -567,7 +630,7 @@ export function UserManagement() {
                           ) : user.assigned_plants.length > 3 ? (
                             <span>{user.assigned_plants.length} plantas</span>
                           ) : (
-                            user.assigned_plants.join(', ')
+                            getAssignedPlantsLabel(user.assigned_plants)
                           )}
                         </div>
                       </td>

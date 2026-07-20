@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { UserRole } from '../../utils/permissions';
+import { exportSettingsWorkbook } from '../../utils/exportSettingsWorkbooks';
+import { Download } from 'lucide-react';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
@@ -138,6 +141,7 @@ export function AuditPanel() {
   const [error, setError] = useState<string | null>(null);
   const [plantFilter, setPlantFilter] = useState<string>('');
   const [userFilter, setUserFilter] = useState<string>('');
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
@@ -225,6 +229,90 @@ export function AuditPanel() {
         ).values()
       ).sort((a, b) => a.label.localeCompare(b.label, 'es'));
 
+  const getActionLabel = (log: AuditLog) => {
+    if (log.action === 'SECTION_SAVED' && log.details?.section) {
+      return `Seccion guardada: ${SECTION_LABELS[log.details.section] || log.details.section}`;
+    }
+    return ACTION_LABELS[log.action] || log.action;
+  };
+
+  const formatDetails = (details?: AuditLog['details']) => {
+    if (!details) return '-';
+    return Object.entries(details)
+      .filter(([, value]) => value !== null && value !== undefined && value !== '')
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(' | ') || '-';
+  };
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true);
+    setError(null);
+    try {
+      const selectedUserLabel = userOptions.find((option) => option.id === userFilter)?.label;
+      const filterSummary = [
+        plantFilter ? `Planta: ${plantFilter}` : 'Todas las plantas',
+        selectedUserLabel ? `Usuario: ${selectedUserLabel}` : 'Todos los usuarios',
+      ].join(' | ');
+
+      await exportSettingsWorkbook(
+        `Auditoria - ${filterSummary}`,
+        [
+          {
+            name: 'Flujo inventarios',
+            headers: [
+              'Planta',
+              'Periodo',
+              'Estado',
+              'Creado por',
+              'Creado',
+              'Enviado por',
+              'Enviado',
+              'Aprobado por',
+              'Aprobado',
+              'Notas aprobacion',
+              'Rechazado por',
+              'Rechazado',
+              'Notas rechazo',
+            ],
+            rows: flows.map((flow) => [
+              flow.plant_id,
+              formatMonthLabel(flow.year_month),
+              STATUS_CONFIG[flow.status]?.label || flow.status,
+              flow.created_by,
+              formatExactDateTime(flow.created_at),
+              flow.submitted_by || '-',
+              flow.submitted_at ? formatExactDateTime(flow.submitted_at) : '-',
+              flow.approved_by || '-',
+              flow.approved_at ? formatExactDateTime(flow.approved_at) : '-',
+              flow.approval_notes || '-',
+              flow.rejected_by || '-',
+              flow.rejected_at ? formatExactDateTime(flow.rejected_at) : '-',
+              flow.rejection_notes || '-',
+            ]),
+          },
+          {
+            name: 'Eventos',
+            headers: ['Fecha', 'Accion', 'Usuario', 'Correo', 'Planta', 'Inventario', 'Detalles'],
+            rows: logs.map((log) => [
+              formatExactDateTime(log.timestamp),
+              getActionLabel(log),
+              log.user_name || '-',
+              log.user_email,
+              log.plant_id || '-',
+              log.inventory_month_id || '-',
+              formatDetails(log.details),
+            ]),
+          },
+        ],
+        'PROMIX-Auditoria'
+      );
+    } catch (err: any) {
+      setError(err.message || 'No se pudo exportar auditoria a Excel.');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -233,12 +321,12 @@ export function AuditPanel() {
     <div className="space-y-6">
 
       {/* Header + Filter */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-[#3B3A36]">Auditoría</h3>
           <p className="text-sm text-[#5F6773]">Flujo de inventarios y registro de actividad</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isAdmin && availablePlants.length > 0 && (
             <select
               value={plantFilter}
@@ -274,6 +362,16 @@ export function AuditPanel() {
           >
             ↻ Actualizar
           </button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportExcel}
+            loading={exportingExcel}
+            disabled={loading || (flows.length === 0 && logs.length === 0)}
+          >
+            <Download className="w-4 h-4" />
+            Exportar Excel
+          </Button>
         </div>
       </div>
 
@@ -422,10 +520,7 @@ export function AuditPanel() {
                 <div className="divide-y divide-[#F2F3F5]">
                   {logs.map(log => {
                     const icon = ACTION_ICONS[log.action] || '📋';
-                    let label = ACTION_LABELS[log.action] || log.action;
-                    if (log.action === 'SECTION_SAVED' && log.details?.section) {
-                      label = `Sección guardada: ${SECTION_LABELS[log.details.section] || log.details.section}`;
-                    }
+                    const label = getActionLabel(log);
 
                     return (
                       <div key={log.id} className="flex items-center gap-3 px-4 py-3">
