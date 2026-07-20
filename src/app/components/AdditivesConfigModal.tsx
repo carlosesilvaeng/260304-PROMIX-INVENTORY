@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert } from './Alert';
 import { Button } from './Button';
+import { DeleteIconButton } from './DeleteIconButton';
 import { Input } from './Input';
 import { Select } from './Select';
 import {
@@ -488,9 +489,7 @@ export function AdditivesConfigModal({
                             onChange={(e) => updateRow(index, { is_active: e.target.checked })}
                           />
                         </label>
-                        <Button variant="destructive" size="sm" onClick={() => removeRow(index)}>
-                          🗑️
-                        </Button>
+                        <DeleteIconButton onClick={() => removeRow(index)} />
                       </div>
                     </div>
 

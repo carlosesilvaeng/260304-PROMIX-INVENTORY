@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { Button } from './Button';
+import { DeleteIconButton } from './DeleteIconButton';
 import { Input } from './Input';
 import { Select } from './Select';
 import { Alert } from './Alert';
@@ -557,13 +558,9 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                         <h4 className="text-sm font-medium text-[#3B3A36]">
                           Silo #{index + 1}
                         </h4>
-                        <Button
-                          variant="destructive"
-                          size="sm"
+                        <DeleteIconButton
                           onClick={() => setSilos((prev) => prev.filter((_, rowIndex) => rowIndex !== index))}
-                        >
-                          🗑️
-                        </Button>
+                        />
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

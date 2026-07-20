@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
+import { DeleteIconButton } from './DeleteIconButton';
 import { Input } from './Input';
 import { Select } from './Select';
 import type { CajonConfig } from '../contexts/AuthContext';
@@ -73,15 +74,9 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                     <h4 className="text-sm font-medium text-[#3B3A36]">
                       Cajón #{index + 1}
                     </h4>
-                    <Button
-                      variant="destructive"
-                      size="sm"
+                    <DeleteIconButton
                       onClick={() => removeCajon(index)}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </Button>
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

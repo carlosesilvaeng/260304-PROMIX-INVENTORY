@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Eye, FileSpreadsheet, Upload } from 'lucide-react';
 import { Alert } from './Alert';
 import { Button } from './Button';
+import { DeleteIconButton } from './DeleteIconButton';
 import { Input } from './Input';
 import { Modal } from './Modal';
 import { Select } from './Select';
@@ -595,9 +596,7 @@ export function ProductsConfigModal({
                               onChange={(e) => updateRow(index, { is_active: e.target.checked })}
                             />
                           </label>
-                          <Button variant="destructive" size="sm" onClick={() => setRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index))}>
-                            🗑️
-                          </Button>
+                          <DeleteIconButton onClick={() => setRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index))} />
                         </div>
                       </div>
 

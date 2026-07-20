@@ -4,12 +4,14 @@ import { Button } from '../components/Button';
 import { Select } from '../components/Select';
 import { Alert } from '../components/Alert';
 import { Modal } from '../components/Modal';
+import { DeleteIconButton } from '../components/DeleteIconButton';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { exportToExcel, exportToPDF } from '../utils/exportReports';
 import { canApproveInventory, isPlantManagerLike } from '../utils/permissions';
+import { Trash2 } from 'lucide-react';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
@@ -478,14 +480,10 @@ export function Reports({ onNavigate }: ReportsProps) {
                             {generatingRowPDFId === report.id ? '⏳' : '📄'}
                           </Button>
                           {(user?.role === 'admin' || user?.role === 'super_admin') && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
+                            <DeleteIconButton
                               title="Eliminar reporte"
                               onClick={() => setConfirmDeleteReport(report)}
-                            >
-                              🗑️
-                            </Button>
+                            />
                           )}
                         </div>
                       </td>
@@ -540,7 +538,12 @@ export function Reports({ onNavigate }: ReportsProps) {
                 disabled={!!deletingReportId}
                 onClick={() => handleDeleteReport(confirmDeleteReport)}
               >
-                {deletingReportId ? '⏳ Eliminando...' : '🗑️ Eliminar'}
+                {deletingReportId ? '⏳ Eliminando...' : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </>
+                )}
               </Button>
             </div>
           </Card>

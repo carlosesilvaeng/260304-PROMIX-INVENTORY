@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { Alert } from './Alert';
 import { Button } from './Button';
+import { DeleteIconButton } from './DeleteIconButton';
 import { Input } from './Input';
 import { Modal } from './Modal';
 import { Select } from './Select';
@@ -606,9 +607,7 @@ export function AggregatesConfigModal({
                                 onChange={(e) => updateRow(index, { is_active: e.target.checked })}
                               />
                             </label>
-                            <Button variant="destructive" size="sm" onClick={() => removeRow(index)} disabled={saving || previewingImport || executingImport}>
-                              🗑️
-                            </Button>
+                            <DeleteIconButton onClick={() => removeRow(index)} disabled={saving || previewingImport || executingImport} />
                           </div>
                         </div>
 
