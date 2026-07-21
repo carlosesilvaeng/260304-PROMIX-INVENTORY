@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
+import { FeetInchesInput } from '../../components/FeetInchesInput';
 import { NumericInput } from '../../components/Input';
 import { PhotoCapture } from '../../components/PhotoCapture';
 import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { saveAggregatesEntries } from '../../utils/api';
+import { formatFeetInches, isFeetInchesUnit } from '../../utils/feetInches';
 import { formatNumber } from '../../utils/numberFormatting';
 import {
   convertWithMaterialFactor,
@@ -41,7 +43,8 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const inventoryUnit = aggregateMeasurementConfig?.inventory_unit_id || displayUnit;
   const materialFactors = (prefillData.config?.material_conversion_factors || []) as MaterialConversionFactor[];
   const aggregateMaterialFactor = materialFactors.find((factor) => factor.id === aggregateMeasurementConfig?.material_conversion_factor_id);
-  const lengthUnitLabel = getUnitSymbol(unitCatalog, captureUnit, captureUnit === 'm' ? 'm' : 'ft');
+  const usesFeetInchesCapture = isFeetInchesUnit(captureUnit);
+  const lengthUnitLabel = usesFeetInchesCapture ? 'ft + in' : getUnitSymbol(unitCatalog, captureUnit, captureUnit === 'm' ? 'm' : 'ft');
   const volumeUnitLabel = getUnitSymbol(unitCatalog, displayUnit, displayUnit === 'm3' ? 'm³' : 'ft³');
   const inventoryUnitLabel = getUnitSymbol(unitCatalog, inventoryUnit, inventoryUnit);
   const aggregateUnits = resolveEffectiveMeasurementConfig({
@@ -133,7 +136,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
   const getVolumeUnitForLengthUnit = (unitId: string) => {
     if (unitId === 'm') return 'm3';
-    if (unitId === 'ft') return 'ft3';
+    if (unitId === 'ft' || unitId === 'ft-in') return 'ft3';
     return calculationUnit;
   };
 
@@ -293,6 +296,39 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
   const completedCount = prefillData.agregadosEntries.filter(isEntryComplete).length;
   const totalCount = prefillData.agregadosEntries.length;
+  const formatLengthValue = (value: number | string | null | undefined) => (
+    usesFeetInchesCapture ? formatFeetInches(value, `0 ft 0 in`) : `${formatNumber(value || 0)} ${lengthUnitLabel}`
+  );
+  const renderLengthInput = (
+    entryId: string,
+    field: string,
+    label: string,
+    value: number | string | null | undefined,
+    helperText?: string,
+  ) => (
+    usesFeetInchesCapture ? (
+      <FeetInchesInput
+        label={label}
+        value={value}
+        onValueChange={(nextValue) => handleFieldChange(entryId, field, nextValue)}
+        required
+        helperText={helperText}
+      />
+    ) : (
+      <div>
+        <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
+          {label} ({lengthUnitLabel}) *
+        </label>
+        <NumericInput
+          value={value ?? ''}
+          onValueChange={(nextValue) => handleFieldChange(entryId, field, nextValue)}
+          placeholder="0.00"
+          className="w-full"
+        />
+        {helperText && <p className="text-xs text-[#6F767E] mt-1">{helperText}</p>}
+      </div>
+    )
+  );
 
   if (prefillData.agregadosEntries.length === 0) {
     return (
@@ -404,36 +440,15 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                         Ancho ({lengthUnitLabel}) 🔒
                       </label>
                       <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[#3B3A36]">
-                        {formatNumber(entry.box_width_ft || 0)} {lengthUnitLabel}
+                        {formatLengthValue(entry.box_width_ft || 0)}
                       </div>
                     </div>
 
                     {/* Height - EDITABLE */}
-                    <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                        Alto ({lengthUnitLabel}) *
-                      </label>
-                      <NumericInput
-                        value={entry.box_height_ft ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'box_height_ft', value)}
-                        placeholder="0.00"
-                        className="w-full"
-                      />
-                    </div>
+                    {renderLengthInput(entry.id, 'box_height_ft', 'Alto', entry.box_height_ft)}
 
                     {/* Length - EDITABLE */}
-                    <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                        Largo ({lengthUnitLabel}) *
-                      </label>
-                      <NumericInput
-                        value={entry.box_length_ft ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'box_length_ft', value)}
-                        placeholder="0.00"
-                        className="w-full"
-                      />
-                      <p className="text-xs text-[#6F767E] mt-1">Si no se usó, ingresa 0</p>
-                    </div>
+                    {renderLengthInput(entry.id, 'box_length_ft', 'Largo', entry.box_length_ft, 'Si no se usó, ingresa 0')}
 
                     {/* Volume - AUTO CALCULATED */}
                     <div>
@@ -462,70 +477,30 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {/* M Measurements */}
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M1 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_m1 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m1', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_m1', 'M1', entry.cone_m1)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M2 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_m2 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m2', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_m2', 'M2', entry.cone_m2)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M3 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_m3 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m3', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_m3', 'M3', entry.cone_m3)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M4 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_m4 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m4', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_m4', 'M4', entry.cone_m4)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M5 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_m5 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m5', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_m5', 'M5', entry.cone_m5)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">M6 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_m6 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_m6', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_m6', 'M6', entry.cone_m6)}
                     </div>
 
                     {/* D Measurements */}
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D1 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_d1 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d1', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_d1', 'D1', entry.cone_d1)}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#1A1D1F] mb-2">D2 ({lengthUnitLabel}) *</label>
-                      <NumericInput
-                        value={entry.cone_d2 ?? ''}
-                        onValueChange={(value) => handleFieldChange(entry.id, 'cone_d2', value)}
-                        placeholder="0.00"
-                      />
+                      {renderLengthInput(entry.id, 'cone_d2', 'D2', entry.cone_d2)}
                     </div>
                   </div>
 

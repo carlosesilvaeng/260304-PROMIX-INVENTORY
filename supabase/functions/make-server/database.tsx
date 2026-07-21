@@ -3294,7 +3294,7 @@ export async function previewAggregatesImport(plantId: string, input: Aggregates
     const materialType = rawRow.material_type.trim();
     const locationArea = rawRow.location_area.trim();
     const measurementMethod = rawRow.measurement_method.trim().toUpperCase();
-    const unit = rawRow.unit.trim() || 'CUBIC_YARDS';
+    const unit = rawRow.unit.trim() || 'ft3';
     const matchedMaterial = materialCatalogByName[normalizeCatalogNameKey(materialType)] || null;
     const matchedProcedencia = procedenciaCatalogByName[normalizeCatalogNameKey(locationArea)] || null;
 
@@ -3501,7 +3501,7 @@ export async function executeAggregatesImport(plantId: string, input: Aggregates
       material_type: row.material_type,
       location_area: row.location_area,
       measurement_method: row.measurement_method,
-      unit: row.unit || 'CUBIC_YARDS',
+      unit: row.unit || 'ft3',
       box_width_ft: row.measurement_method === 'BOX' ? row.box_width_ft : null,
       box_height_ft: row.measurement_method === 'BOX' ? row.box_height_ft : null,
       is_active: row.is_active,

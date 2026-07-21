@@ -254,7 +254,7 @@ export function UnitsPanel() {
       {
         plant_id: selectedPlantId,
         section_code: 'aggregates',
-        capture_unit_id: 'ft',
+        capture_unit_id: 'ft-in',
         calculation_unit_id: 'ft3',
         display_unit_id: 'ft3',
         inventory_unit_id: 'ft3',

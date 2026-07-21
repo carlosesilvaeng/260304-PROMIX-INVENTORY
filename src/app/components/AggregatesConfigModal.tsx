@@ -3,6 +3,7 @@ import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 import { DeleteIconButton } from './DeleteIconButton';
+import { FeetInchesInput } from './FeetInchesInput';
 import { Input } from './Input';
 import { Modal } from './Modal';
 import { Select } from './Select';
@@ -23,6 +24,8 @@ import {
   downloadAggregatesImportWorkbook,
   type AggregatesImportWorkbookRow,
 } from '../utils/aggregatesImportWorkbook';
+import { isFeetInchesUnit } from '../utils/feetInches';
+import { resolveMeasurementConfig } from '../utils/unitConversion';
 
 type AggregateMeasurementMethod = 'BOX' | 'CONE';
 
@@ -57,26 +60,26 @@ interface AggregatesImportPayload {
   }>;
 }
 
-function createEmptyRow(): AggregateConfigRow {
+function createEmptyRow(unit = 'ft3'): AggregateConfigRow {
   return {
     aggregate_name: '',
     material_type: '',
     location_area: '',
     measurement_method: 'BOX',
-    unit: 'CUBIC_YARDS',
+    unit,
     box_width_ft: '',
     box_height_ft: '',
     is_active: true,
   };
 }
 
-function mapCajonToAggregateRow(cajon: Plant['cajones'][number]): AggregateConfigRow {
+function mapCajonToAggregateRow(cajon: Plant['cajones'][number], unit = 'ft3'): AggregateConfigRow {
   return {
     aggregate_name: cajon.name || '',
     material_type: cajon.material || '',
     location_area: cajon.procedencia || '',
     measurement_method: 'BOX',
-    unit: 'CUBIC_YARDS',
+    unit,
     box_width_ft: String(cajon.ancho ?? ''),
     box_height_ft: String(cajon.alto ?? ''),
     is_active: true,
@@ -89,7 +92,7 @@ function toWorkbookRows(rows: AggregateConfigRow[]): AggregatesImportWorkbookRow
     material_type: row.material_type.trim(),
     location_area: row.location_area.trim(),
     measurement_method: row.measurement_method,
-    unit: row.unit.trim() || 'CUBIC_YARDS',
+    unit: row.unit.trim() || 'ft3',
     box_width_ft: row.measurement_method === 'BOX' ? row.box_width_ft.trim() : null,
     box_height_ft: row.measurement_method === 'BOX' ? row.box_height_ft.trim() : null,
     is_active: row.is_active,
@@ -137,6 +140,8 @@ export function AggregatesConfigModal({
   const [selectedImportFileName, setSelectedImportFileName] = useState('');
   const [importPayload, setImportPayload] = useState<AggregatesImportPayload | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  const [aggregateCaptureUnit, setAggregateCaptureUnit] = useState('ft-in');
+  const [aggregateDisplayUnit, setAggregateDisplayUnit] = useState('ft3');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -166,9 +171,17 @@ export function AggregatesConfigModal({
 
         const aggregateEntries = response.data?.aggregates ?? [];
         const legacyCajones = response.data?.cajones ?? plant.cajones ?? [];
+        const aggregateMeasurementConfig = resolveMeasurementConfig(response.data?.measurement_configs || [], {
+          plantId: plant.id,
+          sectionCode: 'aggregates',
+        });
+        const nextCaptureUnit = aggregateMeasurementConfig?.capture_unit_id || 'ft-in';
+        const nextDisplayUnit = aggregateMeasurementConfig?.display_unit_id || aggregateMeasurementConfig?.calculation_unit_id || 'ft3';
+        setAggregateCaptureUnit(nextCaptureUnit);
+        setAggregateDisplayUnit(nextDisplayUnit);
 
         if (aggregateEntries.length === 0) {
-          setRows(legacyCajones.map(mapCajonToAggregateRow));
+          setRows(legacyCajones.map((cajon: Plant['cajones'][number]) => mapCajonToAggregateRow(cajon, nextDisplayUnit)));
           setTouchedFields({});
           return;
         }
@@ -179,7 +192,7 @@ export function AggregatesConfigModal({
           material_type: entry.material_type || '',
           location_area: entry.location_area || '',
           measurement_method: String(entry.measurement_method || 'BOX').toUpperCase() === 'CONE' ? 'CONE' : 'BOX',
-          unit: entry.unit || 'CUBIC_YARDS',
+          unit: nextDisplayUnit,
           box_width_ft: entry.box_width_ft === null || entry.box_width_ft === undefined ? '' : String(entry.box_width_ft),
           box_height_ft: entry.box_height_ft === null || entry.box_height_ft === undefined ? '' : String(entry.box_height_ft),
           is_active: entry.is_active ?? true,
@@ -198,6 +211,7 @@ export function AggregatesConfigModal({
   );
 
   const saveValidationMessage = useMemo(() => validateRows(), [rows]);
+  const usesFeetInchesCapture = isFeetInchesUnit(aggregateCaptureUnit);
 
   const getFieldTouchKey = (index: number, field: AggregateDimensionField) => `${index}:${field}`;
 
@@ -250,7 +264,7 @@ export function AggregatesConfigModal({
 
   const addRow = () => {
     setTouchedFields({});
-    setRows((prev) => [...prev, createEmptyRow()]);
+    setRows((prev) => [...prev, createEmptyRow(aggregateDisplayUnit)]);
   };
 
   const removeRow = (index: number) => {
@@ -352,7 +366,7 @@ export function AggregatesConfigModal({
         material_type: row.material_type.trim(),
         location_area: row.location_area.trim(),
         measurement_method: row.measurement_method,
-        unit: row.unit || 'CUBIC_YARDS',
+        unit: aggregateDisplayUnit,
         box_width_ft: row.measurement_method === 'BOX' ? Number(row.box_width_ft) : null,
         box_height_ft: row.measurement_method === 'BOX' ? Number(row.box_height_ft) : null,
         sort_order: index,
@@ -651,32 +665,58 @@ export function AggregatesConfigModal({
                               Para cajón, ancho y alto quedan fijos en configuración; el gerente solo capturará el largo.
                             </p>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              <Input
-                                label="Ancho (ft)"
-                                type="number"
-                                value={row.box_width_ft}
-                                onChange={(e) => {
-                                  markFieldTouched(index, 'box_width_ft');
-                                  updateRow(index, { box_width_ft: e.target.value });
-                                }}
-                                onBlur={() => markFieldTouched(index, 'box_width_ft')}
-                                placeholder="30"
-                                error={widthError}
-                                required
-                              />
-                              <Input
-                                label="Alto (ft)"
-                                type="number"
-                                value={row.box_height_ft}
-                                onChange={(e) => {
-                                  markFieldTouched(index, 'box_height_ft');
-                                  updateRow(index, { box_height_ft: e.target.value });
-                                }}
-                                onBlur={() => markFieldTouched(index, 'box_height_ft')}
-                                placeholder="12"
-                                error={heightError}
-                                required
-                              />
+                              {usesFeetInchesCapture ? (
+                                <FeetInchesInput
+                                  label="Ancho"
+                                  value={row.box_width_ft}
+                                  onValueChange={(value) => {
+                                    markFieldTouched(index, 'box_width_ft');
+                                    updateRow(index, { box_width_ft: value === null ? '' : String(value) });
+                                  }}
+                                  error={widthError}
+                                  required
+                                />
+                              ) : (
+                                <Input
+                                  label={`Ancho (${aggregateCaptureUnit})`}
+                                  type="number"
+                                  value={row.box_width_ft}
+                                  onChange={(e) => {
+                                    markFieldTouched(index, 'box_width_ft');
+                                    updateRow(index, { box_width_ft: e.target.value });
+                                  }}
+                                  onBlur={() => markFieldTouched(index, 'box_width_ft')}
+                                  placeholder="30"
+                                  error={widthError}
+                                  required
+                                />
+                              )}
+                              {usesFeetInchesCapture ? (
+                                <FeetInchesInput
+                                  label="Alto"
+                                  value={row.box_height_ft}
+                                  onValueChange={(value) => {
+                                    markFieldTouched(index, 'box_height_ft');
+                                    updateRow(index, { box_height_ft: value === null ? '' : String(value) });
+                                  }}
+                                  error={heightError}
+                                  required
+                                />
+                              ) : (
+                                <Input
+                                  label={`Alto (${aggregateCaptureUnit})`}
+                                  type="number"
+                                  value={row.box_height_ft}
+                                  onChange={(e) => {
+                                    markFieldTouched(index, 'box_height_ft');
+                                    updateRow(index, { box_height_ft: e.target.value });
+                                  }}
+                                  onBlur={() => markFieldTouched(index, 'box_height_ft')}
+                                  placeholder="12"
+                                  error={heightError}
+                                  required
+                                />
+                              )}
                             </div>
                           </div>
                         ) : (

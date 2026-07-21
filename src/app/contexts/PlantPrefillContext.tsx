@@ -8,6 +8,7 @@ import {
 } from '../utils/api';
 import { getPlantUtilitiesConfig } from '../config/utilitiesConfig';
 import { getPettyCashConfig } from '../config/pettyCashConfig';
+import { resolveMeasurementConfig } from '../utils/unitConversion';
 import { useAuth } from './AuthContext';
 
 // ============================================================================
@@ -144,6 +145,11 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
     const currentPlant = allPlants.find((p: any) => p.id === config.plant_id);
     const cajones = currentPlant?.cajones || [];
+    const aggregateMeasurementConfig = resolveMeasurementConfig(config.measurement_configs || [], {
+      plantId: config.plant_id,
+      sectionCode: 'aggregates',
+    });
+    const displayUnit = aggregateMeasurementConfig?.display_unit_id || aggregateMeasurementConfig?.calculation_unit_id || 'ft3';
 
     // Backward compatibility: some plants only have cajones configured and no
     // plant_aggregates_config rows yet. Build BOX aggregates from those cajones.
@@ -153,7 +159,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       material_type: cajon.material || 'AGREGADO',
       location_area: cajon.procedencia || cajon.name,
       measurement_method: 'BOX',
-      unit: 'CUBIC_YARDS',
+      unit: displayUnit,
       box_width_ft: cajon.ancho || 0,
       box_height_ft: cajon.alto || 0,
     }));

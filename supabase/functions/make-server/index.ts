@@ -2081,7 +2081,7 @@ app.put("/make-server/plants/:plantId/aggregates", async (c) => {
         material_type: materialByName.get(String(aggregate.material_type || '').trim().toLowerCase())?.nombre || '',
         location_area: procedenciaByName.get(String(aggregate.location_area || '').trim().toLowerCase())?.nombre || '',
         measurement_method: isBoxMethod ? 'BOX' : 'CONE',
-        unit: aggregate.unit || 'CUBIC_YARDS',
+        unit: aggregate.unit || 'ft3',
         box_width_ft: isBoxMethod ? (aggregate.box_width_ft ?? 0) : null,
         box_height_ft: isBoxMethod ? (aggregate.box_height_ft ?? 0) : null,
         sort_order: aggregate.sort_order ?? index,
