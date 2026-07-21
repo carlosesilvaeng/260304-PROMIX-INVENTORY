@@ -5,6 +5,7 @@ import { Alert } from '../components/Alert';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
+import { Eye, EyeOff } from 'lucide-react';
 
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
@@ -17,6 +18,7 @@ export function Login() {
   const { t, language, setLanguage } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showEmergencyReset, setShowEmergencyReset] = useState(false);
@@ -112,14 +114,29 @@ export function Login() {
               required
             />
 
-            <Input
-              label={t('login.password')}
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <Input
+                label={t('login.password')}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="pr-11"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute right-3 top-9 flex h-6 w-6 items-center justify-center text-[#6C7178] transition-colors hover:text-[#3D3F42] focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:ring-offset-2"
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
 
             <Button
               type="submit"
