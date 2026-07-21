@@ -114,28 +114,47 @@ export function Login() {
               required
             />
 
-            <div className="relative">
-              <Input
-                label={t('login.password')}
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="pr-11"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((current) => !current)}
-                className="absolute right-3 top-9 flex h-6 w-6 items-center justify-center text-[#6C7178] transition-colors hover:text-[#3D3F42] focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:ring-offset-2"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <Eye className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
+            <div className="w-full">
+              <label className="flex min-h-5 items-center text-[#3B3A36] mb-1.5 leading-5" htmlFor="login-password">
+                {t('login.password')}
+                <span className="text-[#C94A4A] ml-1">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="
+                    w-full px-4 py-2.5 pr-12
+                    bg-white
+                    border border-[#9D9B9A]
+                    rounded
+                    text-[#3B3A36]
+                    placeholder:text-[#5F6773]
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-[#2475C7]
+                    focus:border-transparent
+                    transition-all
+                  "
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded bg-white text-[#2475C7] transition-colors hover:bg-[#EAF2FB] hover:text-[#1a5a9f] focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:ring-offset-1"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-6 w-6" aria-hidden="true" strokeWidth={2.4} />
+                  ) : (
+                    <Eye className="h-6 w-6" aria-hidden="true" strokeWidth={2.4} />
+                  )}
+                </button>
+              </div>
             </div>
 
             <Button
