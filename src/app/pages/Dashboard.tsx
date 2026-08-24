@@ -119,8 +119,14 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
         return;
       }
 
-      clearCurrentInventory();
-      setSelectedYearMonth(getYearMonthFromDate(new Date()));
+      // A cellular connection can fail briefly while the saved inventory still
+      // exists. Only discard the local resume marker when the server explicitly
+      // confirms that the month does not exist; keep it for network/auth/server
+      // errors so the user is not incorrectly sent back to "Iniciar inventario".
+      if (response.error === 'Month not found') {
+        clearCurrentInventory();
+        setSelectedYearMonth(getYearMonthFromDate(new Date()));
+      }
     };
 
     syncInventory();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { InventoryProvider, useInventory } from "./contexts/InventoryContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
-import { PlantPrefillProvider, usePlantPrefill } from "./contexts/PlantPrefillContext";
+import { PlantPrefillProvider } from "./contexts/PlantPrefillContext";
 import { ModulesProvider } from "./contexts/ModulesContext";
 import { Login } from "./pages/Login";
 import { InitialSetup } from "./pages/InitialSetup";
@@ -70,7 +70,6 @@ const BUILD_VERSION = '2606242237';
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
-  const { refreshData } = usePlantPrefill();
   const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -97,15 +96,7 @@ function AppContent() {
     }
   };
 
-  const discardPendingSectionChanges = async () => {
-    if (currentView === 'section') {
-      await refreshData();
-    }
-  };
-
-  const handleViewChange = async (view: string) => {
-    await discardPendingSectionChanges();
-
+  const handleViewChange = (view: string) => {
     const nextView = view === 'inventory' && !isOperationalUser ? 'dashboard' : view;
     setCurrentView(nextView);
     if (view !== 'section') {
@@ -119,8 +110,8 @@ function AppContent() {
     }
   };
 
-  const handleBackToDashboard = async () => {
-    await handleViewChange("dashboard");
+  const handleBackToDashboard = () => {
+    handleViewChange("dashboard");
   };
 
   const handleChangePlant = () => {
@@ -223,6 +214,18 @@ function AppContent() {
         />
 
         <div className="flex-1 overflow-y-auto">
+          {currentView === "section" && currentSection && (
+            <div className="sticky top-0 z-30 border-b border-[#D4D2CF] bg-white/95 px-3 py-2 shadow-sm backdrop-blur lg:hidden">
+              <button
+                type="button"
+                onClick={handleBackToDashboard}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#2475C7] bg-white px-4 py-2 font-semibold text-[#2475C7]"
+              >
+                <span aria-hidden="true">←</span>
+                Volver al inventario
+              </button>
+            </div>
+          )}
           {currentView === "dashboard" && !currentSection && (
             <Dashboard onNavigate={handleNavigate} />
           )}

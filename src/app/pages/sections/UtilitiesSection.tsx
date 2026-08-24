@@ -508,8 +508,8 @@ export function UtilitiesSection() {
       )}
 
       {/* SAVE BUTTON */}
-      <div className="flex justify-between items-center pt-4 border-t border-[#D4D2CF]">
-        <div className="text-sm text-[#5F6773]">
+      <div className="flex flex-col items-stretch gap-3 border-t border-[#D4D2CF] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[#5F6773] sm:flex-1">
           {!allComplete && someStarted && (
             <span className="text-orange-600">
               ⚠️ Algunos medidores están incompletos - Completa todos los campos requeridos
@@ -531,7 +531,7 @@ export function UtilitiesSection() {
           onClick={handleSave}
           disabled={saving}
           size="lg"
-          className="min-w-[200px]"
+          className="w-full sm:min-w-[200px] sm:w-auto"
         >
           {saving ? 'Guardando...' : 'Guardar Utilidades'}
         </Button>

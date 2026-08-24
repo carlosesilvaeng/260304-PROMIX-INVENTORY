@@ -652,15 +652,16 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex gap-4 justify-between items-center sticky bottom-0 bg-white p-4 border-t border-[#9D9B9A] shadow-lg rounded-t">
-          <div className="text-sm text-[#6F767E]">
+        <div className="sticky bottom-0 mt-6 flex flex-col items-stretch gap-3 rounded-t border-t border-[#9D9B9A] bg-white p-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="text-sm text-[#6F767E] sm:flex-1">
             {completedCount}/{totalCount} silos completos • 
             {totalCount - completedCount > 0 && ` ${totalCount - completedCount} pendientes`}
           </div>
-          <div className="flex gap-4">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-4">
             <Button
               variant="dangerOutline"
               onClick={() => onBack?.()}
+              className="w-full sm:w-auto"
             >
               Salir
             </Button>
@@ -668,7 +669,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               variant="success"
               onClick={handleSave}
               disabled={saving}
-              className="min-w-[180px]"
+              className="w-full sm:min-w-[180px]"
             >
               {saving ? 'Guardando...' : 'Guardar Silos'}
             </Button>
