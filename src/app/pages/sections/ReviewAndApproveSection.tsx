@@ -17,6 +17,7 @@ import {
 } from '../../utils/api';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { canApproveInventory, isPlantManagerLike } from '../../utils/permissions';
+import { hasInventorySectionConfiguration } from '../../utils/inventorySectionAvailability';
 
 interface ReviewAndApproveSectionProps {
   reportContext?: { plantId: string; yearMonth: string } | null;
@@ -52,8 +53,9 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
   const expectedSectionIds = React.useMemo(
     () => Object.entries(REVIEW_SECTION_CONFIG)
       .filter(([, config]) => isModuleEnabled(config.moduleKey))
+      .filter(([sectionId]) => hasInventorySectionConfiguration(prefillData, sectionId))
       .map(([sectionId]) => sectionId),
-    [moduleSettings, isModuleEnabled]
+    [moduleSettings, isModuleEnabled, prefillData]
   );
 
   // Load data when component mounts — supports reportContext (from Reports "Ver" button) or falls back to currentPlant + current month

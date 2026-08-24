@@ -11,6 +11,7 @@ import { getSectionTranslation } from '../utils/sectionTranslations';
 import { validateAllSections } from '../utils/validation';
 import { PromixLogo } from '../components/PromixLogo';
 import { getRoleLabelKey, isPlantManagerLike } from '../utils/permissions';
+import { hasInventorySectionConfiguration } from '../utils/inventorySectionAvailability';
 
 interface DashboardProps {
   onNavigate: (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => void;
@@ -275,18 +276,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const hasSectionConfiguration = (sectionId: string): boolean => {
     // Avoid flashing every module as unavailable while the plant package loads.
     if (prefillData.loading || !prefillData.inventoryMonth) return true;
-
-    const availability: Record<string, boolean> = {
-      agregados: prefillData.agregadosEntries.length > 0,
-      silos: prefillData.silosEntries.length > 0,
-      aditivos: prefillData.aditivosEntries.length > 0,
-      diesel: Boolean(prefillData.dieselEntry),
-      aceites: prefillData.productosEntries.length > 0,
-      utilidades: prefillData.utilitiesEntries.length > 0,
-      'petty-cash': Boolean(prefillData.pettyCashEntry),
-    };
-
-    return availability[sectionId] ?? true;
+    return hasInventorySectionConfiguration(prefillData, sectionId);
   };
 
   const activeSections = enabledSections.filter((section) => hasSectionConfiguration(section.id));
