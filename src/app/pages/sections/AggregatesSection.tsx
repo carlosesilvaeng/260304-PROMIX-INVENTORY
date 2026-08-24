@@ -27,7 +27,7 @@ interface AggregatesSectionProps {
 
 export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, markChangesSaved } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -253,6 +253,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
       );
 
       if (response.success) {
+        markChangesSaved();
         setSaveMessage({ type: 'success', text: '✓ Agregados guardados exitosamente' });
         setTimeout(() => setSaveMessage(null), 3000);
       } else {

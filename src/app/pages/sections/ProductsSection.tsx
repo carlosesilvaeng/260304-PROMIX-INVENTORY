@@ -50,7 +50,7 @@ function getProductModeLabel(producto: any) {
 
 export function ProductsSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, markChangesSaved } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -222,6 +222,7 @@ export function ProductsSection() {
       );
 
       if (response.success) {
+        markChangesSaved();
         setSaveMessage({ type: 'success', text: '✓ Aceites y Productos guardados exitosamente' });
         // Reload data to get fresh IDs from database
         if (currentPlant) {

@@ -264,11 +264,33 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
     });
   }, [currentInventory, sectionValidationMap]);
 
-  // Filtrar secciones basadas en módulos activos
-  const activeSections = derivedSections.filter(section => {
+  // First respect the global module switches, then remove plant-specific dead
+  // ends. A globally enabled module may still have no equipment/catalog rows
+  // for the selected plant (for example, Guaynabo currently has no silos).
+  const enabledSections = derivedSections.filter(section => {
     const moduleKey = sectionToModuleKey(section.id);
     return moduleKey ? isModuleEnabled(moduleKey as any) : false;
   });
+
+  const hasSectionConfiguration = (sectionId: string): boolean => {
+    // Avoid flashing every module as unavailable while the plant package loads.
+    if (prefillData.loading || !prefillData.inventoryMonth) return true;
+
+    const availability: Record<string, boolean> = {
+      agregados: prefillData.agregadosEntries.length > 0,
+      silos: prefillData.silosEntries.length > 0,
+      aditivos: prefillData.aditivosEntries.length > 0,
+      diesel: Boolean(prefillData.dieselEntry),
+      aceites: prefillData.productosEntries.length > 0,
+      utilidades: prefillData.utilitiesEntries.length > 0,
+      'petty-cash': Boolean(prefillData.pettyCashEntry),
+    };
+
+    return availability[sectionId] ?? true;
+  };
+
+  const activeSections = enabledSections.filter((section) => hasSectionConfiguration(section.id));
+  const unavailableSections = enabledSections.filter((section) => !hasSectionConfiguration(section.id));
 
   const handleStartInventory = async () => {
     const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());
@@ -674,6 +696,32 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
             />
           ))}
         </div>
+
+        {unavailableSections.length > 0 && (
+          <Card className="mt-4 border-amber-200 bg-amber-50">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div className="text-2xl" aria-hidden="true">ℹ️</div>
+              <div className="min-w-0">
+                <h4 className="font-semibold text-amber-900">
+                  Módulos no configurados para {currentPlant?.name}
+                </h4>
+                <p className="mt-1 text-sm text-amber-800">
+                  Estos módulos no forman parte de la captura disponible para esta planta. No necesitas completarlos.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {unavailableSections.map((section) => (
+                    <span
+                      key={section.id}
+                      className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm font-medium text-amber-900"
+                    >
+                      {getSectionTranslation(section.name, t)} · No configurado
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

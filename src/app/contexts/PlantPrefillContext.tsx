@@ -40,12 +40,14 @@ export interface PrefillData {
 
 interface PlantPrefillContextType {
   prefillData: PrefillData;
+  hasPendingChanges: boolean;
   loadPlantData: (plantId: string, yearMonth: string) => Promise<void>;
   currentYearMonth: string;
   setSelectedYearMonth: (yearMonth: string) => void;
   getCurrentYearMonth: () => string;
   refreshData: () => Promise<void>;
   updateEntry: (section: string, entryId: string, data: any) => void;
+  markChangesSaved: () => void;
 }
 
 const PlantPrefillContext = createContext<PlantPrefillContextType | undefined>(undefined);
@@ -73,6 +75,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
   const [currentPlantId, setCurrentPlantId] = useState<string | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const inFlightLoadRef = useRef<Promise<void> | null>(null);
   const inFlightLoadKeyRef = useRef<string | null>(null);
 
@@ -938,6 +941,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           loading: false,
           error: null,
         });
+        setHasPendingChanges(false);
 
         console.log('[PlantPrefill] Data loaded successfully');
       } catch (error) {
@@ -979,6 +983,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   // ============================================================================
   
   const updateEntry = useCallback((section: string, entryId: string, data: any) => {
+    setHasPendingChanges(true);
     setPrefillData(prev => {
       const sectionKeyMap: Record<string, keyof PrefillData> = {
         silos: 'silosEntries',
@@ -1017,16 +1022,22 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     });
   }, []);
 
+  const markChangesSaved = useCallback(() => {
+    setHasPendingChanges(false);
+  }, []);
+
   return (
     <PlantPrefillContext.Provider
       value={{
         prefillData,
+        hasPendingChanges,
         loadPlantData,
         currentYearMonth: getCurrentYearMonth(),
         setSelectedYearMonth,
         getCurrentYearMonth,
         refreshData,
         updateEntry,
+        markChangesSaved,
       }}
     >
       {children}

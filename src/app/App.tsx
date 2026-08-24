@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { InventoryProvider, useInventory } from "./contexts/InventoryContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
-import { PlantPrefillProvider } from "./contexts/PlantPrefillContext";
+import { PlantPrefillProvider, usePlantPrefill } from "./contexts/PlantPrefillContext";
 import { ModulesProvider } from "./contexts/ModulesContext";
 import { Login } from "./pages/Login";
 import { InitialSetup } from "./pages/InitialSetup";
@@ -70,6 +70,7 @@ const BUILD_VERSION = '2606242237';
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
+  const { hasPendingChanges } = usePlantPrefill();
   const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -96,7 +97,17 @@ function AppContent() {
     }
   };
 
+  const confirmSectionExit = () => {
+    if (currentView !== 'section' || !hasPendingChanges) return true;
+
+    return window.confirm(
+      'Tienes cambios sin guardar. Se conservarán mientras mantengas esta sesión, pero podrían perderse si cierras o recargas el navegador. ¿Deseas regresar sin guardar ahora?'
+    );
+  };
+
   const handleViewChange = (view: string) => {
+    if (!confirmSectionExit()) return;
+
     const nextView = view === 'inventory' && !isOperationalUser ? 'dashboard' : view;
     setCurrentView(nextView);
     if (view !== 'section') {
@@ -112,6 +123,28 @@ function AppContent() {
 
   const handleBackToDashboard = () => {
     handleViewChange("dashboard");
+  };
+
+  useEffect(() => {
+    if (!hasPendingChanges) return;
+
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [hasPendingChanges]);
+
+  const sectionLabels: Record<string, string> = {
+    agregados: 'Agregados',
+    silos: 'Silos',
+    aditivos: 'Aditivos',
+    diesel: 'Diesel',
+    aceites: 'Aceites y Productos',
+    utilidades: 'Utilidades',
+    'petty-cash': 'Petty Cash',
   };
 
   const handleChangePlant = () => {
@@ -215,15 +248,29 @@ function AppContent() {
 
         <div className="flex-1 overflow-y-auto">
           {currentView === "section" && currentSection && (
-            <div className="sticky top-0 z-30 border-b border-[#D4D2CF] bg-white/95 px-3 py-2 shadow-sm backdrop-blur lg:hidden">
+            <div className="sticky top-0 z-30 border-b border-[#D4D2CF] bg-white/95 px-3 py-2 shadow-sm backdrop-blur sm:px-6">
+              <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
                 onClick={handleBackToDashboard}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#2475C7] bg-white px-4 py-2 font-semibold text-[#2475C7]"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#2475C7] bg-white px-4 py-2 font-semibold text-[#2475C7] hover:bg-[#2475C7]/5 sm:w-auto"
               >
                 <span aria-hidden="true">←</span>
                 Volver al inventario
               </button>
+                <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-end">
+                  <span className="truncate text-sm font-semibold text-[#3B3A36]">
+                    {sectionLabels[currentSection] || 'Inventario'}
+                  </span>
+                  <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    hasPendingChanges
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {hasPendingChanges ? 'Cambios sin guardar' : 'Datos sincronizados'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
           {currentView === "dashboard" && !currentSection && (
