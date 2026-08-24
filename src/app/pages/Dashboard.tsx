@@ -714,7 +714,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                       key={section.id}
                       className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm font-medium text-amber-900"
                     >
-                      {getSectionTranslation(section.name, t)} · No configurado
+                      {getSectionTranslation(section.name, t).name} · No configurado
                     </span>
                   ))}
                 </div>
