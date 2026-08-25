@@ -9,6 +9,13 @@ assert.equal(normalizeAdditiveMeasurementMethod('TANK'), 'CURVE');
 assert.equal(normalizeAdditiveMeasurementMethod('MANUAL_QUANTITY'), 'MANUAL');
 assert.equal(interpolateAdditiveCurve(15, { 0: 0, 10: 100, 20: 300 }), 200);
 
+const manual = calculateAdditiveMeasurement({ method: 'MANUAL', capacity: 500 }, { quantity: 250 });
+assert.equal(manual.calculated_volume, 250);
+assert.equal(manual.inventory_percentage, 50);
+const manualOverCapacity = calculateAdditiveMeasurement({ method: 'MANUAL', capacity: 500 }, { quantity: 600 });
+assert.equal(manualOverCapacity.calculated_volume, 600);
+assert.equal(manualOverCapacity.inventory_percentage, 100);
+
 const excel = calculateAdditiveMeasurement({
   method: 'CYLINDER_VERTICAL',
   diameter: 64,

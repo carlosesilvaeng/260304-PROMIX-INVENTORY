@@ -127,10 +127,11 @@ export function calculateAdditiveMeasurement(
   if (method === 'MANUAL') {
     const quantity = finite(input.quantity, 'La cantidad');
     if (quantity < 0) throw new Error('La cantidad no puede ser negativa.');
+    const capacity = positive(config.capacity, 'La capacidad nominal');
     return {
       method,
       calculated_volume: quantity,
-      inventory_percentage: null,
+      inventory_percentage: Math.min(100, Math.max(0, quantity / capacity * 100)),
       uncapped_volume: quantity,
     };
   }

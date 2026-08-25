@@ -366,6 +366,11 @@ export function AdditivesConfigModal({
         }
       }
 
+      if (row.measurement_method === 'MANUAL') {
+        if (!(Number(row.capacity) > 0)) return `${label}: la capacidad nominal debe ser mayor que cero`;
+        if (!row.capacity_unit_id) return `${label}: selecciona la unidad de capacidad`;
+      }
+
       if (row.measurement_method === 'CYLINDER_VERTICAL' || row.measurement_method === 'RECTANGULAR_IBC') {
         if (!(Number(row.total_height) > 0)) return `${label}: la altura total debe ser mayor que cero`;
         if (!(Number(row.capacity) > 0)) return `${label}: la capacidad nominal debe ser mayor que cero`;
@@ -414,9 +419,9 @@ export function AdditivesConfigModal({
         length: row.measurement_method === 'RECTANGULAR_IBC' ? row.length : null,
         width: row.measurement_method === 'RECTANGULAR_IBC' ? row.width : null,
         total_height: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.total_height : null,
-        capacity: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.capacity : null,
+        capacity: ['MANUAL', 'CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.capacity : null,
         dimension_unit_id: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.dimension_unit_id : null,
-        capacity_unit_id: ['CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.capacity_unit_id : null,
+        capacity_unit_id: ['MANUAL', 'CYLINDER_VERTICAL', 'RECTANGULAR_IBC'].includes(row.measurement_method) ? row.capacity_unit_id : null,
         sort_order: index,
         is_active: row.is_active,
       }));
@@ -551,6 +556,34 @@ export function AdditivesConfigModal({
                         placeholder="Se llena desde catálogo"
                       />
                     </div>
+
+                    {row.measurement_method === 'MANUAL' && (
+                      <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <Input
+                            label="Capacidad nominal"
+                            type="number"
+                            min="0"
+                            step="any"
+                            required
+                            value={row.capacity ?? ''}
+                            onChange={(event) => updateRow(index, {
+                              capacity: event.target.value === '' ? null : Number(event.target.value),
+                            })}
+                          />
+                          <Select
+                            label="Unidad de capacidad"
+                            value={row.capacity_unit_id || ''}
+                            onChange={(event) => updateRow(index, { capacity_unit_id: event.target.value })}
+                            options={capacityUnitOptions}
+                            required
+                          />
+                        </div>
+                        <p className="mt-3 text-xs text-[#5F6773]">
+                          La cantidad manual se registrará en esta unidad y se comparará con la capacidad nominal para calcular el porcentaje disponible.
+                        </p>
+                      </div>
+                    )}
 
                     {row.measurement_method !== 'MANUAL' && (
                     <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">

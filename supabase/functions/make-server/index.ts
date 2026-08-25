@@ -2272,13 +2272,24 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
         };
 
         if (measurementMethod === 'MANUAL') {
+          const capacityUnit = requireUnit(unitsById, additive.capacity_unit_id, catalogAdditive.nombre);
+          if (!['capacity', 'volume'].includes(capacityUnit.category_id)) {
+            throw new Error(`${catalogAdditive.nombre}: la unidad de capacidad debe ser de volumen o capacidad.`);
+          }
+          calculateAdditiveMeasurement({
+            method: measurementMethod,
+            capacity: additive.capacity,
+          }, { quantity: 0 });
+
           return {
             ...baseRow,
             calibration_curve_name: null,
             reading_uom: null,
             conversion_table: null,
-            diameter: null, length: null, width: null, total_height: null, capacity: null,
-            dimension_unit_id: null, capacity_unit_id: null,
+            diameter: null, length: null, width: null, total_height: null,
+            capacity: additive.capacity,
+            dimension_unit_id: null,
+            capacity_unit_id: capacityUnit.id,
           };
         }
 
@@ -3542,6 +3553,9 @@ app.post("/make-server/inventory/additives", async (c) => {
       if (!config) {
         throw new Error(`${e.product_name || 'Aditivo'}: configuración inexistente o ajena a la planta.`);
       }
+      if (config.requires_photo && !String(e.photo_url || '').trim()) {
+        throw new Error(`${config.additive_name}: la foto es requerida.`);
+      }
       const method = normalizeAdditiveMeasurementMethod(
         config.measurement_method || (String(config.additive_type).toUpperCase() === 'TANK' ? 'CURVE' : 'MANUAL'),
       );
@@ -3551,7 +3565,9 @@ app.post("/make-server/inventory/additives", async (c) => {
         config.id,
       );
       const captureUnitId = effective?.capture_unit_id || config.dimension_unit_id || config.reading_uom || 'in';
-      const calculationUnitId = effective?.calculation_unit_id || config.capacity_unit_id || 'gal_us';
+      const calculationUnitId = method === 'MANUAL'
+        ? config.capacity_unit_id
+        : effective?.calculation_unit_id || config.capacity_unit_id || 'gal_us';
       const displayUnitId = effective?.display_unit_id || calculationUnitId;
       const inventoryUnitId = effective?.inventory_unit_id || calculationUnitId;
       const readingValue = Number(e.reading_value ?? e.reading);
@@ -3566,7 +3582,11 @@ app.post("/make-server/inventory/additives", async (c) => {
           conversion_table: config.conversion_table,
         }, { reading: readingValue });
       } else if (method === 'MANUAL') {
-        measurement = calculateAdditiveMeasurement({ method }, { quantity: e.quantity });
+        requireUnit(unitsById, config.capacity_unit_id, `${config.additive_name}: unidad de capacidad`);
+        measurement = calculateAdditiveMeasurement({
+          method,
+          capacity: config.capacity,
+        }, { quantity: e.quantity });
       } else {
         const dimensionUnit = requireUnit(unitsById, config.dimension_unit_id, config.additive_name);
         const capacityUnit = requireUnit(unitsById, config.capacity_unit_id, config.additive_name);

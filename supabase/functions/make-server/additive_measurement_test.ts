@@ -15,6 +15,17 @@ Deno.test('conserva aliases e interpolación de curva', () => {
   assertEquals(interpolateAdditiveCurve(30, curve), 300);
 });
 
+Deno.test('calcula el porcentaje de una lectura manual según su capacidad', () => {
+  const half = calculateAdditiveMeasurement({ method: 'MANUAL', capacity: 500 }, { quantity: 250 });
+  assertEquals(half.calculated_volume, 250);
+  assertEquals(half.inventory_percentage, 50);
+
+  const overCapacity = calculateAdditiveMeasurement({ method: 'MANUAL', capacity: 500 }, { quantity: 600 });
+  assertEquals(overCapacity.calculated_volume, 600);
+  assertEquals(overCapacity.inventory_percentage, 100);
+  assertThrows(() => calculateAdditiveMeasurement({ method: 'MANUAL' }, { quantity: 1 }));
+});
+
 Deno.test('reproduce cilindro vertical del Excel antes del tope', () => {
   const result = calculateAdditiveMeasurement({
     method: 'CYLINDER_VERTICAL',

@@ -199,6 +199,13 @@ function getTankLevelColor(percentage: number) {
   return '#2F855A';
 }
 
+function getInventoryStatus(percentage: number | null | undefined) {
+  if (percentage === null || percentage === undefined || !Number.isFinite(percentage)) return null;
+  if (percentage <= 20) return 'Crítico';
+  if (percentage <= 40) return 'Bajo';
+  return 'Disponible';
+}
+
 function TankLevelIndicator({
   percentage,
   status,
@@ -274,7 +281,17 @@ export function AdditivesSection() {
     );
     if (method === 'CURVE') return getAdditiveTankMetrics(entry);
     if (method === 'MANUAL') {
-      return { availableVolume: Number(entry.quantity ?? 0), consumedVolume: null, volumePercentage: null, status: null };
+      const quantity = Number(entry.quantity ?? 0);
+      const capacity = Number(entry.capacity);
+      const percentage = Number.isFinite(capacity) && capacity > 0
+        ? Math.min(100, Math.max(0, quantity / capacity * 100))
+        : null;
+      return {
+        availableVolume: Number.isFinite(quantity) ? quantity : 0,
+        consumedVolume: null,
+        volumePercentage: percentage,
+        status: getInventoryStatus(percentage),
+      };
     }
     const effective = getEffectiveUnitsForEntry(entry);
     const dimensionUnit = unitCatalog.find((unit) => unit.id === entry.dimension_unit_id);
@@ -301,9 +318,7 @@ export function AdditivesSection() {
         availableVolume: displayedVolume,
         consumedVolume: null,
         volumePercentage: result.inventory_percentage,
-        status: result.inventory_percentage !== null
-          ? result.inventory_percentage <= 20 ? 'Bajo' : result.inventory_percentage <= 40 ? 'Medio' : 'Disponible'
-          : null,
+        status: getInventoryStatus(result.inventory_percentage),
       };
     } catch {
       return {
@@ -438,6 +453,8 @@ export function AdditivesSection() {
     if (method === 'MANUAL' && field === 'quantity') {
       const quantityNum = typeof value === 'string' ? parseFloat(value) : value;
       updates.quantity = hasNumericValue && !isNaN(quantityNum) ? quantityNum : null;
+      const metrics = getEntryMetrics({ ...entry, quantity: updates.quantity });
+      updates.inventory_percentage = metrics.volumePercentage;
     }
 
     updateEntry('aditivos', entryId, updates);
@@ -561,6 +578,15 @@ export function AdditivesSection() {
     // All manual items must have a quantity (can be 0, but must be set)
     for (const manual of manualEntries) {
       if (manual.quantity === null || manual.quantity === undefined || manual.quantity === '') {
+        return false;
+      }
+      if (!Number.isFinite(Number(manual.quantity)) || Number(manual.quantity) < 0) {
+        return false;
+      }
+      if (!(Number(manual.capacity) > 0) || !manual.capacity_unit_id) {
+        return false;
+      }
+      if (manual.requires_photo && !manual.photo_url) {
         return false;
       }
     }
@@ -800,7 +826,12 @@ export function AdditivesSection() {
               </p>
             </Card>
           ) : (
-            manualEntries.map((entry: any) => (
+            manualEntries.map((entry: any) => {
+              const manualMetrics = getEntryMetrics(entry);
+              const capacityUnit = unitCatalog.find((unit) => unit.id === entry.capacity_unit_id);
+              const capacityUnitLabel = capacityUnit?.symbol || capacityUnit?.code || entry.capacity_unit_id || entry.uom;
+
+              return (
               <Card key={entry.id} className="p-6">
                 <div className="space-y-4">
                   {/* HEADER */}
@@ -825,12 +856,13 @@ export function AdditivesSection() {
                   {/* QUANTITY */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <NumericInput
-                      label={`Cantidad (${entry.uom})`}
+                      label={`Cantidad (${capacityUnitLabel})`}
                       value={entry.quantity ?? ''}
                       onValueChange={(val) => handleFieldChange(entry.id, 'quantity', val)}
                       placeholder="0"
                       required
-                      helpText="Ingresa la cantidad disponible. Si no hay, ingresa 0."
+                      min={0}
+                      helpText={`Ingresa la cantidad disponible. Capacidad máxima de referencia: ${entry.capacity} ${capacityUnitLabel}.`}
                     />
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
@@ -838,12 +870,29 @@ export function AdditivesSection() {
                       </label>
                       <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                         <span className="text-[#3B3A36] font-semibold">
-                          {entry.uom}
+                          {capacityUnitLabel}
                         </span>
                       </div>
                       <p className="text-xs text-[#5F6773] mt-1">
                         Unidad predefinida por configuración
                       </p>
+                    </div>
+                  </div>
+
+                  {/* PHOTO AND CAPACITY LEVEL */}
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+                    <PhotoCapture
+                      label="Foto del inventario"
+                      required={entry.requires_photo}
+                      currentPhoto={entry.photo_url}
+                      onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
+                      fit="contain"
+                    />
+                    <div className="pt-8">
+                      <TankLevelIndicator
+                        percentage={manualMetrics.volumePercentage}
+                        status={manualMetrics.status}
+                      />
                     </div>
                   </div>
 
@@ -862,7 +911,8 @@ export function AdditivesSection() {
                   </div>
                 </div>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
       )}
