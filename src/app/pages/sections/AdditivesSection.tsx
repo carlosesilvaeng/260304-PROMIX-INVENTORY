@@ -209,9 +209,11 @@ function getInventoryStatus(percentage: number | null | undefined) {
 function TankLevelIndicator({
   percentage,
   status,
+  capacityLabel,
 }: {
   percentage: number | null | undefined;
   status: string | null | undefined;
+  capacityLabel?: string;
 }) {
   const safePercentage = clampPercentage(percentage);
   const fillColor = getTankLevelColor(safePercentage);
@@ -230,6 +232,11 @@ function TankLevelIndicator({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#3B3A36]">Nivel del tanque</p>
+          {capacityLabel && (
+            <p className="mt-1 text-sm text-[#5F6773]">
+              <span className="font-semibold text-[#3B3A36]">Capacidad nominal:</span> {capacityLabel}
+            </p>
+          )}
           <p className="mt-1 text-2xl font-bold text-[#3B3A36]">{formatNumber(safePercentage)}%</p>
           <p className="mt-2 truncate text-sm font-semibold" style={{ color: fillColor }}>
             {status || '-'}
@@ -892,6 +899,7 @@ export function AdditivesSection() {
                       <TankLevelIndicator
                         percentage={manualMetrics.volumePercentage}
                         status={manualMetrics.status}
+                        capacityLabel={`${entry.capacity} ${capacityUnitLabel}`}
                       />
                     </div>
                   </div>
