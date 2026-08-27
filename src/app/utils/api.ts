@@ -384,6 +384,21 @@ export async function updatePlantMeasurementConfigs(
   return apiRequest(`/plants/${plantId}/measurement-configs`, 'PUT', { configs });
 }
 
+export interface PlantPettyCashConfigUpdate {
+  plant_id: string;
+  config_id: string;
+  monthly_amount: number;
+  initial_amount: number;
+  updated_inventory_count: number;
+}
+
+export async function updatePlantPettyCashConfig(
+  plantId: string,
+  amount: number,
+): Promise<ApiResponse<PlantPettyCashConfigUpdate>> {
+  return apiRequest(`/plants/${plantId}/petty-cash-config`, 'PUT', { amount });
+}
+
 export async function getMaterialConversionFactors(params?: {
   plantId?: string;
   materialId?: string;

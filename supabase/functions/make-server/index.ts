@@ -17,7 +17,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2607081530';
+const BUILD_VERSION = '2608271616';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -1810,6 +1810,62 @@ app.delete("/make-server/plants/:plantId/layout", async (c) => {
     return c.json({ success: true, data: { layout_image_url: null } });
   } catch (error) {
     console.error("❌ Error deleting plant layout:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// PUT /plants/:plantId/petty-cash-config — update Petty Cash configuration
+app.put("/make-server/plants/:plantId/petty-cash-config", async (c) => {
+  try {
+    const user = c.get('user');
+    if (!['admin', 'super_admin'].includes(user.role)) {
+      return c.json({ success: false, error: 'Forbidden: admin role required' }, 403);
+    }
+
+    const plantId = c.req.param('plantId');
+    const body = await c.req.json();
+    const amount = Number(body.amount);
+
+    if (!Number.isFinite(amount) || amount < 0 || amount > 9999999999.99) {
+      return c.json({
+        success: false,
+        error: 'Petty Cash amount must be between 0 and 9999999999.99',
+      }, 400);
+    }
+
+    const normalizedAmount = Math.round(amount * 100) / 100;
+    const supabase = db.getSupabaseClient();
+    const { data: currentPlant } = await supabase
+      .from('plants')
+      .select('petty_cash_established')
+      .eq('id', plantId)
+      .maybeSingle();
+
+    const { data, error } = await supabase.rpc('set_plant_petty_cash_amount', {
+      p_plant_id: plantId,
+      p_amount: normalizedAmount,
+    });
+
+    if (error) throw error;
+
+    const result = Array.isArray(data) ? data[0] : data;
+    logAudit(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'PLANT_PETTY_CASH_UPDATED',
+      plant_id: plantId,
+      details: {
+        previous_amount: Number(currentPlant?.petty_cash_established) || 0,
+        new_amount: normalizedAmount,
+        updated_inventory_count: Number(result?.updated_inventory_count) || 0,
+      },
+    });
+
+    console.log(`✅ [PUT /plants/${plantId}/petty-cash-config] Updated to ${normalizedAmount} by ${user.email}`);
+    return c.json({ success: true, data: result });
+  } catch (error) {
+    console.error("❌ Error updating plant Petty Cash configuration:", error);
     return c.json({ success: false, error: error.message }, 500);
   }
 });

@@ -12,7 +12,7 @@ import { AuditPanel } from './settings/AuditPanel';
 import { CatalogsPanel } from './settings/CatalogsPanel';
 import { UnitsPanel } from './settings/UnitsPanel';
 import { DataControlPanel } from './settings/DataControlPanel';
-import { deletePlantLayoutImage, getPlantConfigurationCounts, uploadPlantLayoutImage } from '../utils/api';
+import { deletePlantLayoutImage, getPlantConfigurationCounts, updatePlantPettyCashConfig, uploadPlantLayoutImage } from '../utils/api';
 import { compressImage } from '../utils/imageCompression';
 import { AggregatesConfigModal } from '../components/AggregatesConfigModal';
 import { SilosConfigModal } from '../components/SilosConfigModal';
@@ -26,7 +26,7 @@ import { canAccessAudit, canManageModules, canManagePlantConfiguration, canManag
 
 // Build Version - Update manually when deploying
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/06/24 22:37 = Jun 24, 2026 10:37 PM
-const BUILD_VERSION = '2606242237';
+const BUILD_VERSION = '2608271616';
 
 interface PlantModuleCounts {
   aggregates: number;
@@ -57,6 +57,10 @@ export function Settings() {
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
   const [editingDiesel, setEditingDiesel] = useState<Plant | null>(null);
   const [editingProducts, setEditingProducts] = useState<Plant | null>(null);
+  const [editingPettyCash, setEditingPettyCash] = useState<Plant | null>(null);
+  const [pettyCashAmount, setPettyCashAmount] = useState('');
+  const [pettyCashSaving, setPettyCashSaving] = useState(false);
+  const [pettyCashMessage, setPettyCashMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [editingLayout, setEditingLayout] = useState<Plant | null>(null);
   const [layoutUploading, setLayoutUploading] = useState(false);
   const [layoutDeleting, setLayoutDeleting] = useState(false);
@@ -246,6 +250,45 @@ export function Settings() {
       });
     } finally {
       setExportingPlantsConfig(false);
+    }
+  };
+
+  const openPettyCashModal = (plant: Plant) => {
+    setEditingPettyCash(plant);
+    setPettyCashAmount(Number(plant.pettyCashEstablished || 0).toFixed(2));
+    setPettyCashMessage(null);
+  };
+
+  const handleSavePettyCash = async () => {
+    if (!editingPettyCash) return;
+
+    const parsedAmount = Number(pettyCashAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      setPettyCashMessage({ type: 'error', message: 'Ingresa un monto válido de cero o mayor.' });
+      return;
+    }
+
+    const normalizedAmount = Math.round(parsedAmount * 100) / 100;
+    setPettyCashSaving(true);
+    setPettyCashMessage(null);
+
+    try {
+      const response = await updatePlantPettyCashConfig(editingPettyCash.id, normalizedAmount);
+      if (!response.success) {
+        throw new Error(response.error || 'No se pudo actualizar el Petty Cash.');
+      }
+
+      await refreshPlants();
+      setEditingPettyCash(null);
+      handleSave();
+    } catch (error: any) {
+      console.error('❌ Error actualizando Petty Cash:', error);
+      setPettyCashMessage({
+        type: 'error',
+        message: error?.message || 'No se pudo actualizar el Petty Cash.',
+      });
+    } finally {
+      setPettyCashSaving(false);
     }
   };
 
@@ -551,6 +594,21 @@ export function Settings() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => openPettyCashModal(plant)}
+                              className="min-w-[104px] flex-col gap-0.5 px-2 py-2 leading-tight"
+                            >
+                              <span className="text-xl leading-none">💵</span>
+                              <span className="text-xs font-medium">Petty Cash</span>
+                              <span className="text-sm font-semibold text-[#1D6F42]">
+                                ${Number(plant.pettyCashEstablished || 0).toLocaleString('en-US', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => openLayoutModal(plant)}
                               className="min-w-[92px] flex-col gap-0.5 px-2 py-2 leading-tight"
                             >
@@ -704,6 +762,75 @@ export function Settings() {
           }}
           onClose={() => setEditingProducts(null)}
         />
+      )}
+
+      {editingPettyCash && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-start gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-[#3B3A36]">Configurar Petty Cash</h3>
+                <p className="text-sm text-[#5F6773] mt-1">{editingPettyCash.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPettyCash(null)}
+                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                aria-label="Cerrar"
+                disabled={pettyCashSaving}
+              >
+                <span className="text-2xl text-[#5F6773]">×</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {pettyCashMessage && (
+                <Alert
+                  type={pettyCashMessage.type}
+                  message={pettyCashMessage.message}
+                  onClose={() => setPettyCashMessage(null)}
+                />
+              )}
+
+              <div>
+                <label htmlFor="petty-cash-amount" className="block text-sm font-semibold text-[#3B3A36] mb-2">
+                  Fondo establecido (USD)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5F6773]">$</span>
+                  <input
+                    id="petty-cash-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={pettyCashAmount}
+                    onChange={(event) => setPettyCashAmount(event.target.value)}
+                    className="w-full rounded border border-[#9D9B9A] py-2.5 pl-8 pr-3 text-lg text-[#3B3A36] focus:border-[#2475C7] focus:outline-none focus:ring-2 focus:ring-[#2475C7]/20"
+                    disabled={pettyCashSaving}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded border border-[#B8D6F2] bg-[#EEF6FD] p-4 text-sm text-[#3B3A36]">
+                El monto nuevo aplicará a inventarios en progreso y a los futuros. Los inventarios enviados o aprobados conservarán su valor histórico.
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setEditingPettyCash(null)}
+                disabled={pettyCashSaving}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSavePettyCash} loading={pettyCashSaving}>
+                Guardar monto
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {editingLayout && (
@@ -864,11 +991,11 @@ export function Settings() {
               </div>
 
               {/* Petty Cash */}
-              {viewingPlantDetails.pettyCashAmount && (
+              {viewingPlantDetails.pettyCashEstablished >= 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-[#3B3A36] mb-2">Petty Cash</h4>
                   <p className="text-[#5F6773]">
-                    ${viewingPlantDetails.pettyCashAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${viewingPlantDetails.pettyCashEstablished.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               )}
