@@ -399,10 +399,10 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         uom: meter.uom || meter.unit || fallbackMeter.uom || fallbackMeter.unit || '',
         provider: meter.provider || fallbackMeter.provider || '',
         requires_photo: meter.requires_photo ?? fallbackMeter.requires_photo ?? true,
-        // Reading flow: previous reading comes from previous month
-        previous_reading: Number(meter.initial_reading ?? fallbackMeter.initial_reading) || 0, // Will be updated from previous month
+        // Without historical data, the first real reading becomes the baseline.
+        previous_reading: null,
         current_reading: null, // To be filled by manager (MAIN FOCUS)
-        consumption: 0, // Calculated: current - previous
+        consumption: null, // Calculated only when a previous reading exists
         // Common fields
         photo_url: null,
         notes: meter.notes || fallbackMeter.notes || '',
@@ -533,14 +533,17 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     }
 
     // UTILITIES: previous_reading = previous month's current_reading
-    if (previousMonthData.utilities && previousMonthData.utilities.length > 0) {
+    if (entries.utilities && entries.utilities.length > 0) {
+      const previousUtilities = previousMonthData.utilities || [];
       entries.utilities.forEach((entry: any) => {
+        entry.previous_reading = null;
+        entry.consumption = null;
         const entryKey = resolveUtilityConfigKey(entry);
-        const prevUtility = previousMonthData.utilities.find(
+        const prevUtility = previousUtilities.find(
           (u: any) => resolveUtilityConfigKey(u) === entryKey
         );
         if (prevUtility) {
-          entry.previous_reading = prevUtility.current_reading || 0;
+          entry.previous_reading = prevUtility.current_reading ?? null;
         }
       });
     }
@@ -923,6 +926,14 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         if (previousMonthData) {
           entries = applyCarryOver(entries, previousMonthData);
           console.log('[PlantPrefill] Applied carry-over from previous month');
+        } else if (entries.utilities && entries.utilities.length > 0) {
+          // Existing rows from the first inventory month may still contain legacy
+          // placeholder readings. With no history, the current reading is the baseline.
+          entries.utilities = entries.utilities.map((entry: any) => ({
+            ...entry,
+            previous_reading: null,
+            consumption: null,
+          }));
         }
 
         // 6. Update state

@@ -129,7 +129,6 @@ export const UTILITIES_CONFIG: PlantUtilitiesConfig[] = [
         uom: 'kWh',
         provider: 'LUMA Energy',
         requires_photo: true,
-        initial_reading: 520000,
       },
       {
         id: 'electricity_warehouse',

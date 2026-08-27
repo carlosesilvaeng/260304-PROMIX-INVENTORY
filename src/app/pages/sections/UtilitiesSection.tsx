@@ -118,13 +118,14 @@ export function UtilitiesSection() {
     if (field === 'current_reading') {
       const currentNum = typeof value === 'string' ? parseFloat(value) : value;
       if (value !== null && value !== undefined && value !== '' && !isNaN(currentNum)) {
-        const consumption = calculateUtilityConsumption(
-          currentNum,
-          utility.previous_reading || 0
-        );
-        updates.consumption = consumption;
+        const hasPreviousReading = utility.previous_reading !== null &&
+          utility.previous_reading !== undefined &&
+          utility.previous_reading !== '';
+        updates.consumption = hasPreviousReading
+          ? calculateUtilityConsumption(currentNum, Number(utility.previous_reading))
+          : null;
       } else {
-        updates.consumption = 0;
+        updates.consumption = null;
       }
     }
 
@@ -189,11 +190,14 @@ export function UtilitiesSection() {
   // ============================================================================
 
   const isUtilityComplete = (utility: any) => {
-    // Must have a current reading and it cannot go backwards
+    // The first real reading is valid as a baseline; later readings cannot go backwards.
     if (utility.current_reading === null || utility.current_reading === undefined || utility.current_reading === '') {
       return false;
     }
-    if (Number(utility.current_reading) < Number(utility.previous_reading || 0)) {
+    const hasPreviousReading = utility.previous_reading !== null &&
+      utility.previous_reading !== undefined &&
+      utility.previous_reading !== '';
+    if (hasPreviousReading && Number(utility.current_reading) < Number(utility.previous_reading)) {
       return false;
     }
     // Must have photo if required
@@ -231,7 +235,13 @@ export function UtilitiesSection() {
 
   const renderUtilityCard = (utility: any) => {
     const isComplete = isUtilityComplete(utility);
-    const hasConsumption = utility.consumption > 0;
+    const hasPreviousReading = utility.previous_reading !== null &&
+      utility.previous_reading !== undefined &&
+      utility.previous_reading !== '';
+    const hasCalculatedConsumption = hasPreviousReading &&
+      utility.consumption !== null &&
+      utility.consumption !== undefined;
+    const hasConsumption = hasCalculatedConsumption && utility.consumption > 0;
     const effectiveUtilityUnits = resolveEffectiveMeasurementConfig({
       units: unitCatalog,
       configs: measurementConfigs.filter((config) => (
@@ -292,14 +302,14 @@ export function UtilitiesSection() {
               </label>
               <div className="bg-[#F2F3F5] border-2 border-[#9D9B9A] rounded px-4 py-3 h-[50px] flex items-center">
                 <span className="text-[#5F6773] font-bold text-xl">
-                  {formatNumber(utility.previous_reading || 0)}
+                  {hasPreviousReading ? formatNumber(utility.previous_reading) : 'Sin lectura previa'}
                 </span>
-                <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
+                {hasPreviousReading && (
+                  <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
+                )}
               </div>
               <p className="text-xs text-[#5F6773] mt-1">
-                {prefillData.previousMonth 
-                  ? 'Del mes anterior' 
-                  : 'Valor inicial'}
+                {hasPreviousReading ? 'Del registro anterior' : 'La lectura actual será la base'}
               </p>
             </div>
 
@@ -339,12 +349,16 @@ export function UtilitiesSection() {
                 <span className={`font-bold text-xl ${
                   hasConsumption ? 'text-green-700' : 'text-gray-500'
                 }`}>
-                  {formatNumber(utility.consumption || 0)}
+                  {hasCalculatedConsumption ? formatNumber(utility.consumption) : 'N/A'}
                 </span>
-                <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
+                {hasCalculatedConsumption && (
+                  <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
+                )}
               </div>
               <p className="text-xs text-[#5F6773] mt-1">
-                = Actual - Anterior
+                {hasPreviousReading
+                  ? '= Actual - Anterior'
+                  : 'Primera lectura: se utilizará como base'}
               </p>
             </div>
           </div>
@@ -431,7 +445,7 @@ export function UtilitiesSection() {
               <ul className="space-y-1 text-sm text-blue-800">
                 <li className="flex items-start gap-2">
                   <span className="font-bold">1.</span>
-                  <span><strong>Lectura Anterior:</strong> Ya está precargada del mes pasado. No necesitas editarla.</span>
+                  <span><strong>Lectura Anterior:</strong> Se precarga del registro anterior. Si no existe, la lectura actual se guardará como base.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">2.</span>
@@ -439,7 +453,7 @@ export function UtilitiesSection() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">3.</span>
-                  <span><strong>Consumo:</strong> Se calcula automáticamente (Actual - Anterior)</span>
+                  <span><strong>Consumo:</strong> Se calcula automáticamente cuando existe una lectura anterior. En la primera lectura mostrará N/A.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">4.</span>

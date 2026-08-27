@@ -360,7 +360,11 @@ export function validateUtilitiesSection(entries: any[]): SectionValidationResul
       entryComplete = false;
     }
 
-    if (Number(entry.current_reading) < Number(entry.previous_reading || 0)) {
+    const hasPreviousReading = entry.previous_reading !== null &&
+      entry.previous_reading !== undefined &&
+      entry.previous_reading !== '';
+
+    if (hasPreviousReading && Number(entry.current_reading) < Number(entry.previous_reading)) {
       issues.push({
         field: `${meterLabel} - Lectura Actual`,
         message: 'La lectura actual no puede ser menor que la lectura anterior',
