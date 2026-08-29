@@ -17,7 +17,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2608271616';
+const BUILD_VERSION = '2608291200';
 // Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -1682,7 +1682,7 @@ app.get("/make-server/plants", async (c) => {
     const [{ data: allSilos }, { data: allCajones }, { data: allAggregates }] = await Promise.all([
       supabase
         .from('plant_silos_config')
-        .select('plant_id, id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, calculation_method, diameter_in, total_height_in, cone_height_in, bottom_diameter_in, cylinder_height_mode, slope_divisor_mode, reading_reference, calculation_unit_id, inventory_unit_id, material_conversion_factor_id, requires_photo, is_active, sort_order')
+        .select('plant_id, id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, calculation_method, diameter_in, total_height_in, cone_height_in, bottom_diameter_in, cylinder_height_mode, slope_divisor_mode, reading_reference, geometry_model, capacity_fraction, calculation_unit_id, inventory_unit_id, material_conversion_factor_id, requires_photo, is_active, sort_order')
         .in('plant_id', plantIds)
         .order('sort_order', { ascending: true }),
       supabase
@@ -2167,7 +2167,7 @@ app.get("/make-server/plants/:plantId/silos", async (c) => {
     const [{ data, error }, { data: allowedProducts, error: allowedProductsError }] = await Promise.all([
       supabase
       .from('plant_silos_config')
-      .select('id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, calculation_method, diameter_in, total_height_in, cone_height_in, bottom_diameter_in, cylinder_height_mode, slope_divisor_mode, reading_reference, calculation_unit_id, inventory_unit_id, material_conversion_factor_id, requires_photo, is_active, sort_order')
+      .select('id, silo_name, measurement_method, calibration_curve_name, reading_uom, conversion_table, calculation_method, diameter_in, total_height_in, cone_height_in, bottom_diameter_in, cylinder_height_mode, slope_divisor_mode, reading_reference, geometry_model, capacity_fraction, calculation_unit_id, inventory_unit_id, material_conversion_factor_id, requires_photo, is_active, sort_order')
       .eq('plant_id', plantId)
       .order('sort_order', { ascending: true }),
       supabase
@@ -3077,6 +3077,20 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
       reading_uom?: string | null;
       conversion_table?: Record<string, number> | null;
       allowed_products?: string[];
+      calculation_method?: 'CALIBRATION_CURVE' | 'GEOMETRIC_CYLINDER_CONE';
+      diameter_in?: number | null;
+      total_height_in?: number | null;
+      cone_height_in?: number | null;
+      bottom_diameter_in?: number | null;
+      cylinder_height_mode?: 'FULL_H' | 'H_MINUS_24';
+      slope_divisor_mode?: 'SLOPE_DIVISOR_H' | 'SLOPE_DIVISOR_H_MINUS_24' | 'SLOPE_DIVISOR_EFFECTIVE';
+      reading_reference?: 'FILLED_HEIGHT_INCHES' | 'EMPTY_HEIGHT_INCHES';
+      geometry_model?: 'LEGACY_LINEAR' | 'EXACT_PIECEWISE';
+      capacity_fraction?: number;
+      calculation_unit_id?: string | null;
+      inventory_unit_id?: string | null;
+      material_conversion_factor_id?: string | null;
+      requires_photo?: boolean;
     }[] = body.silos ?? [];
 
     const rows = await Promise.all(silos.map(async (s, i) => {
@@ -3109,6 +3123,8 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
           slope_divisor_mode: (s.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE') as any,
           reading_reference: (s.reading_reference || 'EMPTY_HEIGHT_INCHES') as any,
           reading_in: 0,
+          geometry_model: (s.geometry_model || 'LEGACY_LINEAR') as any,
+          capacity_fraction: Number(s.capacity_fraction ?? 1),
         });
         readingUom = 'in';
         conversionTable = null;
@@ -3131,6 +3147,8 @@ app.put("/make-server/plants/:plantId/silos", async (c) => {
         cylinder_height_mode: s.cylinder_height_mode || 'FULL_H',
         slope_divisor_mode: s.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE',
         reading_reference: s.reading_reference || 'EMPTY_HEIGHT_INCHES',
+        geometry_model: s.geometry_model || 'LEGACY_LINEAR',
+        capacity_fraction: s.capacity_fraction ?? 1,
         calculation_unit_id: s.calculation_unit_id || 'ft3',
         inventory_unit_id: s.inventory_unit_id || null,
         material_conversion_factor_id: s.material_conversion_factor_id || null,
@@ -3479,6 +3497,8 @@ app.post("/make-server/inventory/silos", async (c) => {
           slope_divisor_mode: config.slope_divisor_mode,
           reading_reference: config.reading_reference,
           reading_in: readingValue,
+          geometry_model: config.geometry_model || 'LEGACY_LINEAR',
+          capacity_fraction: Number(config.capacity_fraction ?? 1),
         });
         calculatedVolumeFt3 = geometry.calculated_volume_ft3;
         resultUnitId = config.inventory_unit_id || config.calculation_unit_id || 'ft3';
@@ -3540,6 +3560,8 @@ app.post("/make-server/inventory/silos", async (c) => {
         conversion_table: config.conversion_table,
         calculation_method: calculationMethod,
         reading_reference: config.reading_reference,
+        geometry_model: config.geometry_model || 'LEGACY_LINEAR',
+        capacity_fraction: Number(config.capacity_fraction ?? 1),
         calculated_volume_ft3: calculatedVolumeFt3 === null ? null : roundSiloResult(calculatedVolumeFt3),
         calculated_result: persistedResult,
         calculated_result_unit_id: resultUnitId,

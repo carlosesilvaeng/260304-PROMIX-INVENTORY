@@ -39,3 +39,22 @@ Deno.test('interpreta lectura vacía y rechaza dominio inválido', () => {
     ...base, total_height_in: 24, cylinder_height_mode: 'H_MINUS_24', reading_in: 1,
   }));
 });
+
+Deno.test('calcula geometría exacta por tramos y fracción de capacidad', () => {
+  const half = {
+    diameter_in: 144, total_height_in: 468, cone_height_in: 80.1499, bottom_diameter_in: 42,
+    cylinder_height_mode: 'FULL_H' as const,
+    slope_divisor_mode: 'SLOPE_DIVISOR_EFFECTIVE' as const,
+    reading_reference: 'EMPTY_HEIGHT_INCHES' as const,
+    geometry_model: 'EXACT_PIECEWISE' as const,
+    capacity_fraction: 0.5,
+  };
+  const full = calculateSiloGeometry({ ...half, reading_in: 0 });
+  assertAlmostEquals(full.calculated_volume_ft3, 2378.73, 0.02);
+  assertAlmostEquals(full.calculated_volume_ft3, full.total_volume_ft3, 0.001);
+  const transition = calculateSiloGeometry({ ...half, reading_in: 468 });
+  assertAlmostEquals(transition.calculated_volume_ft3, full.cone_volume_ft3, 0.001);
+  assertEquals(calculateSiloGeometry({ ...half, reading_in: 548.1499 }).calculated_volume_ft3, 0);
+  assertThrows(() => calculateSiloGeometry({ ...half, reading_in: 549 }));
+  assertThrows(() => calculateSiloGeometry({ ...half, capacity_fraction: 0, reading_in: 0 }));
+});

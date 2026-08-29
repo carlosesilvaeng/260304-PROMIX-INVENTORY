@@ -206,6 +206,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       cylinder_height_mode: silo.cylinder_height_mode || 'FULL_H',
       slope_divisor_mode: silo.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE',
       reading_reference: silo.reading_reference || 'EMPTY_HEIGHT_INCHES',
+      geometry_model: silo.geometry_model || 'LEGACY_LINEAR',
+      capacity_fraction: Number(silo.capacity_fraction ?? 1),
       calculation_unit_id: silo.calculation_unit_id || 'ft3',
       inventory_unit_id: silo.inventory_unit_id || null,
       material_conversion_factor_id: silo.material_conversion_factor_id || null,

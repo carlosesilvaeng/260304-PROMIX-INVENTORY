@@ -211,10 +211,12 @@ function buildAggregatesSection(config: PlantConfigPackage): SectionDefinition {
 function buildSilosSection(config: PlantConfigPackage): SectionDefinition {
   return {
     title: 'Silos',
-    headers: ['Nombre', 'Método', 'Unidad lectura', 'Curva', 'Puntos', 'Productos permitidos', 'Cómo se usa en inventario'],
+    headers: ['Nombre', 'Método', 'Modelo geométrico', 'Fracción capacidad', 'Unidad lectura', 'Curva', 'Puntos', 'Productos permitidos', 'Cómo se usa en inventario'],
     rows: (config.silos || []).map((entry: any) => [
       entry.silo_name || entry.name,
       entry.measurement_method,
+      entry.geometry_model || 'LEGACY_LINEAR',
+      entry.capacity_fraction ?? 1,
       entry.reading_uom,
       entry.calibration_curve_name || findCurveForTable(config, entry.conversion_table)?.curve_name || '-',
       getCalibrationTableSummary(entry.conversion_table),

@@ -1,4 +1,5 @@
 export type SiloCalculationMethod = 'CALIBRATION_CURVE' | 'GEOMETRIC_CYLINDER_CONE';
+export type SiloGeometryModel = 'LEGACY_LINEAR' | 'EXACT_PIECEWISE';
 export type CylinderHeightMode = 'FULL_H' | 'H_MINUS_24';
 export type SlopeDivisorMode =
   | 'SLOPE_DIVISOR_H'
@@ -15,6 +16,8 @@ export interface SiloGeometryInput {
   slope_divisor_mode: SlopeDivisorMode;
   reading_reference: SiloReadingReference;
   reading_in: number;
+  geometry_model?: SiloGeometryModel;
+  capacity_fraction?: number;
 }
 
 export interface SiloGeometryResult {
@@ -24,6 +27,9 @@ export interface SiloGeometryResult {
   slope_ft3_per_in: number;
   slope_divisor_in: number;
   effective_cylinder_height_in: number;
+  reading_limit_in: number;
+  geometry_model: SiloGeometryModel;
+  capacity_fraction: number;
   calculated_volume_ft3: number;
 }
 
@@ -39,6 +45,8 @@ export function calculateSiloGeometry(input: SiloGeometryInput): SiloGeometryRes
   const coneHeight = finite(input.cone_height_in, 'La altura del cono');
   const bottomDiameter = finite(input.bottom_diameter_in, 'El diámetro inferior');
   const reading = finite(input.reading_in, 'La lectura');
+  const capacityFraction = finite(input.capacity_fraction ?? 1, 'La fracción de capacidad');
+  const geometryModel = input.geometry_model || 'LEGACY_LINEAR';
 
   if (diameter <= 0) throw new Error('El diámetro superior debe ser mayor que cero.');
   if (height <= 0) throw new Error('La altura total debe ser mayor que cero.');
@@ -46,6 +54,9 @@ export function calculateSiloGeometry(input: SiloGeometryInput): SiloGeometryRes
   if (bottomDiameter < 0) throw new Error('El diámetro inferior no puede ser negativo.');
   if (bottomDiameter > diameter) throw new Error('El diámetro inferior no puede exceder el diámetro superior.');
   if (reading < 0) throw new Error('La lectura no puede ser negativa.');
+  if (capacityFraction <= 0 || capacityFraction > 1) {
+    throw new Error('La fracción de capacidad debe ser mayor que cero y menor o igual a 1.');
+  }
 
   const effectiveHeight = input.cylinder_height_mode === 'H_MINUS_24' ? height - 24 : height;
   if (effectiveHeight <= 0) {
@@ -58,21 +69,49 @@ export function calculateSiloGeometry(input: SiloGeometryInput): SiloGeometryRes
   if (divisor <= 0) {
     throw new Error('El divisor de pendiente debe ser mayor que cero.');
   }
-  if (reading > divisor) {
-    throw new Error(`La lectura no puede exceder ${divisor} pulgadas para esta configuración.`);
-  }
-
   const radiusFt = diameter / 24;
   const bottomRadiusFt = bottomDiameter / 24;
-  const cylinderVolume = Math.PI * radiusFt ** 2 * (effectiveHeight / 12);
-  const coneVolume = Math.PI * (coneHeight / 12)
+  const physicalCylinderVolume = Math.PI * radiusFt ** 2 * (effectiveHeight / 12);
+  const physicalConeVolume = Math.PI * (coneHeight / 12)
     * (radiusFt ** 2 + radiusFt * bottomRadiusFt + bottomRadiusFt ** 2) / 3;
+  const cylinderVolume = physicalCylinderVolume * capacityFraction;
+  const coneVolume = physicalConeVolume * capacityFraction;
   const totalVolume = cylinderVolume + coneVolume;
   const slope = cylinderVolume / divisor;
-  const referencedVolume = coneVolume + slope * reading;
-  const rawAvailable = input.reading_reference === 'EMPTY_HEIGHT_INCHES'
-    ? totalVolume - referencedVolume
-    : referencedVolume;
+
+  let readingLimit = divisor;
+  let rawAvailable: number;
+
+  if (geometryModel === 'EXACT_PIECEWISE') {
+    readingLimit = effectiveHeight + coneHeight;
+    if (reading > readingLimit) {
+      throw new Error(`La lectura no puede exceder ${readingLimit} pulgadas para esta configuración.`);
+    }
+
+    const filledHeight = input.reading_reference === 'EMPTY_HEIGHT_INCHES'
+      ? readingLimit - reading
+      : reading;
+
+    if (filledHeight <= coneHeight && coneHeight > 0) {
+      const heightRatio = filledHeight / coneHeight;
+      const filledTopRadiusFt = bottomRadiusFt + (radiusFt - bottomRadiusFt) * heightRatio;
+      rawAvailable = Math.PI * (filledHeight / 12)
+        * (bottomRadiusFt ** 2 + bottomRadiusFt * filledTopRadiusFt + filledTopRadiusFt ** 2) / 3
+        * capacityFraction;
+    } else {
+      const filledCylinderHeight = Math.max(0, filledHeight - coneHeight);
+      rawAvailable = coneVolume
+        + Math.PI * radiusFt ** 2 * (filledCylinderHeight / 12) * capacityFraction;
+    }
+  } else {
+    if (reading > divisor) {
+      throw new Error(`La lectura no puede exceder ${divisor} pulgadas para esta configuración.`);
+    }
+    const referencedVolume = coneVolume + slope * reading;
+    rawAvailable = input.reading_reference === 'EMPTY_HEIGHT_INCHES'
+      ? totalVolume - referencedVolume
+      : referencedVolume;
+  }
   const available = Math.max(0, Math.min(totalVolume, rawAvailable));
 
   return {
@@ -82,6 +121,9 @@ export function calculateSiloGeometry(input: SiloGeometryInput): SiloGeometryRes
     slope_ft3_per_in: slope,
     slope_divisor_in: divisor,
     effective_cylinder_height_in: effectiveHeight,
+    reading_limit_in: readingLimit,
+    geometry_model: geometryModel,
+    capacity_fraction: capacityFraction,
     calculated_volume_ft3: available,
   };
 }

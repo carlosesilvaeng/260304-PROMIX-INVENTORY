@@ -1307,6 +1307,8 @@ export async function updatePlantSilos(
     cylinder_height_mode?: string;
     slope_divisor_mode?: string;
     reading_reference?: string;
+    geometry_model?: 'LEGACY_LINEAR' | 'EXACT_PIECEWISE';
+    capacity_fraction?: number;
     calculation_unit_id?: string | null;
     inventory_unit_id?: string | null;
     material_conversion_factor_id?: string | null;

@@ -77,6 +77,8 @@ function getSiloVolumeMetrics(entry: any, calibrationCurves: Record<string, any>
         slope_divisor_mode: entry.slope_divisor_mode,
         reading_reference: entry.reading_reference,
         reading_in: reading,
+        geometry_model: entry.geometry_model || 'LEGACY_LINEAR',
+        capacity_fraction: Number(entry.capacity_fraction ?? 1),
       });
       return {
         sacks: geometry.calculated_volume_ft3,
@@ -351,6 +353,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
           conversion_table: entry.conversion_table || null,
           calculation_method: entry.calculation_method || 'CALIBRATION_CURVE',
           reading_reference: entry.reading_reference || null,
+          geometry_model: entry.geometry_model || 'LEGACY_LINEAR',
+          capacity_fraction: Number(entry.capacity_fraction ?? 1),
           photo_url: entry.photo_url,
           notes: entry.notes || '',
         };
@@ -485,6 +489,9 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </h3>
                   <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
                     <span>📏 {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'Geometría cilindro + cono' : 'Curva de calibración'}</span>
+                    {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' && Number(entry.capacity_fraction ?? 1) < 1 && (
+                      <span>Compartimiento: {formatNumber(Number(entry.capacity_fraction) * 100)}%</span>
+                    )}
                     <span className="font-medium text-[#2B7DE9]">
                       Lectura: {siloUnits.captureLabel || entry.reading_uom || 'nivel'} 🔒
                     </span>

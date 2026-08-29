@@ -42,6 +42,8 @@ interface SiloEntry {
   cylinder_height_mode: 'FULL_H' | 'H_MINUS_24';
   slope_divisor_mode: 'SLOPE_DIVISOR_H' | 'SLOPE_DIVISOR_H_MINUS_24' | 'SLOPE_DIVISOR_EFFECTIVE';
   reading_reference: 'FILLED_HEIGHT_INCHES' | 'EMPTY_HEIGHT_INCHES';
+  geometry_model: 'LEGACY_LINEAR' | 'EXACT_PIECEWISE';
+  capacity_fraction: number;
   calculation_unit_id?: string | null;
   inventory_unit_id?: string | null;
   material_conversion_factor_id?: string | null;
@@ -90,6 +92,8 @@ function createEmptySilo(): SiloEntry {
     cylinder_height_mode: 'FULL_H',
     slope_divisor_mode: 'SLOPE_DIVISOR_EFFECTIVE',
     reading_reference: 'EMPTY_HEIGHT_INCHES',
+    geometry_model: 'LEGACY_LINEAR',
+    capacity_fraction: 1,
     calculation_unit_id: 'ft3',
     inventory_unit_id: 'ft3',
     requires_photo: true,
@@ -222,6 +226,8 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
               cylinder_height_mode: s.cylinder_height_mode || 'FULL_H',
               slope_divisor_mode: s.slope_divisor_mode || 'SLOPE_DIVISOR_EFFECTIVE',
               reading_reference: s.reading_reference || 'EMPTY_HEIGHT_INCHES',
+              geometry_model: s.geometry_model || 'LEGACY_LINEAR',
+              capacity_fraction: Number(s.capacity_fraction ?? 1),
               calculation_unit_id: s.calculation_unit_id || 'ft3',
               inventory_unit_id: s.inventory_unit_id || 'ft3',
               material_conversion_factor_id: s.material_conversion_factor_id || null,
@@ -297,6 +303,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
         if (![silo.diameter_in, silo.total_height_in].every((value) => Number(value) > 0)) return `${label}: diámetro y altura deben ser mayores que cero`;
         if (Number(silo.cone_height_in) < 0 || Number(silo.bottom_diameter_in) < 0) return `${label}: las dimensiones del cono no pueden ser negativas`;
         if (Number(silo.bottom_diameter_in) > Number(silo.diameter_in)) return `${label}: el diámetro inferior no puede exceder el superior`;
+        if (!(Number(silo.capacity_fraction) > 0 && Number(silo.capacity_fraction) <= 1)) return `${label}: la fracción de capacidad debe estar entre 0 y 1`;
         if (!silo.inventory_unit_id) return `${label}: selecciona la unidad de inventario`;
       }
     }
@@ -333,6 +340,8 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
           cylinder_height_mode: silo.cylinder_height_mode,
           slope_divisor_mode: silo.slope_divisor_mode,
           reading_reference: silo.reading_reference,
+          geometry_model: silo.geometry_model,
+          capacity_fraction: Number(silo.capacity_fraction),
           calculation_unit_id: silo.calculation_unit_id || 'ft3',
           inventory_unit_id: silo.inventory_unit_id,
           material_conversion_factor_id: silo.material_conversion_factor_id,
@@ -653,6 +662,21 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                               { value: 'EMPTY_HEIGHT_INCHES', label: 'Altura vacía' },
                               { value: 'FILLED_HEIGHT_INCHES', label: 'Altura llena' },
                             ]} />
+                          <Select label="Modelo geométrico" value={silo.geometry_model}
+                            onChange={(e) => updateSilo(index, { geometry_model: e.target.value as SiloEntry['geometry_model'] })}
+                            options={[
+                              { value: 'LEGACY_LINEAR', label: 'Legacy lineal' },
+                              { value: 'EXACT_PIECEWISE', label: 'Exacto cilindro + cono' },
+                            ]} />
+                          <Input
+                            label="Fracción de capacidad"
+                            type="number"
+                            min="0.000001"
+                            max="1"
+                            step="0.01"
+                            value={silo.capacity_fraction}
+                            onChange={(e) => updateSilo(index, { capacity_fraction: Number(e.target.value) })}
+                          />
                           <label className="flex items-center gap-2 text-sm text-[#3B3A36]">
                             <input type="checkbox" checked={silo.requires_photo}
                               onChange={(e) => updateSilo(index, { requires_photo: e.target.checked })} />
