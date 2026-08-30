@@ -241,7 +241,18 @@ export function getUnitDisplay(
 ) {
   if (!unitId) return fallback;
   const unit = units.find((candidate) => candidate.id === unitId || candidate.code === unitId);
-  return unit?.symbol || fallback || unitId;
+  const rawLabel = unit?.symbol || fallback || unitId;
+  const operationalLabels: Record<string, string> = {
+    gallons: 'galones',
+    gallon: 'galón',
+    drums: 'tambores',
+    drum: 'tambor',
+    pails: 'pailas',
+    pail: 'paila',
+    units: 'unidades',
+    unit: 'unidad',
+  };
+  return operationalLabels[String(rawLabel).toLowerCase()] || rawLabel;
 }
 
 export function findUnitBySymbolOrId(

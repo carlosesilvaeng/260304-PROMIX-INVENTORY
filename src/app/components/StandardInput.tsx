@@ -36,6 +36,7 @@ export function StandardInput({
   helperText,
   className = '',
 }: StandardInputProps) {
+  const inputId = React.useId();
   // Determine if field is incomplete (null, undefined, or empty string)
   // Note: 0 is a VALID value
   const isIncomplete = required && (value === null || value === undefined || value === '');
@@ -66,7 +67,7 @@ export function StandardInput({
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {/* Label */}
-      <label className="flex min-h-5 items-center gap-1 text-sm font-semibold text-[#3B3A36] leading-5">
+      <label htmlFor={inputId} className="flex min-h-5 items-center gap-1 text-sm font-semibold text-[#3B3A36] leading-5">
         {label}
         {required && (
           <span className="text-red-600" title="Campo requerido">*</span>
@@ -79,6 +80,8 @@ export function StandardInput({
       {/* Input */}
       <div className="relative">
         <input
+          id={inputId}
+          aria-invalid={hasError}
           type={type === 'number' ? 'number' : 'text'}
           value={value ?? ''}
           onChange={handleChange}

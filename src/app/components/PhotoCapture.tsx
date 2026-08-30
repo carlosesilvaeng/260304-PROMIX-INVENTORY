@@ -27,6 +27,7 @@ export function PhotoCapture({
   compressionQuality = 'medium',
   fit = 'contain'
 }: PhotoCaptureProps) {
+  const inputId = React.useId();
   const { accessToken, currentPlant } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | undefined>(currentPhoto);
@@ -121,7 +122,7 @@ export function PhotoCapture({
 
   return (
     <div className="w-full">
-      <label className="block text-[#3B3A36] mb-2">
+      <label htmlFor={inputId} className="block text-[#3B3A36] mb-2">
         {label}
         {required && <span className="text-[#C94A4A] ml-1">*</span>}
       </label>
@@ -206,8 +207,11 @@ export function PhotoCapture({
             )}
           </div>
         ) : (
-          <div
+          <button
+            type="button"
             onClick={() => !busy && fileInputRef.current?.click()}
+            disabled={busy}
+            aria-label={`${label}. Toca para tomar o cargar una foto`}
             className={`
               w-full h-48
               border-2 border-dashed rounded
@@ -221,17 +225,19 @@ export function PhotoCapture({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <p className="text-[#5F6773]">Click para tomar/cargar foto</p>
+            <p className="text-[#5F6773]">Toca para tomar o cargar una foto</p>
             {compress && (
               <p className="text-xs text-[#5F6773] mt-2 px-4 text-center">
                 💡 La imagen se optimizará y guardará automáticamente
               </p>
             )}
-          </div>
+          </button>
         )}
       </div>
 
       <input
+        id={inputId}
+        aria-label={label}
         ref={fileInputRef}
         type="file"
         accept="image/*"

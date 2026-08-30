@@ -181,7 +181,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     }
 
     if (!validation?.canSubmit) {
-      setActionMessage({ type: 'error', text: 'Hay errores críticos que deben corregirse antes de enviar' });
+      setActionMessage({ type: 'error', text: 'Hay datos obligatorios pendientes antes de enviar' });
       return;
     }
 
@@ -221,7 +221,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     }
 
     if (!validation?.canApprove) {
-      setActionMessage({ type: 'error', text: 'Hay errores críticos que deben corregirse antes de aprobar' });
+      setActionMessage({ type: 'error', text: 'Hay datos obligatorios pendientes antes de aprobar' });
       return;
     }
 
@@ -484,7 +484,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
             </div>
             
             <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-              <p className="text-sm text-[#5F6773] mb-1">Errores Críticos</p>
+              <p className="text-sm text-[#5F6773] mb-1">Datos Pendientes</p>
               <p className="text-3xl font-bold text-red-600">{validation.totalCriticalIssues}</p>
             </div>
             
@@ -520,7 +520,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
           ) : (
             <div className="bg-red-50 border border-red-300 rounded p-3">
               <p className="text-red-800 font-semibold">
-                ⚠️ Hay {validation.totalCriticalIssues} errores críticos que deben corregirse antes de enviar
+                Hay {validation.totalCriticalIssues} datos obligatorios pendientes antes de enviar
               </p>
             </div>
           )}
@@ -538,8 +538,18 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
             <div className="p-4">
               {/* SECTION HEADER */}
               <div 
-                className="flex items-center justify-between cursor-pointer"
+                className="flex min-h-11 cursor-pointer items-center justify-between rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7]"
                 onClick={() => toggleSection(section.sectionId)}
+                role="button"
+                tabIndex={0}
+                aria-expanded={expandedSections.has(section.sectionId)}
+                aria-label={`${expandedSections.has(section.sectionId) ? 'Ocultar' : 'Mostrar'} pendientes de ${section.sectionName}`}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleSection(section.sectionId);
+                  }
+                }}
               >
                 <div className="flex items-center gap-3">
                   <div className="text-2xl">
@@ -551,7 +561,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                       {section.completeItems} / {section.totalItems} ítems completos
                       {section.criticalIssues > 0 && (
                         <span className="text-red-600 ml-2">
-                          • {section.criticalIssues} errores
+                          • {section.criticalIssues} pendientes
                         </span>
                       )}
                       {section.warningIssues > 0 && (
@@ -581,7 +591,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
               {/* SECTION DETAILS (EXPANDABLE) */}
               {expandedSections.has(section.sectionId) && section.issues.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-[#D4D2CF]">
-                  <h5 className="text-sm font-semibold text-[#3B3A36] mb-2">Problemas Encontrados:</h5>
+                  <h5 className="text-sm font-semibold text-[#3B3A36] mb-2">Datos que faltan o requieren atención:</h5>
                   <ul className="space-y-2">
                     {section.issues.map((issue, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
@@ -630,14 +640,14 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
               <p className="text-sm text-[#5F6773]">
                 {validation.canSubmit 
                   ? '✓ Puedes guardar como borrador o enviar a aprobación'
-                  : '⚠️ Corrige los errores antes de enviar a aprobación'}
+                  : 'Completa los datos pendientes antes de enviar a aprobación'}
               </p>
             )}
             {isSubmitted && canApprove && (
               <p className="text-sm text-[#5F6773]">
                 {validation.canApprove
                   ? '✓ Puedes aprobar o rechazar este inventario'
-                  : '⚠️ Hay errores que deben corregirse antes de aprobar'}
+                  : 'Hay datos pendientes antes de aprobar'}
               </p>
             )}
           </div>

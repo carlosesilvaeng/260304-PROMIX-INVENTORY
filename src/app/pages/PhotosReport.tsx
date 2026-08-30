@@ -349,7 +349,7 @@ export function PhotosReport() {
                       <button
                         onClick={() => setSelectedPhoto(photo)}
                         className="inline-block rounded overflow-hidden hover:ring-2 hover:ring-[#2475C7] hover:ring-offset-1 transition-all focus:outline-none focus:ring-2 focus:ring-[#2475C7]"
-                        title="Click para ver foto completa"
+                        title="Toca para ver la foto completa"
                         aria-label={`Ver foto: ${photo.section} - ${photo.item_name}`}
                       >
                         <img

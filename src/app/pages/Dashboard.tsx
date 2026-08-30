@@ -28,6 +28,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
   const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
   const [startingInventory, setStartingInventory] = React.useState(false);
+  const [confirmingStart, setConfirmingStart] = React.useState(false);
   const autoResumeKeyRef = React.useRef<string | null>(null);
 
   const MONTH_TO_NUM: Record<string, string> = {
@@ -284,7 +285,12 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
 
   const handleStartInventory = async () => {
     const targetMonth = isPlantManager ? selectedStartMonth : getYearMonthFromDate(new Date());
+    if (!existingReport && !confirmingStart) {
+      setConfirmingStart(true);
+      return;
+    }
     await openInventoryPeriod(targetMonth);
+    setConfirmingStart(false);
   };
 
   const getOverallProgress = () => {
@@ -453,7 +459,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                 </div>
               )}
             </div>
-            <Button size="lg" onClick={handleStartInventory} disabled={startingInventory}>
+            <Button size="lg" onClick={handleStartInventory} disabled={startingInventory || confirmingStart}>
               {startingInventory
                 ? 'Preparando inventario...'
                 : existingReport
@@ -466,6 +472,22 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                       { month: 'long', year: 'numeric' }
                     )}`}
             </Button>
+            {confirmingStart && !existingReport && (
+              <div className="mx-auto mt-4 max-w-md rounded-lg border border-amber-300 bg-amber-50 p-4 text-left">
+                <p className="font-semibold text-amber-900">Confirma el inicio del período</p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Al continuar se abrirá el inventario de este período en el sistema. Hazlo cuando estés listo para comenzar la captura real.
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => setConfirmingStart(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleStartInventory} disabled={startingInventory}>
+                    {startingInventory ? 'Preparando...' : 'Sí, iniciar'}
+                  </Button>
+                </div>
+              </div>
+            )}
             {existingReport && (
               <p className="text-sm text-[#5F6773] mt-3">
                 Ya existe un inventario en progreso para este periodo. Usa continuar para retomarlo.
@@ -478,14 +500,46 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-6">
       {/* Logo Header */}
       <div className="flex justify-center mb-2">
         <PromixLogo size="lg" />
       </div>
+
+      {/* Mobile-first capture checklist */}
+      <div className="space-y-3 md:hidden">
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-[#5F6773]">Progreso del inventario</p>
+              <p className="text-2xl font-bold text-[#3B3A36]">{overallProgress}%</p>
+            </div>
+            {currentInventory.status !== 'completed' && (
+              <Button size="sm" onClick={() => onNavigate('review')}>
+                Revisar pendientes
+              </Button>
+            )}
+          </div>
+          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[#F2F3F5]">
+            <div className="h-full rounded-full bg-[#2475C7]" style={{ width: `${overallProgress}%` }} />
+          </div>
+        </Card>
+        <h3 className="text-lg font-semibold text-[#3B3A36]">Selecciona una sección</h3>
+        <div className="space-y-3">
+          {activeSections.map((section) => (
+            <SectionCard
+              key={`mobile-${section.id}`}
+              title={getSectionTranslation(section.name, t)}
+              status={section.status}
+              progress={section.progress}
+              onClick={() => onNavigate('section', section.id)}
+            />
+          ))}
+        </div>
+      </div>
       
       {/* Summary Cards - First Row: Progress, Sections, Date, Status */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#2475C7]/10 rounded-lg flex items-center justify-center">
@@ -556,7 +610,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
       </div>
 
       {/* Second Row: Start Timestamp and End Timestamp */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2">
         <Card className="bg-gradient-to-br from-[#2475C7]/5 to-[#2475C7]/10 border-[#2475C7]/20">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-[#2475C7] rounded-lg flex items-center justify-center flex-shrink-0">
@@ -642,7 +696,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
       </div>
 
       {/* Progress Bar */}
-      <Card>
+      <Card className="hidden md:block">
           <h3 className="text-lg text-[#3B3A36] mb-4">{t('dashboard.inventoryProgress')}</h3>
           <div className="w-full bg-[#F2F3F5] rounded-full h-4">
             <div 
@@ -655,7 +709,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
       </Card>
 
       {/* Sections Checklist */}
-      <div>
+      <div className="hidden md:block">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl text-[#3B3A36]">{t('dashboard.checklist')}</h3>
           {currentInventory.status !== 'completed' && (
@@ -668,7 +722,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </Button>
               {isPlantManager && overallProgress < 100 && (
                 <p className="text-xs text-[#5F6773]">
-                  Revisa errores críticos y pendientes antes de enviar.
+                  Revisa los datos pendientes antes de enviar.
                 </p>
               )}
             </div>

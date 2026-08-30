@@ -58,8 +58,17 @@ export function SectionCard({ title, status, progress, onClick, children }: Sect
 
   return (
     <div 
-      className={`border-2 rounded-lg p-4 transition-all ${statusStyles[status]} ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+      className={`min-h-11 border-2 rounded-lg p-4 transition-all ${statusStyles[status]} ${onClick ? 'cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]' : ''}`}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `Abrir sección ${titleText}` : undefined}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 flex-1">

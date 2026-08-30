@@ -436,6 +436,7 @@ export function ProductsSection() {
               Notas (Opcional)
             </label>
             <textarea
+              aria-label={`Notas para ${producto.product_name}`}
               value={producto.notes || ''}
               onChange={(e) => handleFieldChange(producto, 'notes', e.target.value)}
               placeholder="Observaciones adicionales..."

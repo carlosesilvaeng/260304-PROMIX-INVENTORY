@@ -242,27 +242,30 @@ function AppContent() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar
-          onChangePlant={handleChangePlant}
-        />
+        <div className={currentView === 'section' ? 'hidden lg:block' : ''}>
+          <TopBar
+            onChangePlant={handleChangePlant}
+          />
+        </div>
 
         <div className="flex-1 overflow-y-auto">
           {currentView === "section" && currentSection && (
-            <div className="sticky top-0 z-30 border-b border-[#D4D2CF] bg-white/95 px-3 py-2 shadow-sm backdrop-blur sm:px-6">
-              <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="sticky top-0 z-30 border-b border-[#D4D2CF] bg-white/95 px-2 py-2 shadow-sm backdrop-blur sm:px-6">
+              <div className="mx-auto flex max-w-7xl items-center gap-2 sm:justify-between">
               <button
                 type="button"
                 onClick={handleBackToDashboard}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[#2475C7] bg-white px-4 py-2 font-semibold text-[#2475C7] hover:bg-[#2475C7]/5 sm:w-auto"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-[#2475C7] bg-white px-3 py-2 font-semibold text-[#2475C7] hover:bg-[#2475C7]/5 sm:flex-none"
               >
                 <span aria-hidden="true">←</span>
-                Volver al inventario
+                <span className="sm:hidden">Inventario</span>
+                <span className="hidden sm:inline">Volver al inventario</span>
               </button>
-                <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-end">
-                  <span className="truncate text-sm font-semibold text-[#3B3A36]">
+                <div className="flex min-w-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="max-w-28 truncate text-xs font-semibold text-[#3B3A36] sm:max-w-none sm:text-sm">
                     {sectionLabels[currentSection] || 'Inventario'}
                   </span>
-                  <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:py-1 sm:text-xs ${
                     hasPendingChanges
                       ? 'bg-amber-100 text-amber-800'
                       : 'bg-green-100 text-green-800'
@@ -334,6 +337,7 @@ function AppContent() {
         </div>
 
         {/* Mobile bottom navigation */}
+        {currentView !== 'section' && (
         <div className="lg:hidden bg-[#3B3A36] border-t border-[#5F6773] p-2">
           <div className={`grid gap-1 ${mobileNavItems.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
             {mobileNavItems.map((item) => (
@@ -352,6 +356,7 @@ function AppContent() {
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

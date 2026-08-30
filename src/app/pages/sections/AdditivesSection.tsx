@@ -210,13 +210,15 @@ function TankLevelIndicator({
   percentage,
   status,
   capacityLabel,
+  hasMeasurement,
 }: {
   percentage: number | null | undefined;
   status: string | null | undefined;
   capacityLabel?: string;
+  hasMeasurement: boolean;
 }) {
   const safePercentage = clampPercentage(percentage);
-  const fillColor = getTankLevelColor(safePercentage);
+  const fillColor = hasMeasurement ? getTankLevelColor(safePercentage) : '#9D9B9A';
 
   return (
     <div className="h-full min-h-[192px] rounded border border-[#9D9B9A] bg-white p-4">
@@ -237,9 +239,11 @@ function TankLevelIndicator({
               <span className="font-semibold text-[#3B3A36]">Capacidad nominal:</span> {capacityLabel}
             </p>
           )}
-          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">{formatNumber(safePercentage)}%</p>
+          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">
+            {hasMeasurement ? `${formatNumber(safePercentage)}%` : 'Pendiente'}
+          </p>
           <p className="mt-2 truncate text-sm font-semibold" style={{ color: fillColor }}>
-            {status || '-'}
+            {hasMeasurement ? (status || 'Calculado') : 'Pendiente de captura'}
           </p>
         </div>
       </div>
@@ -413,6 +417,11 @@ export function AdditivesSection() {
 
   const tankEntries = prefillData.aditivosEntries.filter((e: any) => e.additive_type === 'TANK');
   const manualEntries = prefillData.aditivosEntries.filter((e: any) => e.additive_type === 'MANUAL');
+  const visibleTab: TabType = activeTab === 'tanks' && tankEntries.length === 0 && manualEntries.length > 0
+    ? 'manual'
+    : activeTab === 'manual' && manualEntries.length === 0 && tankEntries.length > 0
+      ? 'tanks'
+      : activeTab;
 
   console.log('[AdditivesSection] Tank entries:', tankEntries);
   console.log('[AdditivesSection] Manual entries:', manualEntries);
@@ -606,7 +615,7 @@ export function AdditivesSection() {
   // ============================================================================
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-6">
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
@@ -626,7 +635,7 @@ export function AdditivesSection() {
         <button
           onClick={() => setActiveTab('tanks')}
           className={`px-6 py-3 font-semibold transition-colors ${
-            activeTab === 'tanks'
+            visibleTab === 'tanks'
               ? 'text-[#2475C7] border-b-2 border-[#2475C7]'
               : 'text-[#5F6773] hover:text-[#3B3A36]'
           }`}
@@ -636,7 +645,7 @@ export function AdditivesSection() {
         <button
           onClick={() => setActiveTab('manual')}
           className={`px-6 py-3 font-semibold transition-colors ${
-            activeTab === 'manual'
+            visibleTab === 'manual'
               ? 'text-[#2475C7] border-b-2 border-[#2475C7]'
               : 'text-[#5F6773] hover:text-[#3B3A36]'
           }`}
@@ -646,7 +655,7 @@ export function AdditivesSection() {
       </div>
 
       {/* TANK PRODUCTS */}
-      {activeTab === 'tanks' && (
+      {visibleTab === 'tanks' && (
         <div className="space-y-4">
           {tankEntries.length === 0 ? (
             <Card className="text-center py-12">
@@ -666,7 +675,7 @@ export function AdditivesSection() {
                 : method === 'RECTANGULAR_IBC' ? 'IBC RECTANGULAR' : 'CURVA';
 
               return (
-              <Card key={entry.id} className="p-6">
+              <Card key={entry.id} className="p-4 sm:p-6">
                 <div className="space-y-4">
                   {/* HEADER */}
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -769,7 +778,7 @@ export function AdditivesSection() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
-                        Status
+                        Estado
                       </label>
                       <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
                         <span className="text-[#3B3A36] font-bold truncate">
@@ -796,6 +805,7 @@ export function AdditivesSection() {
                         <TankLevelIndicator
                           percentage={tankMetrics.volumePercentage}
                           status={tankMetrics.status}
+                          hasMeasurement={entry.reading_value !== null && entry.reading_value !== undefined && entry.reading_value !== ''}
                         />
                       </div>
                     </div>
@@ -807,6 +817,7 @@ export function AdditivesSection() {
                       Notas (Opcional)
                     </label>
                     <textarea
+                      aria-label={`Notas para ${entry.tank_name || entry.product_name}`}
                       value={entry.notes || ''}
                       onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                       placeholder="Observaciones adicionales..."
@@ -823,7 +834,7 @@ export function AdditivesSection() {
       )}
 
       {/* MANUAL PRODUCTS */}
-      {activeTab === 'manual' && (
+      {visibleTab === 'manual' && (
         <div className="space-y-4">
           {manualEntries.length === 0 ? (
             <Card className="text-center py-12">
@@ -836,10 +847,10 @@ export function AdditivesSection() {
             manualEntries.map((entry: any) => {
               const manualMetrics = getEntryMetrics(entry);
               const capacityUnit = unitCatalog.find((unit) => unit.id === entry.capacity_unit_id);
-              const capacityUnitLabel = capacityUnit?.symbol || capacityUnit?.code || entry.capacity_unit_id || entry.uom;
+              const capacityUnitLabel = capacityUnit?.name_es || capacityUnit?.symbol || capacityUnit?.code || entry.capacity_unit_id || entry.uom;
 
               return (
-              <Card key={entry.id} className="p-6">
+              <Card key={entry.id} className="p-4 sm:p-6">
                 <div className="space-y-4">
                   {/* HEADER */}
                   <div className="flex items-start justify-between">
@@ -900,6 +911,7 @@ export function AdditivesSection() {
                         percentage={manualMetrics.volumePercentage}
                         status={manualMetrics.status}
                         capacityLabel={`${entry.capacity} ${capacityUnitLabel}`}
+                        hasMeasurement={entry.quantity !== null && entry.quantity !== undefined && entry.quantity !== ''}
                       />
                     </div>
                   </div>
@@ -910,6 +922,7 @@ export function AdditivesSection() {
                       Notas (Opcional)
                     </label>
                     <textarea
+                      aria-label={`Notas para ${entry.product_name}`}
                       value={entry.notes || ''}
                       onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                       placeholder="Observaciones adicionales..."

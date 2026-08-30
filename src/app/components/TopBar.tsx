@@ -50,7 +50,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
         onClick={logout}
         aria-label={t('topbar.logout')}
         title={t('topbar.logout')}
-        className="absolute right-2 top-2 z-10 h-9 w-9 rounded-full p-0 shadow-lg sm:right-4 sm:top-4 sm:h-11 sm:w-11 lg:static lg:h-auto lg:w-auto lg:rounded lg:px-3 lg:py-1.5 lg:shadow-none"
+        className="absolute right-2 top-2 z-10 h-11 w-11 rounded-full p-0 shadow-lg sm:right-4 sm:top-4 lg:static lg:h-auto lg:w-auto lg:rounded lg:px-3 lg:py-1.5 lg:shadow-none"
       >
         <Power className="h-4 w-4" />
         <span className="hidden lg:inline">{t('topbar.logout')}</span>
@@ -90,7 +90,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
           )}
           
           {(isPlantManagerLike(user?.role) || currentPlant) && (
-            <Button variant="ghost" size="sm" onClick={onChangePlant} className="self-start px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm">
+            <Button variant="ghost" size="sm" onClick={onChangePlant} className="self-start px-2 text-xs sm:px-3 sm:text-sm">
               {t('topbar.changePlant')}
             </Button>
           )}
@@ -102,7 +102,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
           <div className="flex items-center gap-2 bg-[#F2F3F5] rounded-lg p-1">
             <button
               onClick={() => setLanguage('es')}
-              className={`px-2 py-0.5 rounded text-xs font-medium transition-all sm:px-3 sm:py-1 sm:text-sm ${
+              className={`min-h-11 min-w-11 px-2 py-1 rounded text-xs font-medium transition-all sm:px-3 sm:text-sm ${
                 language === 'es'
                   ? 'bg-[#2475C7] text-white'
                   : 'text-[#5F6773] hover:text-[#3B3A36]'
@@ -112,7 +112,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
             </button>
             <button
               onClick={() => setLanguage('en')}
-              className={`px-2 py-0.5 rounded text-xs font-medium transition-all sm:px-3 sm:py-1 sm:text-sm ${
+              className={`min-h-11 min-w-11 px-2 py-1 rounded text-xs font-medium transition-all sm:px-3 sm:text-sm ${
                 language === 'en'
                   ? 'bg-[#2475C7] text-white'
                   : 'text-[#5F6773] hover:text-[#3B3A36]'

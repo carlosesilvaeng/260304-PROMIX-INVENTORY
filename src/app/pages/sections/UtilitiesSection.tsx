@@ -321,6 +321,7 @@ export function UtilitiesSection() {
               </label>
               <div className="relative">
                 <NumericInput
+                  aria-label={`Lectura actual de ${utility.meter_name}`}
                   value={utility.current_reading ?? ''}
                   onValueChange={(val) => handleFieldChange(utility, 'current_reading', val)}
                   placeholder="Ingresa lectura..."
@@ -402,6 +403,7 @@ export function UtilitiesSection() {
               Notas (Opcional)
             </label>
             <textarea
+              aria-label={`Notas para ${utility.meter_name}`}
               value={utility.notes || ''}
               onChange={(e) => handleFieldChange(utility, 'notes', e.target.value)}
               placeholder="Observaciones adicionales..."
@@ -419,7 +421,7 @@ export function UtilitiesSection() {
   // ============================================================================
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-6">
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>

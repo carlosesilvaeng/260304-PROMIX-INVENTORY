@@ -404,12 +404,12 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         {/* Aggregates List */}
         <div className="space-y-4">
           {prefillData.agregadosEntries.map((entry, index) => (
-            <Card key={entry.id} className="p-6">
+            <Card key={entry.id} className="p-4 sm:p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-[#1A1D1F]">
-                    {entry.aggregate_name}
+                    Agregado #{index + 1} · {entry.material_type || 'Material sin nombre'}
                   </h3>
                   <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
                     <span>📦 {entry.material_type}</span>
@@ -531,6 +531,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   Notas / Observaciones
                 </label>
                 <textarea
+                  aria-label={`Notas para agregado ${index + 1}`}
                   value={entry.notes || ''}
                   onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                   placeholder="Observaciones opcionales..."
@@ -541,11 +542,9 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
               {/* Photo Capture */}
               <div className="mt-4">
-                <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
-                  Evidencia Fotográfica *
-                </label>
                 <PhotoCapture
-                  label=""
+                  label="Evidencia fotográfica"
+                  required
                   onPhotoCapture={(photo) => handleFieldChange(entry.id, 'photo_url', photo)}
                   currentPhoto={entry.photo_url}
                   fit="contain"
@@ -565,7 +564,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
             <Button
               variant="dangerOutline"
               onClick={() => onBack?.()}
-              className="w-full sm:w-auto"
+              className="hidden w-full sm:inline-flex sm:w-auto"
             >
               Salir
             </Button>

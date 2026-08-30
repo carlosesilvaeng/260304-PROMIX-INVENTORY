@@ -130,6 +130,13 @@ export function PettyCashSection() {
       return;
     }
 
+    const hasDraftData = pettyCash.receipts !== null && pettyCash.receipts !== undefined ||
+      pettyCash.cash !== null && pettyCash.cash !== undefined || !!pettyCash.photo_url;
+    if (!hasDraftData) {
+      setSaveMessage({ type: 'error', text: 'Ingresa al menos un dato antes de guardar un borrador.' });
+      return;
+    }
+
     setSaving(true);
     setSaveMessage(null);
 
@@ -195,17 +202,21 @@ export function PettyCashSection() {
 
   const status = getPettyCashStatus(pettyCash.difference ?? pettyCash.established_amount);
   const complete = isComplete();
+  const hasAnyCapturedData = pettyCash.receipts !== null && pettyCash.receipts !== undefined ||
+    pettyCash.cash !== null && pettyCash.cash !== undefined || !!pettyCash.photo_url;
+  const hasBothAmounts = pettyCash.receipts !== null && pettyCash.receipts !== undefined && pettyCash.receipts !== '' &&
+    pettyCash.cash !== null && pettyCash.cash !== undefined && pettyCash.cash !== '';
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-6">
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Petty Cash</h2>
+          <h2 className="text-2xl font-bold text-[#3B3A36]">Caja chica</h2>
           <p className="text-[#5F6773]">Control de Efectivo y Recibos</p>
         </div>
         <div className="text-sm text-[#5F6773]">
@@ -227,7 +238,7 @@ export function PettyCashSection() {
               <ul className="space-y-1 text-sm text-blue-800">
                 <li className="flex items-start gap-2">
                   <span className="font-bold">1.</span>
-                  <span><strong>Petty Cash Establecido:</strong> Este es el monto fijo que debe mantenerse. No puedes editarlo.</span>
+                  <span><strong>Fondo establecido:</strong> Este es el monto fijo que debe mantenerse. No puedes editarlo.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-bold">2.</span>
@@ -259,13 +270,13 @@ export function PettyCashSection() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-[#5F6773] mb-1">
-                  Petty Cash Establecido (No Editable)
+                  Fondo establecido (no editable)
                 </p>
                 <p className="text-4xl font-bold text-[#2475C7]">
                   {formatCurrency(pettyCash.established_amount)}
                 </p>
                 <p className="text-xs text-[#5F6773] mt-1">
-                  Este es el monto fijo que debe mantenerse en Petty Cash
+                  Este es el monto fijo que debe mantenerse en la caja chica
                 </p>
               </div>
               <div className="text-6xl">💰</div>
@@ -314,35 +325,38 @@ export function PettyCashSection() {
 
             {/* DIFFERENCE */}
             <div className={`rounded-lg p-6 border-2 ${
-              status.status === 'CORRECT'
+              !hasBothAmounts
+                ? 'bg-slate-50 border-slate-300'
+                : status.status === 'CORRECT'
                 ? 'bg-green-50 border-green-300'
                 : status.status === 'SHORT'
                   ? 'bg-red-50 border-red-300'
                   : 'bg-orange-50 border-orange-300'
             }`}>
               <p className="text-sm font-semibold text-[#5F6773] mb-2">
-                {status.label}
+                {hasBothAmounts ? status.label : 'Diferencia'}
               </p>
               <p className={`text-4xl font-bold ${status.color}`}>
-                {formatCurrency(Math.abs(pettyCash.difference ?? pettyCash.established_amount))}
+                {hasBothAmounts ? formatCurrency(Math.abs(pettyCash.difference ?? 0)) : 'Pendiente'}
               </p>
               <p className="text-xs text-[#5F6773] mt-2">
-                {status.status === 'CORRECT' && '✓ El Petty Cash cuadra perfecto'}
-                {status.status === 'SHORT' && '⚠️ Falta dinero para alcanzar el monto establecido'}
-                {status.status === 'OVER' && '⚠️ Hay más dinero del establecido'}
+                {!hasBothAmounts && 'Ingresa recibos y efectivo para calcularla'}
+                {hasBothAmounts && status.status === 'CORRECT' && '✓ La caja chica cuadra correctamente'}
+                {hasBothAmounts && status.status === 'SHORT' && '⚠️ Falta dinero para alcanzar el monto establecido'}
+                {hasBothAmounts && status.status === 'OVER' && '⚠️ Hay más dinero del establecido'}
               </p>
             </div>
           </div>
 
           {/* VISUAL INDICATOR */}
-          {status.status !== 'CORRECT' && (
+          {hasBothAmounts && status.status !== 'CORRECT' && (
             <Card className="bg-yellow-50 border-yellow-300">
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="text-2xl">⚠️</div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-yellow-900 mb-1">
-                      Atención: El Petty Cash no cuadra
+                      Atención: La caja chica no cuadra
                     </p>
                     <p className="text-sm text-yellow-800">
                       {status.status === 'SHORT' && (
@@ -372,6 +386,7 @@ export function PettyCashSection() {
               Notas / Comentarios (Opcional)
             </label>
             <textarea
+              aria-label="Notas sobre la caja chica"
               value={pettyCash.notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
               placeholder="Explica cualquier discrepancia, gastos importantes, o situaciones especiales..."
@@ -379,7 +394,7 @@ export function PettyCashSection() {
               rows={3}
             />
             <p className="text-xs text-[#5F6773] mt-1">
-              Si el Petty Cash no cuadra, explica aquí la razón
+              Si la caja chica no cuadra, explica aquí la razón
             </p>
           </div>
         </div>
@@ -410,23 +425,23 @@ export function PettyCashSection() {
           )}
           {complete && status.status === 'CORRECT' && (
             <span className="text-green-600">
-              ✓ El Petty Cash está completo y cuadra perfecto
+              ✓ La caja chica está completa y cuadra correctamente
             </span>
           )}
           {complete && status.status !== 'CORRECT' && (
             <span className="text-yellow-600">
-              ⚠️ El Petty Cash está completo pero no cuadra - Verifica los montos
+              ⚠️ La caja chica está completa pero no cuadra - Verifica los montos
             </span>
           )}
         </div>
         <Button 
           variant="success"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !hasAnyCapturedData}
           size="lg"
           className="w-full sm:min-w-[200px] sm:w-auto"
         >
-          {saving ? 'Guardando...' : 'Guardar Petty Cash'}
+          {saving ? 'Guardando...' : complete ? 'Guardar caja chica' : 'Guardar borrador'}
         </Button>
       </div>
     </div>

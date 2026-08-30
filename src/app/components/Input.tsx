@@ -9,16 +9,21 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export function Input({ label, error, helperText, helpText, className = '', ...props }: InputProps) {
   const resolvedHelperText = helperText ?? helpText;
+  const generatedId = React.useId();
+  const inputId = props.id || generatedId;
 
   return (
     <div className="w-full">
       {label && (
-        <label className="flex min-h-5 items-center text-[#3B3A36] mb-1.5 leading-5">
+        <label htmlFor={inputId} className="flex min-h-5 items-center text-[#3B3A36] mb-1.5 leading-5">
           {label}
           {props.required && <span className="text-[#C94A4A] ml-1">*</span>}
         </label>
       )}
       <input
+        id={inputId}
+        aria-invalid={!!error}
+        aria-label={!label ? props['aria-label'] : undefined}
         className={`
           w-full px-4 py-2.5 
           bg-white

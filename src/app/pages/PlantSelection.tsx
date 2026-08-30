@@ -36,18 +36,18 @@ export function PlantSelection() {
   return (
     <div className="min-h-screen bg-[#F2F3F5]">
       {/* Header */}
-      <div className="bg-[#3B3A36] text-white p-4 shadow-md">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-[#2475C7]">{t('login.title')}</h1>
-            <span className="text-sm opacity-80">{t('login.subtitle')}</span>
+      <div className="bg-[#3B3A36] px-3 py-3 text-white shadow-md sm:p-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+            <h1 className="shrink-0 text-xl font-bold text-[#2475C7] sm:text-2xl">{t('login.title')}</h1>
+            <span className="truncate text-xs opacity-80 sm:text-sm">{t('login.subtitle')}</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">
             {/* Language Selector */}
             <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
               <button
                 onClick={() => setLanguage('es')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                className={`min-h-11 min-w-11 rounded px-2 py-1 text-sm font-medium transition-all sm:px-3 ${
                   language === 'es'
                     ? 'bg-[#2475C7] text-white'
                     : 'text-white/70 hover:text-white'
@@ -57,7 +57,7 @@ export function PlantSelection() {
               </button>
               <button
                 onClick={() => setLanguage('en')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
+                className={`min-h-11 min-w-11 rounded px-2 py-1 text-sm font-medium transition-all sm:px-3 ${
                   language === 'en'
                     ? 'bg-[#2475C7] text-white'
                     : 'text-white/70 hover:text-white'
@@ -67,9 +67,9 @@ export function PlantSelection() {
               </button>
             </div>
             
-            <div className="text-right">
-              <p className="text-sm">{user?.name}</p>
-              <p className="text-xs opacity-70">
+            <div className="min-w-0 flex-1 text-right sm:flex-none">
+              <p className="truncate text-sm">{user?.name}</p>
+              <p className="truncate text-xs opacity-70">
                 {user && getRoleLabel(user.role)}
               </p>
             </div>
@@ -81,13 +81,13 @@ export function PlantSelection() {
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="mx-auto max-w-6xl p-4 sm:p-6">
         {/* Logo Header */}
         <div className="flex justify-center mb-6">
           <PromixLogo size="lg" />
         </div>
         
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <h2 className="text-2xl text-[#3B3A36] mb-2">{t('plantSelection.title')}</h2>
           <p className="text-[#5F6773]">{t('plantSelection.description')}</p>
         </div>
@@ -114,9 +114,9 @@ export function PlantSelection() {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             {availablePlants.map((plant) => (
-              <Card key={plant.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
+              <Card key={plant.id} className="group p-4 transition-shadow hover:shadow-lg sm:p-6">
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
                     <div>

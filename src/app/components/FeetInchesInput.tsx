@@ -42,6 +42,7 @@ export function FeetInchesInput({
   error,
   helperText,
 }: FeetInchesInputProps) {
+  const fieldId = React.useId();
   const [feetRaw, setFeetRaw] = useState(() => getRawParts(value).feet);
   const [inchesRaw, setInchesRaw] = useState(() => getRawParts(value).inches);
 
@@ -81,13 +82,15 @@ export function FeetInchesInput({
 
   return (
     <div className="w-full">
-      <label className="mb-1.5 flex min-h-5 items-center text-[#3B3A36] leading-5">
+      <span id={`${fieldId}-label`} className="mb-1.5 flex min-h-5 items-center text-[#3B3A36] leading-5">
         {label}
         {required && <span className="ml-1 text-[#C94A4A]">*</span>}
-      </label>
+      </span>
       <div className="grid grid-cols-2 gap-2">
         <div className="relative">
           <input
+            aria-labelledby={`${fieldId}-label`}
+            aria-label={`${label}, pies`}
             type="text"
             inputMode="numeric"
             value={feetRaw}
@@ -102,6 +105,8 @@ export function FeetInchesInput({
         </div>
         <div className="relative">
           <input
+            aria-labelledby={`${fieldId}-label`}
+            aria-label={`${label}, pulgadas`}
             type="text"
             inputMode="decimal"
             value={inchesRaw}

@@ -37,6 +37,7 @@ function TankLevelGraphic({
   readingUom,
   calibrationTable,
   plantName,
+  hasMeasurement,
 }: {
   reading: number;
   calculatedGallons: number;
@@ -44,6 +45,7 @@ function TankLevelGraphic({
   readingUom: string;
   calibrationTable: Record<string, number> | null | undefined;
   plantName?: string;
+  hasMeasurement: boolean;
 }) {
   const depthRange = getCalibrationDepthRange(calibrationTable);
   const maxDepth = depthRange.max || 1;
@@ -86,13 +88,13 @@ function TankLevelGraphic({
         <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">Volumen actual</p>
           <p className="mt-2 text-2xl font-bold text-[#2F4052]">
-            {formatNumber(Number(calculatedGallons || 0))} GAL
+            {hasMeasurement ? `${formatNumber(Number(calculatedGallons || 0))} GAL` : 'Pendiente'}
           </p>
         </div>
         <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">% de llenado</p>
           <p className="mt-2 text-2xl font-bold text-[#2F4052]">
-            {volumePercent.toFixed(1)}%
+            {hasMeasurement ? `${volumePercent.toFixed(1)}%` : 'Pendiente'}
           </p>
         </div>
       </div>
@@ -276,6 +278,11 @@ export function DieselSection() {
       return;
     }
 
+    if (!isValid() && !isDraft()) {
+      setSaveMessage({ type: 'error', text: 'Ingresa una lectura, una compra o una foto antes de guardar un borrador.' });
+      return;
+    }
+
     setSaving(true);
     setSaveMessage(null);
 
@@ -350,20 +357,24 @@ export function DieselSection() {
   };
 
   const isDraft = () => {
-    // Has some data but not complete
-    return Number(diesel.reading_inches) > 0 || Number(diesel.purchases_gallons) > 0;
+    // An explicit zero is still a captured value.
+    return diesel.reading_inches !== null && diesel.reading_inches !== undefined && diesel.reading_inches !== '' ||
+      diesel.purchases_gallons !== null && diesel.purchases_gallons !== undefined && diesel.purchases_gallons !== '' ||
+      !!diesel.photo_url || !!String(diesel.notes || '').trim();
   };
 
   const numericReading = Number(diesel.reading_inches ?? diesel.reading ?? 0) || 0;
   const numericCalculatedGallons = Number(diesel.calculated_gallons ?? diesel.ending_inventory ?? 0) || 0;
   const numericTankCapacity = Number(diesel.tank_capacity_gallons ?? 0) || 0;
+  const hasDieselReading = diesel.reading_inches !== null && diesel.reading_inches !== undefined && diesel.reading_inches !== '' &&
+    (Number(diesel.reading_inches) !== 0 || !!diesel.photo_url);
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-6">
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
@@ -415,6 +426,7 @@ export function DieselSection() {
             readingUom={dieselUnits.captureLabel || diesel.reading_uom || 'inches'}
             calibrationTable={diesel.calibration_table}
             plantName={currentPlant?.name}
+            hasMeasurement={hasDieselReading}
           />
 
           {/* PREVIOUS MONTH CARRY-OVER */}
@@ -490,14 +502,14 @@ export function DieselSection() {
                   </p>
                   <p className="text-xs text-[#5F6773] mt-1">- Inventario Final</p>
                   <p className="text-2xl font-bold text-orange-600">
-                    -{formatNumber(diesel.ending_inventory || 0)}
+                    {hasDieselReading ? `-${formatNumber(diesel.ending_inventory || 0)}` : 'Pendiente'}
                   </p>
                 </div>
               </div>
               <div className="bg-[#2475C7] text-white rounded-lg p-4 flex flex-col items-center justify-center">
                 <p className="text-sm font-semibold mb-2">Consumo Calculado</p>
                 <p className="text-4xl font-bold">
-                  {formatNumber(diesel.consumption_gallons || 0)}
+                  {hasDieselReading ? formatNumber(diesel.consumption_gallons || 0) : 'Pendiente'}
                 </p>
                 <p className="text-sm mt-1">{dieselUnits.displayLabel || 'galones'}</p>
               </div>
@@ -523,6 +535,7 @@ export function DieselSection() {
               Notas (Opcional)
             </label>
             <textarea
+              aria-label="Notas sobre el inventario de diésel"
               value={diesel.notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
               placeholder="Observaciones adicionales..."
@@ -553,7 +566,7 @@ export function DieselSection() {
         <div className="text-sm text-[#5F6773] sm:flex-1">
           {!isValid() && isDraft() && (
             <span className="text-orange-600">
-              ⚠️ Borrador guardado - Completa todos los campos y agrega foto para marcar como completo
+              Borrador incompleto: agrega la foto y revisa los campos requeridos
             </span>
           )}
           {!isValid() && !isDraft() && (
@@ -570,7 +583,7 @@ export function DieselSection() {
         <Button 
           variant="success"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || (!isValid() && !isDraft())}
           size="lg"
           className="w-full sm:min-w-[200px] sm:w-auto"
         >

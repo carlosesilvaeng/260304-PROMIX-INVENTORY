@@ -270,7 +270,7 @@ const translations = {
     'review.approved': 'Aprobado',
     'review.sections': 'Secciones',
     'review.completeSections': 'Secciones Completas',
-    'review.criticalIssues': 'Errores Críticos',
+    'review.criticalIssues': 'Datos Pendientes',
     'review.warnings': 'Advertencias',
     'review.readOnly': 'Modo Solo Lectura',
     'review.saveDraft': 'Guardar Borrador',
@@ -281,7 +281,7 @@ const translations = {
     'review.approvedBy': 'Aprobado por',
     'review.pendingApproval': 'Pendiente de aprobación',
     'review.canSubmit': 'Puedes enviar a aprobación',
-    'review.cannotSubmit': 'Corrige los errores antes de enviar',
+    'review.cannotSubmit': 'Completa los datos pendientes antes de enviar',
     
     // Reports
     'reports.title': 'Reportes',

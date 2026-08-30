@@ -143,15 +143,17 @@ function SiloLevelIndicator({
   percentage,
   sacks,
   status,
+  hasMeasurement,
   resultLabel = 'resultado',
 }: {
   percentage: number | null | undefined;
   sacks: number;
   status: string | null | undefined;
+  hasMeasurement: boolean;
   resultLabel?: string;
 }) {
   const safePercentage = clampPercentage(percentage);
-  const fillColor = getSiloLevelColor(safePercentage);
+  const fillColor = hasMeasurement ? getSiloLevelColor(safePercentage) : '#9D9B9A';
 
   return (
     <div className="h-full min-h-[192px] rounded border border-[#9D9B9A] bg-white p-4">
@@ -168,13 +170,13 @@ function SiloLevelIndicator({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#3B3A36]">Nivel del silo</p>
           <p className="mt-1 text-2xl font-bold text-[#3B3A36]">
-            {percentage === null || percentage === undefined ? '-' : `${formatNumber(safePercentage)}%`}
+            {!hasMeasurement ? 'Pendiente' : percentage === null || percentage === undefined ? '-' : `${formatNumber(safePercentage)}%`}
           </p>
           <p className="mt-2 text-sm font-semibold" style={{ color: fillColor }}>
-            {formatNumber(sacks)} {resultLabel}
+            {hasMeasurement ? `${formatNumber(sacks)} ${resultLabel}` : 'Pendiente de captura'}
           </p>
           <p className="mt-1 truncate text-sm font-semibold" style={{ color: fillColor }}>
-            {status || '-'}
+            {hasMeasurement ? (status || 'Calculado') : 'Sin lectura'}
           </p>
         </div>
       </div>
@@ -426,7 +428,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
   // ============================================================================
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-6">
+    <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -469,7 +471,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
             <li><strong>Nombre del Silo 🔒:</strong> Preconfigurado por administrativos</li>
             <li><strong>Unidad de Medida 🔒:</strong> Fija según configuración (no editable)</li>
             <li><strong>Lectura:</strong> Ingresa el valor de la lectura del medidor</li>
-            <li><strong>Resultado:</strong> El cliente muestra una vista previa; el servidor recalcula el valor autoritativo.</li>
+            <li><strong>Resultado:</strong> Se calcula automáticamente y se verifica al guardar.</li>
             <li><strong>Evidencia fotográfica:</strong> Requerida cuando así lo indique la configuración del silo.</li>
           </ul>
         </Card>
@@ -478,9 +480,10 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         <div className="space-y-4">
           {prefillData.silosEntries.map((entry, index) => {
             const siloMetrics = getSiloVolumeMetrics(entry, prefillData.config?.calibration_curves);
+            const hasMeasurement = entry.reading_value !== null && entry.reading_value !== undefined && entry.reading_value !== '';
 
             return (
-              <Card key={entry.id} className="p-6">
+              <Card key={entry.id} className="p-4 sm:p-6">
               {/* Header */}
               <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
@@ -527,6 +530,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   <div>
                     <label className="block text-sm font-medium text-[#1A1D1F] mb-2">Producto almacenado *</label>
                     <select
+                      aria-label={`Producto almacenado en ${entry.silo_name}`}
                       value={entry.product_name || ''}
                       onChange={(event) => handleFieldChange(entry.id, 'product_name', event.target.value)}
                       className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2.5"
@@ -562,7 +566,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {formatNumber(getReadingFeet(entry))} ft
+                      {hasMeasurement ? `${formatNumber(getReadingFeet(entry))} ft` : 'Pendiente'}
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Lectura ÷ 12</p>
@@ -575,7 +579,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {formatNumber(siloMetrics.sacks)} {siloMetrics.resultLabel}
+                      {hasMeasurement ? `${formatNumber(siloMetrics.sacks)} ${siloMetrics.resultLabel}` : 'Pendiente de captura'}
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Cálculo automático</p>
@@ -604,11 +608,11 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 </div>}
                 <div>
                   <label className="block text-sm font-medium text-[#6F767E] mb-2">
-                    Status
+                    Estado
                   </label>
                   <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
                     <span className="text-[#1A1D1F] font-semibold text-lg">
-                      {siloMetrics.status || '-'}
+                      {hasMeasurement ? (siloMetrics.status || 'Calculado') : 'Pendiente de captura'}
                     </span>
                   </div>
                   <p className="text-xs text-[#6F767E] mt-1">Según curva</p>
@@ -621,6 +625,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   Notas / Observaciones
                 </label>
                 <textarea
+                  aria-label={`Notas para ${entry.silo_name}`}
                   value={entry.notes || ''}
                   onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                   placeholder="Observaciones opcionales..."
@@ -650,6 +655,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     percentage={siloMetrics.volumePercentage}
                     sacks={siloMetrics.sacks}
                     status={siloMetrics.status}
+                    hasMeasurement={hasMeasurement}
                     resultLabel={siloMetrics.resultLabel}
                   />
                 </div>
@@ -669,7 +675,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
             <Button
               variant="dangerOutline"
               onClick={() => onBack?.()}
-              className="w-full sm:w-auto"
+              className="hidden w-full sm:inline-flex sm:w-auto"
             >
               Salir
             </Button>
