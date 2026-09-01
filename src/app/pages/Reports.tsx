@@ -74,7 +74,7 @@ interface ReportsProps {
 }
 
 export function Reports({ onNavigate }: ReportsProps) {
-  const { user, accessToken } = useAuth();
+  const { user, currentPlant, accessToken } = useAuth();
   const { t, language } = useLanguage();
   const normalizedRole = String(user?.role || '').toLowerCase();
 
@@ -101,18 +101,26 @@ export function Reports({ onNavigate }: ReportsProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/reports`, {
+      if (!currentPlant?.id) {
+        setReports([]);
+        return;
+      }
+
+      const params = new URLSearchParams({ plant_id: currentPlant.id });
+      const res = await fetch(`${API_BASE_URL}/reports?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken || publicAnonKey}` },
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Error al cargar reportes');
-      setReports(json.data || []);
+      // Keep the selected plant as the UI boundary even if an older backend
+      // deployment returns a broader set of reports.
+      setReports((json.data || []).filter((report: Report) => report.plant_id === currentPlant.id));
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, currentPlant?.id]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -248,7 +256,9 @@ export function Reports({ onNavigate }: ReportsProps) {
 
       <div>
         <h2 className="text-2xl text-[#3B3A36]">Reportes</h2>
-        <p className="text-[#5F6773]">Consulta y exportación de inventarios</p>
+        <p className="text-[#5F6773]">
+          Consulta y exportación de inventarios{currentPlant ? ` · ${currentPlant.name}` : ''}
+        </p>
       </div>
 
       {showExportSuccess && (

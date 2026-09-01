@@ -21,7 +21,7 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2609011513';
+const BUILD_VERSION = '2609011514';
 // Format: YYMMDDHHMM (Puerto Rico time) = 26/09/01 15:13
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
@@ -4345,9 +4345,18 @@ app.get("/make-server/reports", async (c) => {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    // Role-based filter
+    // Role-based filter. A plant manager can only query assigned plants, and
+    // an explicitly selected plant narrows the result to that single plant.
     if (user.role === 'plant_manager') {
-      query = query.in('plant_id', user.assigned_plants as string[]);
+      const assignedPlants = (user.assigned_plants ?? []) as string[];
+      if (plant_id) {
+        if (!assignedPlants.includes(plant_id)) {
+          return c.json({ success: false, error: 'No tiene acceso a la planta seleccionada' }, 403);
+        }
+        query = query.eq('plant_id', plant_id);
+      } else {
+        query = query.in('plant_id', assignedPlants);
+      }
     } else if (plant_id) {
       query = query.eq('plant_id', plant_id);
     }

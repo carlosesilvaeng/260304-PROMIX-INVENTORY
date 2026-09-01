@@ -65,7 +65,7 @@ const APP_KEY = Date.now();
 
 // Build version for tracking - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
 // 26/09/01 15:13 = September 1, 2026 at 3:13 PM
-const BUILD_VERSION = '2609011513';
+const BUILD_VERSION = '2609011514';
 
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
