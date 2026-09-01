@@ -2159,7 +2159,7 @@ export async function getPlantConfigPackage(plantId: string) {
       supabase.from('measurement_configs').select('*').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true).order('sort_order'),
       supabase.from('unit_categories').select('*').eq('active', true).order('sort_order'),
       supabase.from('units').select('*').eq('active', true).order('sort_order'),
-      supabase.from('material_conversion_factors').select('*').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true),
+      supabase.from('material_conversion_factors').select('*, material:materiales_catalog(id,nombre)').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true),
       listPlantCalibrationCurves(plantId),
     ]);
     

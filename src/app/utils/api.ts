@@ -345,6 +345,7 @@ export interface MaterialConversionFactor {
   effective_from?: string | null;
   effective_to?: string | null;
   active: boolean;
+  material?: { id?: string; nombre?: string | null } | null;
 }
 
 export async function getUnitCategories(): Promise<ApiResponse<UnitCategory[]>> {

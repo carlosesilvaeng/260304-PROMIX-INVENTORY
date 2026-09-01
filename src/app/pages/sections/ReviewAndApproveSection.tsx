@@ -48,6 +48,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
   const [rejectionNotes, setRejectionNotes] = useState('');
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const submitRequestInFlight = React.useRef(false);
   const targetPlantId = reportContext?.plantId ?? currentPlant?.id ?? null;
   const targetYearMonth = reportContext?.yearMonth ?? prefillData.inventoryMonth?.year_month ?? getCurrentYearMonth();
   const expectedSectionIds = React.useMemo(
@@ -170,6 +171,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
   };
 
   const handleSubmitForApproval = async () => {
+    if (submitRequestInFlight.current) return;
     if (!prefillData.inventoryMonth) {
       setActionMessage({ type: 'error', text: 'No hay mes de inventario disponible' });
       return;
@@ -185,6 +187,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
       return;
     }
 
+    submitRequestInFlight.current = true;
     setSubmitting(true);
     setActionMessage(null);
 
@@ -205,6 +208,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     } catch (error) {
       setActionMessage({ type: 'error', text: 'Error al enviar a aprobación' });
     } finally {
+      submitRequestInFlight.current = false;
       setSubmitting(false);
     }
   };

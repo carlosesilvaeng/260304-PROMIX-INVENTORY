@@ -253,7 +253,7 @@ function TankLevelIndicator({
 
 export function AdditivesSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
   
   const [activeTab, setActiveTab] = useState<TabType>('tanks');
   const [saving, setSaving] = React.useState(false);
@@ -490,6 +490,7 @@ export function AdditivesSection() {
     setSaveMessage(null);
 
     try {
+      const savedRevision = getSectionRevision('aditivos');
       console.log('[AdditivesSection] Saving entries:', prefillData.aditivosEntries);
 
       const entriesToSave = prefillData.aditivosEntries.map((entry: any) => {
@@ -551,7 +552,7 @@ export function AdditivesSection() {
       );
 
       if (response.success) {
-        markChangesSaved();
+        markChangesSaved('aditivos', savedRevision);
         setSaveMessage({ type: 'success', text: '✓ Aditivos guardados exitosamente' });
         // Reload data to get fresh IDs from database
         if (currentPlant) {

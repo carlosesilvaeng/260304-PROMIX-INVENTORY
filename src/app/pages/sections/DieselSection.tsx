@@ -108,7 +108,7 @@ function TankLevelGraphic({
 
 export function DieselSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -287,6 +287,7 @@ export function DieselSection() {
     setSaveMessage(null);
 
     try {
+      const savedRevision = getSectionRevision('diesel');
       console.log('[DieselSection] Saving entry:', diesel);
 
       const entryToSave = {
@@ -314,7 +315,7 @@ export function DieselSection() {
       );
 
       if (response.success) {
-        markChangesSaved();
+        markChangesSaved('diesel', savedRevision);
         setSaveMessage({ type: 'success', text: '✓ Diesel guardado exitosamente' });
         // Reload data to get fresh ID from database
         if (currentPlant) {

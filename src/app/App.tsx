@@ -64,13 +64,13 @@ import { isPlantManagerLike } from "./utils/permissions";
 const APP_KEY = Date.now();
 
 // Build version for tracking - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
-// 26/06/24 22:37 = June 24, 2026 at 10:37 PM
-const BUILD_VERSION = '2606242237';
+// 26/09/01 12:10 = September 1, 2026 at 12:10 PM
+const BUILD_VERSION = '2609011210';
 
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
-  const { hasPendingChanges } = usePlantPrefill();
+  const { hasPendingChanges, hasPendingChangesForSection } = usePlantPrefill();
   const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -79,6 +79,8 @@ function AppContent() {
   >(null);
   const [reportContext, setReportContext] = useState<{ plantId: string; yearMonth: string } | null>(null);
   const [inventoryContext, setInventoryContext] = useState<{ plantId: string; yearMonth: string } | null>(null);
+  const [pendingExitAction, setPendingExitAction] = useState<(() => void) | null>(null);
+  const currentSectionHasPendingChanges = hasPendingChangesForSection(currentSection);
 
   const handleNavigate = (view: string, sectionId?: string, context?: { plantId?: string; yearMonth?: string }) => {
     setCurrentView(view);
@@ -97,28 +99,27 @@ function AppContent() {
     }
   };
 
-  const confirmSectionExit = () => {
-    if (currentView !== 'section' || !hasPendingChanges) return true;
-
-    return window.confirm(
-      'Tienes cambios sin guardar. Se conservarán mientras mantengas esta sesión, pero podrían perderse si cierras o recargas el navegador. ¿Deseas regresar sin guardar ahora?'
-    );
-  };
-
   const handleViewChange = (view: string) => {
-    if (!confirmSectionExit()) return;
+    const navigate = () => {
+      const nextView = view === 'inventory' && !isOperationalUser ? 'dashboard' : view;
+      setCurrentView(nextView);
+      if (view !== 'section') {
+        setCurrentSection(null);
+      }
+      if (nextView !== 'review') {
+        setReportContext(null);
+      }
+      if (nextView !== 'inventory') {
+        setInventoryContext(null);
+      }
+    };
 
-    const nextView = view === 'inventory' && !isOperationalUser ? 'dashboard' : view;
-    setCurrentView(nextView);
-    if (view !== 'section') {
-      setCurrentSection(null);
+    if (currentView === 'section' && currentSectionHasPendingChanges) {
+      setPendingExitAction(() => navigate);
+      return;
     }
-    if (nextView !== 'review') {
-      setReportContext(null);
-    }
-    if (nextView !== 'inventory') {
-      setInventoryContext(null);
-    }
+
+    navigate();
   };
 
   const handleBackToDashboard = () => {
@@ -266,11 +267,11 @@ function AppContent() {
                     {sectionLabels[currentSection] || 'Inventario'}
                   </span>
                   <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:py-1 sm:text-xs ${
-                    hasPendingChanges
+                    currentSectionHasPendingChanges
                       ? 'bg-amber-100 text-amber-800'
                       : 'bg-green-100 text-green-800'
                   }`}>
-                    {hasPendingChanges ? 'Cambios sin guardar' : 'Datos sincronizados'}
+                    {currentSectionHasPendingChanges ? 'Cambios sin guardar' : 'Datos sincronizados'}
                   </span>
                 </div>
               </div>
@@ -358,6 +359,37 @@ function AppContent() {
         </div>
         )}
       </div>
+
+      {pendingExitAction && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <h2 id="unsaved-changes-title" className="text-xl font-bold text-[#3B3A36]">Cambios sin guardar</h2>
+            <p className="mt-3 text-[#5F6773]">
+              Esta sección tiene cambios que todavía no se han guardado. Si sales ahora, esos cambios podrían perderse al cerrar o recargar el navegador.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setPendingExitAction(null)}
+                className="rounded-md border border-[#9D9B9A] px-4 py-2 font-semibold text-[#3B3A36] hover:bg-[#F2F3F5]"
+              >
+                Permanecer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = pendingExitAction;
+                  setPendingExitAction(null);
+                  action();
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 font-semibold text-white hover:bg-red-700"
+              >
+                Salir sin guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

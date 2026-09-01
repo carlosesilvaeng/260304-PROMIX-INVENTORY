@@ -7,6 +7,10 @@ import * as seed from "./seed.tsx";
 import * as auth from "./auth.tsx";
 import { calculateSiloGeometry, roundSiloResult } from "./silo_geometry.ts";
 import {
+  calculateSiloInventoryPresentation,
+  resolveSiloProductFactor,
+} from "./silo_inventory.ts";
+import {
   calculateAdditiveMeasurement,
   normalizeAdditiveMeasurementMethod,
   roundAdditiveMeasurement,
@@ -17,8 +21,8 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2608291200';
-// Format: YYMMDDHHMM (GMT-5 Puerto Rico Time) = 26/03/03 18:00 = Mar 03, 2026 6:00 PM
+const BUILD_VERSION = '2609011210';
+// Format: YYMMDDHHMM (Puerto Rico time) = 26/09/01 12:10
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
@@ -388,7 +392,7 @@ function buildInventoryWorkflowTransition(
         return {
           response: c.json({
             success: false,
-            error: `Cannot submit inventory with status ${currentStatus}. Only IN_PROGRESS inventories can be submitted.`,
+            error: `No se puede enviar un inventario con estado ${currentStatus}. Debe estar EN PROGRESO.`,
           }, 400),
         };
       }
@@ -519,6 +523,12 @@ async function applyInventoryWorkflowAction(
     }
   }
 
+  if (action === 'submit' && currentMonth.status === 'SUBMITTED') {
+    return {
+      response: c.json({ success: true, data: currentMonth, already_applied: true }),
+    };
+  }
+
   const timestamp = new Date().toISOString();
   const transition = buildInventoryWorkflowTransition(
     c,
@@ -537,10 +547,34 @@ async function applyInventoryWorkflowAction(
     .from('inventory_month')
     .update(transition.updateData)
     .eq('id', inventoryMonthId)
+    .eq('status', currentMonth.status)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+
+  if (!data) {
+    const { data: latestMonth, error: latestError } = await supabase
+      .from('inventory_month')
+      .select('*')
+      .eq('id', inventoryMonthId)
+      .single();
+    if (latestError) throw latestError;
+
+    if (action === 'submit' && latestMonth?.status === 'SUBMITTED') {
+      return {
+        response: c.json({ success: true, data: latestMonth, already_applied: true }),
+      };
+    }
+
+    return {
+      response: c.json({
+        success: false,
+        error: 'El inventario cambió de estado mientras se procesaba la solicitud. Actualiza la pantalla e inténtalo nuevamente.',
+        data: latestMonth,
+      }, 409),
+    };
+  }
 
   console.log(`[${transition.logLabel}] Inventory ${inventoryMonthId} ${transition.logMessage}`);
 
@@ -2561,6 +2595,12 @@ app.put("/make-server/plants/:plantId/products", async (c) => {
     const { plantId } = c.req.param();
     const body = await c.req.json();
     const products = body.products ?? [];
+    const supabase = db.getSupabaseClient();
+    const { data: previousProducts, error: previousProductsError } = await supabase
+      .from('plant_products_config')
+      .select('id,product_name')
+      .eq('plant_id', plantId);
+    if (previousProductsError) throw previousProductsError;
     const rows = await Promise.all(products.map(async (product: any, index: number) => {
       const measureMode = String(product.measure_mode || 'COUNT').toUpperCase();
       const calibrationCurveName = product.calibration_curve_name?.trim() || null;
@@ -2607,6 +2647,23 @@ app.put("/make-server/plants/:plantId/products", async (c) => {
     }));
 
     await db.replacePlantConfigRowsAtomic('products', plantId, rows);
+
+    const previousNamesById = new Map((previousProducts || []).map((product: any) => [product.id, product.product_name]));
+    const renamedProducts = rows
+      .filter((product: any) => product.id && previousNamesById.get(product.id) && previousNamesById.get(product.id) !== product.product_name)
+      .map((product: any) => ({
+        id: product.id,
+        from: previousNamesById.get(product.id),
+        to: product.product_name,
+      }));
+    logAudit(supabase, {
+      user_email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      action: 'CONFIG_UPDATED',
+      plant_id: plantId,
+      details: { section: 'products', count: rows.length, renamed_products: renamedProducts },
+    });
 
     return c.json({ success: true, count: products.length });
   } catch (error: any) {
@@ -3482,6 +3539,7 @@ app.post("/make-server/inventory/silos", async (c) => {
       let calculatedResult: number;
       let resultUnitId: string | null = null;
       let presentationLbs: number | null = null;
+      let presentationSacks: number | null = null;
       let presentationMetricTons: number | null = null;
       let metadata: any;
 
@@ -3501,36 +3559,51 @@ app.post("/make-server/inventory/silos", async (c) => {
           capacity_fraction: Number(config.capacity_fraction ?? 1),
         });
         calculatedVolumeFt3 = geometry.calculated_volume_ft3;
-        resultUnitId = config.inventory_unit_id || config.calculation_unit_id || 'ft3';
+        const { data: material } = await supabase.from('materiales_catalog').select('id,nombre')
+          .ilike('nombre', selectedProduct).maybeSingle();
+        const { data: factors, error: factorError } = await supabase
+          .from('material_conversion_factors')
+          .select('*, material:materiales_catalog(id,nombre)')
+          .eq('active', true)
+          .eq('from_unit_id', 'ft3')
+          .eq('to_unit_id', 'lb')
+          .or(`plant_id.eq.${config.plant_id},plant_id.is.null`);
+        if (factorError) throw factorError;
 
-        const { data: units, error: unitsError } = await supabase
-          .from('units').select('id, category_id, factor_to_base').in('id', ['ft3', resultUnitId]);
-        if (unitsError) throw unitsError;
-        const unitMap = new Map((units || []).map((unit: any) => [unit.id, unit]));
-        const fromUnit: any = unitMap.get('ft3');
-        const toUnit: any = unitMap.get(resultUnitId);
-        if (!fromUnit || !toUnit) throw new Error(`${config.silo_name}: unidad de cálculo o inventario no encontrada.`);
+        const factor = resolveSiloProductFactor({
+          factors: factors || [],
+          plantId: config.plant_id,
+          productName: selectedProduct,
+          explicitFactorId: config.material_conversion_factor_id,
+          materialId: material?.id,
+        });
 
-        let factor: any = null;
-        if (fromUnit.category_id === toUnit.category_id) {
-          calculatedResult = calculatedVolumeFt3 * Number(fromUnit.factor_to_base) / Number(toUnit.factor_to_base);
+        if (factor) {
+          const presentation = calculateSiloInventoryPresentation(calculatedVolumeFt3, factor);
+          calculatedResult = presentation.pounds;
+          resultUnitId = 'lb';
+          presentationLbs = presentation.pounds;
+          presentationSacks = presentation.sacks;
+          presentationMetricTons = presentation.pounds / 2204.6226218;
+          metadata = {
+            geometry,
+            factor: { id: factor.id, factor: factor.factor, material_id: factor.material_id || null },
+            product: selectedProduct,
+            sack_weight_lbs: presentation.sackWeightLbs,
+          };
         } else {
-          let factorQuery = supabase.from('material_conversion_factors').select('*')
-            .eq('active', true).eq('from_unit_id', 'ft3').eq('to_unit_id', resultUnitId);
-          if (config.material_conversion_factor_id) factorQuery = factorQuery.eq('id', config.material_conversion_factor_id);
-          const { data: factors, error: factorError } = await factorQuery.limit(20);
-          if (factorError) throw factorError;
-          const { data: material } = await supabase.from('materiales_catalog').select('id,nombre')
-            .ilike('nombre', selectedProduct).maybeSingle();
-          factor = (factors || []).find((candidate: any) => !candidate.material_id || candidate.material_id === material?.id);
-          if (!factor) {
-            throw new Error(`${config.silo_name}: no existe un factor activo de ft³ a ${resultUnitId} para ${selectedProduct}.`);
+          if (config.inventory_unit_id === 'lb' || config.inventory_unit_id === 'sack') {
+            throw new Error(`${config.silo_name}: no existe un factor activo de ft³ a lb para ${selectedProduct}.`);
           }
-          calculatedResult = calculatedVolumeFt3 * Number(factor.factor);
+          calculatedResult = calculatedVolumeFt3;
+          resultUnitId = 'ft3';
+          metadata = {
+            geometry,
+            factor: null,
+            product: selectedProduct,
+            conversion_pending: true,
+          };
         }
-        if (resultUnitId === 'lb') presentationLbs = calculatedResult;
-        if (resultUnitId === 'metric_ton') presentationMetricTons = calculatedResult;
-        metadata = { geometry, factor: factor ? { id: factor.id, factor: factor.factor } : null, product: selectedProduct };
       } else {
         if (!hasCalibrationPoints(config.conversion_table)) {
           throw new Error(`${config.silo_name}: falta tabla de calibración para calcular la lectura del silo.`);
@@ -3566,6 +3639,7 @@ app.post("/make-server/inventory/silos", async (c) => {
         calculated_result: persistedResult,
         calculated_result_unit_id: resultUnitId,
         presentation_lbs: presentationLbs === null ? null : roundSiloResult(presentationLbs),
+        presentation_sacks: presentationSacks === null ? null : roundSiloResult(presentationSacks),
         presentation_metric_tons: presentationMetricTons === null ? null : roundSiloResult(presentationMetricTons),
         calculation_metadata: metadata,
         requires_photo: config.requires_photo ?? true,

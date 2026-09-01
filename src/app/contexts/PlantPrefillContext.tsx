@@ -41,13 +41,15 @@ export interface PrefillData {
 interface PlantPrefillContextType {
   prefillData: PrefillData;
   hasPendingChanges: boolean;
+  hasPendingChangesForSection: (section: string | null | undefined) => boolean;
   loadPlantData: (plantId: string, yearMonth: string) => Promise<void>;
   currentYearMonth: string;
   setSelectedYearMonth: (yearMonth: string) => void;
   getCurrentYearMonth: () => string;
   refreshData: () => Promise<void>;
   updateEntry: (section: string, entryId: string, data: any) => void;
-  markChangesSaved: () => void;
+  getSectionRevision: (section: string) => number;
+  markChangesSaved: (section: string, savedRevision: number) => void;
 }
 
 const PlantPrefillContext = createContext<PlantPrefillContextType | undefined>(undefined);
@@ -75,7 +77,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
   const [currentPlantId, setCurrentPlantId] = useState<string | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
-  const [hasPendingChanges, setHasPendingChanges] = useState(false);
+  const [dirtySectionRevisions, setDirtySectionRevisions] = useState<Record<string, number>>({});
+  const dirtySectionRevisionsRef = useRef<Record<string, number>>({});
   const inFlightLoadRef = useRef<Promise<void> | null>(null);
   const inFlightLoadKeyRef = useRef<string | null>(null);
 
@@ -954,7 +957,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           loading: false,
           error: null,
         });
-        setHasPendingChanges(false);
+        dirtySectionRevisionsRef.current = {};
+        setDirtySectionRevisions({});
 
         console.log('[PlantPrefill] Data loaded successfully');
       } catch (error) {
@@ -996,7 +1000,12 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   // ============================================================================
   
   const updateEntry = useCallback((section: string, entryId: string, data: any) => {
-    setHasPendingChanges(true);
+    const nextRevision = (dirtySectionRevisionsRef.current[section] || 0) + 1;
+    dirtySectionRevisionsRef.current = {
+      ...dirtySectionRevisionsRef.current,
+      [section]: nextRevision,
+    };
+    setDirtySectionRevisions(dirtySectionRevisionsRef.current);
     setPrefillData(prev => {
       const sectionKeyMap: Record<string, keyof PrefillData> = {
         silos: 'silosEntries',
@@ -1035,21 +1044,44 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     });
   }, []);
 
-  const markChangesSaved = useCallback(() => {
-    setHasPendingChanges(false);
+  const getSectionRevision = useCallback((section: string) => (
+    dirtySectionRevisionsRef.current[section] || 0
+  ), []);
+
+  const markChangesSaved = useCallback((section: string, savedRevision: number) => {
+    if ((dirtySectionRevisionsRef.current[section] || 0) !== savedRevision) return;
+
+    const nextRevisions = { ...dirtySectionRevisionsRef.current };
+    delete nextRevisions[section];
+    dirtySectionRevisionsRef.current = nextRevisions;
+    setDirtySectionRevisions(nextRevisions);
   }, []);
+
+  const sectionAliases: Record<string, string> = {
+    aceites: 'productos',
+    utilidades: 'utilities',
+    'petty-cash': 'pettyCash',
+  };
+  const hasPendingChangesForSection = useCallback((section: string | null | undefined) => {
+    if (!section) return false;
+    const normalizedSection = sectionAliases[section] || section;
+    return Object.prototype.hasOwnProperty.call(dirtySectionRevisionsRef.current, normalizedSection);
+  }, []);
+  const hasPendingChanges = Object.keys(dirtySectionRevisions).length > 0;
 
   return (
     <PlantPrefillContext.Provider
       value={{
         prefillData,
         hasPendingChanges,
+        hasPendingChangesForSection,
         loadPlantData,
         currentYearMonth: getCurrentYearMonth(),
         setSelectedYearMonth,
         getCurrentYearMonth,
         refreshData,
         updateEntry,
+        getSectionRevision,
         markChangesSaved,
       }}
     >

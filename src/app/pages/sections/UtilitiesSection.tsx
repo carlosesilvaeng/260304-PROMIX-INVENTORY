@@ -23,7 +23,7 @@ import {
 
 export function UtilitiesSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -146,6 +146,7 @@ export function UtilitiesSection() {
     setSaveMessage(null);
 
     try {
+      const savedRevision = getSectionRevision('utilities');
       const entriesToSave = utilities.map((entry: any) => ({
         ...entry,
         id: entry._isNew ? undefined : entry.id,
@@ -160,7 +161,7 @@ export function UtilitiesSection() {
       );
 
       if (response.success) {
-        markChangesSaved();
+        markChangesSaved('utilities', savedRevision);
         setSaveMessage({ type: 'success', text: '✓ Utilidades guardadas exitosamente' });
         // Reload data to get fresh IDs from database
         if (currentPlant) {

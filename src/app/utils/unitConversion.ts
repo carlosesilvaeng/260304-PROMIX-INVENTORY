@@ -19,6 +19,7 @@ export interface MaterialConversionFactor {
   to_unit_id: string;
   factor: number | string;
   active?: boolean;
+  material?: { id?: string; nombre?: string | null } | null;
 }
 
 export interface CalibrationPoint {
