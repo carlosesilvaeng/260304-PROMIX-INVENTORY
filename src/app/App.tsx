@@ -64,13 +64,13 @@ import { isPlantManagerLike } from "./utils/permissions";
 const APP_KEY = Date.now();
 
 // Build version for tracking - Format: YYMMDDHHMM (GMT-5 Puerto Rico Time)
-// 26/09/01 12:10 = September 1, 2026 at 12:10 PM
-const BUILD_VERSION = '2609011210';
+// 26/09/01 15:13 = September 1, 2026 at 3:13 PM
+const BUILD_VERSION = '2609011513';
 
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
-  const { hasPendingChanges, hasPendingChangesForSection } = usePlantPrefill();
+  const { hasPendingChanges, hasPendingChangesForSection, currentYearMonth } = usePlantPrefill();
   const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -273,6 +273,18 @@ function AppContent() {
                   }`}>
                     {currentSectionHasPendingChanges ? 'Cambios sin guardar' : 'Datos sincronizados'}
                   </span>
+                  {!currentSectionHasPendingChanges && currentPlant && (
+                    <button
+                      type="button"
+                      onClick={() => handleNavigate('review', undefined, {
+                        plantId: currentPlant.id,
+                        yearMonth: currentYearMonth,
+                      })}
+                      className="whitespace-nowrap rounded-md bg-[#2475C7] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#1f66ad]"
+                    >
+                      Ver reporte
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

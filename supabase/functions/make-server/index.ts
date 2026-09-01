@@ -21,8 +21,8 @@ const app = new Hono();
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
 // ============================================================================
-const BUILD_VERSION = '2609011210';
-// Format: YYMMDDHHMM (Puerto Rico time) = 26/09/01 12:10
+const BUILD_VERSION = '2609011513';
+// Format: YYMMDDHHMM (Puerto Rico time) = 26/09/01 15:13
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
@@ -527,6 +527,27 @@ async function applyInventoryWorkflowAction(
     return {
       response: c.json({ success: true, data: currentMonth, already_applied: true }),
     };
+  }
+
+  if (action === 'submit') {
+    const coverage = await db.getInventoryPersistenceCoverage(currentMonth.plant_id, inventoryMonthId);
+    const incompleteSections = coverage.filter((section) => (
+      section.configured_count > 0 && !section.complete
+    ));
+
+    if (incompleteSections.length > 0) {
+      const summary = incompleteSections
+        .map((section) => `${section.section_name}: ${section.saved_count} de ${section.configured_count} guardados`)
+        .join('; ');
+      return {
+        response: c.json({
+          success: false,
+          error: `No se puede enviar el inventario porque faltan datos guardados. ${summary}.`,
+          code: 'INVENTORY_SECTIONS_NOT_PERSISTED',
+          incomplete_sections: incompleteSections,
+        }, 400),
+      };
+    }
   }
 
   const timestamp = new Date().toISOString();

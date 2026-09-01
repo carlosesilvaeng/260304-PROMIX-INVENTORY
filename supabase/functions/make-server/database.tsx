@@ -2443,6 +2443,74 @@ export async function getInventoryMonthData(inventoryMonthId: string) {
   }
 }
 
+export interface InventorySectionPersistenceCoverage {
+  section_code: string;
+  section_name: string;
+  configured_count: number;
+  saved_count: number;
+  missing_config_ids: string[];
+  complete: boolean;
+}
+
+export async function getInventoryPersistenceCoverage(
+  plantId: string,
+  inventoryMonthId: string,
+): Promise<InventorySectionPersistenceCoverage[]> {
+  const supabase = getSupabaseClient();
+  const [
+    siloConfigs, siloEntries,
+    aggregateConfigs, aggregateEntries,
+    additiveConfigs, additiveEntries,
+    dieselConfigs, dieselEntries,
+    productConfigs, productEntries,
+    utilityConfigs, utilityEntries,
+    pettyCashConfigs, pettyCashEntries,
+  ] = await Promise.all([
+    supabase.from('plant_silos_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_silos_entries').select('silo_config_id').eq('inventory_month_id', inventoryMonthId),
+    supabase.from('plant_aggregates_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_aggregates_entries').select('aggregate_config_id').eq('inventory_month_id', inventoryMonthId),
+    supabase.from('plant_additives_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_additives_entries').select('additive_config_id').eq('inventory_month_id', inventoryMonthId),
+    supabase.from('plant_diesel_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_diesel_entries').select('diesel_config_id').eq('inventory_month_id', inventoryMonthId),
+    supabase.from('plant_products_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_products_entries').select('product_config_id,producto_config_id').eq('inventory_month_id', inventoryMonthId),
+    supabase.from('plant_utilities_meters_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_utilities_entries').select('utility_meter_config_id,utility_config_id').eq('inventory_month_id', inventoryMonthId),
+    supabase.from('plant_petty_cash_config').select('id').eq('plant_id', plantId).neq('is_active', false),
+    supabase.from('inventory_petty_cash_entries').select('petty_cash_config_id').eq('inventory_month_id', inventoryMonthId),
+  ]);
+
+  const results = [
+    ['silos', 'Silos', siloConfigs, siloEntries, (row: any) => row.silo_config_id],
+    ['aggregates', 'Agregados', aggregateConfigs, aggregateEntries, (row: any) => row.aggregate_config_id],
+    ['additives', 'Aditivos', additiveConfigs, additiveEntries, (row: any) => row.additive_config_id],
+    ['diesel', 'Diesel', dieselConfigs, dieselEntries, (row: any) => row.diesel_config_id],
+    ['products', 'Aceites y Productos', productConfigs, productEntries, (row: any) => row.product_config_id || row.producto_config_id],
+    ['utilities', 'Utilidades', utilityConfigs, utilityEntries, (row: any) => row.utility_meter_config_id || row.utility_config_id],
+    ['petty_cash', 'Petty Cash', pettyCashConfigs, pettyCashEntries, (row: any) => row.petty_cash_config_id],
+  ] as const;
+
+  return results.map(([sectionCode, sectionName, configResult, entryResult, getEntryConfigId]) => {
+    if (configResult.error) throw configResult.error;
+    if (entryResult.error) throw entryResult.error;
+
+    const configuredIds = (configResult.data || []).map((row: any) => row.id).filter(Boolean);
+    const savedIds = new Set((entryResult.data || []).map(getEntryConfigId).filter(Boolean));
+    const missingConfigIds = configuredIds.filter((id: string) => !savedIds.has(id));
+
+    return {
+      section_code: sectionCode,
+      section_name: sectionName,
+      configured_count: configuredIds.length,
+      saved_count: (entryResult.data || []).length,
+      missing_config_ids: missingConfigIds,
+      complete: configuredIds.length === 0 || (missingConfigIds.length === 0 && (entryResult.data || []).length >= configuredIds.length),
+    };
+  });
+}
+
 export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth: string) {
   const supabase = getSupabaseClient();
   
@@ -2478,6 +2546,8 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
       supabase.from('inventory_petty_cash_entries').select('*').eq('inventory_month_id', month.id).maybeSingle()
     ]);
     
+    const persistenceCoverage = await getInventoryPersistenceCoverage(plantId, month.id);
+
     return {
       month,
       silos: silosRes.data || [],
@@ -2487,7 +2557,8 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
       productos: productosRes.data || [],
       utilities: utilitiesRes.data || [],
       meters: utilitiesRes.data || [], // meters are also in utilities
-      pettyCash: pettyCashRes.data || null
+      pettyCash: pettyCashRes.data || null,
+      persistence_coverage: persistenceCoverage,
     };
   } catch (error) {
     console.error('Error fetching inventory month by plant and date:', error);

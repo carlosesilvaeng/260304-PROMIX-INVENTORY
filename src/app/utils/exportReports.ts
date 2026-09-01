@@ -31,6 +31,7 @@ interface SectionDetail {
   headers: string[];
   rows: (string | number)[][];
   photos?: SectionPhoto[];
+  note?: string;
 }
 
 interface ReportDetail {
@@ -368,7 +369,26 @@ async function fetchDetail(
         ]],
       });
     }
-  } catch {
+
+    const sectionOrder = ['Agregados', 'Silos', 'Aditivos', 'Diesel', 'Aceites y Productos', 'Utilidades', 'Petty Cash'];
+    for (const coverage of data.persistence_coverage || []) {
+      if (!coverage || coverage.configured_count <= 0 || coverage.complete) continue;
+      const note = `Pendiente de guardar: ${coverage.saved_count} de ${coverage.configured_count} registros configurados.`;
+      const existingSection = sections.find((section) => section.name === coverage.section_name);
+      if (existingSection) {
+        existingSection.note = note;
+      } else {
+        sections.push({
+          name: coverage.section_name,
+          headers: ['Estado'],
+          rows: [['Sin datos guardados en esta sección.']],
+          note,
+        });
+      }
+    }
+    sections.sort((left, right) => sectionOrder.indexOf(left.name) - sectionOrder.indexOf(right.name));
+  } catch (error) {
+    console.error('[Reports] No se pudo construir todo el detalle del reporte:', error);
     // return whatever we have so far
   }
 
@@ -425,6 +445,7 @@ export async function exportToExcel(
 
     for (const sec of sections) {
       allRows.push([sec.name.toUpperCase()]);
+      if (sec.note) allRows.push([sec.note]);
       allRows.push(sec.headers);
       allRows.push(...sec.rows);
       allRows.push([]); // blank row between sections
@@ -632,6 +653,15 @@ export async function exportToPDF(
       doc.text(sec.name.toUpperCase(), 10, y);
       doc.setTextColor(0, 0, 0);
       y += 2;
+
+      if (sec.note) {
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(180, 83, 9);
+        doc.text(sec.note, 10, y + 3);
+        doc.setTextColor(0, 0, 0);
+        y += 6;
+      }
 
       autoTable(doc, {
         startY: y,

@@ -267,6 +267,13 @@ export function Reports({ onNavigate }: ReportsProps) {
         <Alert type="error" message={`Error al cargar reportes: ${error}`} />
       )}
 
+      <Card className="border-blue-200 bg-blue-50">
+        <p className="font-semibold text-blue-900">Consulta tus reportes antes de enviarlos</p>
+        <p className="mt-1 text-sm text-blue-800">
+          Los inventarios En Progreso muestran únicamente la información que ya fue guardada. Usa Ver detalle para revisarla en el portal o Ver PDF para abrir el borrador del reporte.
+        </p>
+      </Card>
+
       {/* Filters */}
       <Card>
         <h3 className="text-lg text-[#3B3A36] mb-4">Filtros</h3>
@@ -418,7 +425,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -432,6 +439,19 @@ export function Reports({ onNavigate }: ReportsProps) {
                           >
                             {primaryActionLabel}
                           </Button>
+                          {isResumeAction && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onNavigate?.(
+                                'review',
+                                undefined,
+                                { plantId: report.plant_id, yearMonth: report.year_month }
+                              )}
+                            >
+                              Ver detalle
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -458,7 +478,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                               }
                             }}
                           >
-                            {previewingRowPDFId === report.id ? '⏳' : '👁️'}
+                            {previewingRowPDFId === report.id ? 'Abriendo...' : 'Ver PDF'}
                           </Button>
                           <Button
                             variant="outline"
@@ -477,7 +497,7 @@ export function Reports({ onNavigate }: ReportsProps) {
                               }
                             }}
                           >
-                            {generatingRowPDFId === report.id ? '⏳' : '📄'}
+                            {generatingRowPDFId === report.id ? 'Descargando...' : 'Descargar PDF'}
                           </Button>
                           {(user?.role === 'admin' || user?.role === 'super_admin') && (
                             <DeleteIconButton
