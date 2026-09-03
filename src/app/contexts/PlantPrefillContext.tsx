@@ -1,3 +1,4 @@
+import { appendConfiguredEntries } from '../utils/appendConfiguredEntries';
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { 
   getPlantConfig, 
@@ -858,10 +859,12 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           console.log('[PlantPrefill] Enriched products entries with current config values');
         }
 
-        if (entries.aditivos.length === 0 && freshEntries.aditivos.length > 0) {
-          entries.aditivos = freshEntries.aditivos;
-          console.log('[PlantPrefill] Month exists but no additives entries — created from config');
-        }
+        entries.aditivos = appendConfiguredEntries(
+          entries.aditivos,
+          freshEntries.aditivos,
+          (entry: any) => entry.additive_config_id || entry.aditivo_config_id,
+          inventoryMonth.status,
+        );
 
         if (entries.aditivos.length > 0 && freshEntries.aditivos.length > 0) {
           const freshAdditivesByKey = new Map(

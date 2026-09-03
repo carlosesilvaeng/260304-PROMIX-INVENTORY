@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { appendConfiguredEntries } from '../src/app/utils/appendConfiguredEntries.ts';
+const first = { additive_config_id: 'tote-1', quantity: 80, photo_url: 'existing-photo' };
+const fresh = [{ additive_config_id: 'tote-1', quantity: null }, { additive_config_id: 'tote-2', quantity: null }];
+const key = x => x.additive_config_id;
+const open = appendConfiguredEntries([first], fresh, key, 'IN_PROGRESS');
+assert.equal(open.length, 2);
+assert.equal(open[0], first);
+assert.equal(open[1].quantity, null);
+assert.equal(open[1].photo_url, undefined);
+assert.deepEqual(appendConfiguredEntries(open, fresh, key, 'IN_PROGRESS'), open);
+assert.deepEqual(appendConfiguredEntries([first], fresh, key, 'SUBMITTED'), [first]);
+assert.deepEqual(appendConfiguredEntries([first], fresh, key, 'APPROVED'), [first]);
+assert.equal(appendConfiguredEntries([], [...fresh, fresh[1]], key, 'IN_PROGRESS').length, 2);
+console.log('Container reconciliation preserves readings, adds empty totes once, and leaves closed inventories unchanged.');

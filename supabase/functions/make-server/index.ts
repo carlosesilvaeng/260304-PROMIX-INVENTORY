@@ -2377,7 +2377,7 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
           brand: catalogAdditive.marca || '',
           uom: catalogAdditive.uom || '',
           requires_photo: additive.requires_photo ?? false,
-          tank_name: additiveType === 'TANK' ? additive.tank_name?.trim() || null : null,
+          tank_name: additive.tank_name?.trim() || null,
           sort_order: additive.sort_order ?? index,
           is_active: additive.is_active ?? true,
         };
@@ -2472,6 +2472,14 @@ app.put("/make-server/plants/:plantId/additives", async (c) => {
       }));
     }
 
+    const containerKeys = new Set<string>();
+    for (const row of rows) {
+      const key = JSON.stringify([row.additive_name, row.tank_name || '']);
+      if (containerKeys.has(key)) {
+        return c.json({ success: false, error: `${row.additive_name}: asigna un nombre diferente a cada tanque o tote.` }, 400);
+      }
+      containerKeys.add(key);
+    }
     await db.replacePlantAdditivesConfigAtomic(plantId, rows);
 
     console.log(`✅ [PUT /plants/${plantId}/additives] Saved ${additives.length} additives by ${user.email}`);

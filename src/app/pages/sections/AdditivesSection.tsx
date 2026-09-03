@@ -693,7 +693,8 @@ export function AdditivesSection() {
                         <p className="text-sm text-[#5F6773]">
                           <span className="font-semibold">Producto:</span> {entry.product_name}
                         </p>
-                        {entry.brand && (
+                        {entry.tank_name && <p className="text-sm text-[#5F6773]">{entry.product_name}</p>}
+                      {entry.brand && (
                           <p className="text-sm text-[#5F6773]">
                             <span className="font-semibold">Marca:</span> {entry.brand}
                           </p>
@@ -858,12 +859,13 @@ export function AdditivesSection() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-bold text-[#3B3A36]">
-                          {entry.product_name}
+                          {entry.tank_name || entry.product_name}
                         </h3>
                         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#f59e0b]/10 text-[#f59e0b]">
                           MANUAL
                         </span>
                       </div>
+                      {entry.tank_name && <p className="text-sm text-[#5F6773]">{entry.product_name}</p>}
                       {entry.brand && (
                         <p className="text-sm text-[#5F6773]">
                           <span className="font-semibold">Marca:</span> {entry.brand}

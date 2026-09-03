@@ -294,7 +294,7 @@ async function fetchDetail(
         name: 'Aditivos',
         headers: ['Producto', 'Marca', 'Método', 'Cantidad inventario', 'UOM inventario', 'Foto'],
         rows: data.aditivos.map((e: any) => [
-          e.product_name ?? '-',
+          e.tank_name ? `${e.product_name ?? 'Aditivo'} / ${e.tank_name}` : e.product_name ?? '-',
           e.brand ?? '-',
           e.measurement_method ?? e.additive_type ?? '-',
           safeNum(e.inventory_quantity ?? (e.additive_type === 'TANK' ? e.calculated_volume : e.quantity)),

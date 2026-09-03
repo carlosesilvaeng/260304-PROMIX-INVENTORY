@@ -205,9 +205,10 @@ CREATE TABLE IF NOT EXISTS plant_additives_config (
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (plant_id, additive_name)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS plant_additives_config_container_key
+  ON plant_additives_config (plant_id, additive_name, COALESCE(tank_name, ''));
 
 CREATE TABLE IF NOT EXISTS plant_diesel_config (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,

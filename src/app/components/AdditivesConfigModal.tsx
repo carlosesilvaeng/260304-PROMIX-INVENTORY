@@ -323,8 +323,12 @@ export function AdditivesConfigModal({
   ];
 
   const validateRows = () => {
+    const containerKeys = new Set<string>();
     for (const [index, row] of rows.entries()) {
       const label = row.additive_name || `Fila ${index + 1}`;
+      const containerKey = JSON.stringify([row.catalog_additive_id, row.tank_name?.trim() || '']);
+      if (containerKeys.has(containerKey)) return `${label}: asigna un nombre diferente a cada tanque o tote`;
+      containerKeys.add(containerKey);
 
       if (!row.catalog_additive_id) {
         return `El aditivo en la fila ${index + 1} debe seleccionarse desde el catálogo`;
@@ -410,7 +414,7 @@ export function AdditivesConfigModal({
         brand: row.brand.trim(),
         uom: row.uom.trim(),
         requires_photo: row.requires_photo,
-        tank_name: row.measurement_method === 'MANUAL' ? null : row.tank_name?.trim() || null,
+        tank_name: row.tank_name?.trim() || null,
         reading_uom: row.measurement_method === 'CURVE' ? row.reading_uom?.trim() || null : null,
         conversion_table: row.measurement_method === 'CURVE'
           ? tankCurveItems.find((curve) => curve.curve_name === row.calibration_curve_name)?.data_points || row.conversion_table
@@ -559,6 +563,12 @@ export function AdditivesConfigModal({
 
                     {row.measurement_method === 'MANUAL' && (
                       <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                        <Input
+                          label="Nombre del recipiente (opcional)"
+                          value={row.tank_name || ''}
+                          onChange={(event) => updateRow(index, { tank_name: event.target.value })}
+                          placeholder="Ej: WR75 — Tote 1"
+                        />
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <Input
                             label="Capacidad nominal"
