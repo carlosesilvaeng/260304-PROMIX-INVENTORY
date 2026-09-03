@@ -157,7 +157,7 @@ export function PettyCashSection() {
 
       if (response.success) {
         markChangesSaved('pettyCash', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Petty Cash guardado exitosamente' });
+        setSaveMessage({ type: 'success', text: complete ? '✓ Petty Cash completo y guardado' : '✓ Borrador guardado. Completa los pendientes para cerrar la sección.' });
         // Reload data to get fresh ID from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();
@@ -174,10 +174,7 @@ export function PettyCashSection() {
       });
     } finally {
       setSaving(false);
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => {
-        setSaveMessage(null);
-      }, 3000);
+      // Keep save errors visible until the user retries.
     }
   };
 
@@ -421,7 +418,11 @@ export function PettyCashSection() {
         <div className="text-sm text-[#5F6773] sm:flex-1">
           {!complete && (
             <span className="text-orange-600">
-              ⚠️ Completa todos los campos requeridos (recibos, efectivo y foto)
+              Pendiente: {[
+                (pettyCash.receipts === null || pettyCash.receipts === undefined || pettyCash.receipts === '' || pettyCash.receipts < 0) && 'importe de recibos (ingresa 0 si no hay)',
+                (pettyCash.cash === null || pettyCash.cash === undefined || pettyCash.cash === '' || pettyCash.cash < 0) && 'efectivo',
+                !pettyCash.photo_url && 'foto de evidencia',
+              ].filter(Boolean).join('; ')}. Puedes guardar el borrador.
             </span>
           )}
           {complete && status.status === 'CORRECT' && (

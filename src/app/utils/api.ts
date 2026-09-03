@@ -1,3 +1,4 @@
+import { withTimeout } from './withTimeout';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
@@ -31,8 +32,10 @@ async function apiRequest<T = any>(
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-    const rawResponse = await response.text();
+    const { response, rawResponse } = await withTimeout(async (signal) => {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, signal });
+      return { response, rawResponse: await response.text() };
+    }, 45000, 'El servidor tardó demasiado. Los cambios siguen en pantalla; verifica el estado antes de volver a guardar.');
 
     let data: any;
     try {

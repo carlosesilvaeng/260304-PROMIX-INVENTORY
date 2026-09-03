@@ -162,7 +162,7 @@ export function UtilitiesSection() {
 
       if (response.success) {
         markChangesSaved('utilities', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Utilidades guardadas exitosamente' });
+        setSaveMessage({ type: 'success', text: allComplete ? '✓ Utilidades completas y guardadas' : '✓ Borrador guardado. Completa los pendientes para cerrar la sección.' });
         // Reload data to get fresh IDs from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();
@@ -179,10 +179,7 @@ export function UtilitiesSection() {
       });
     } finally {
       setSaving(false);
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => {
-        setSaveMessage(null);
-      }, 3000);
+      // Keep save errors visible until the user retries.
     }
   };
 
@@ -530,7 +527,13 @@ export function UtilitiesSection() {
         <div className="text-sm text-[#5F6773] sm:flex-1">
           {!allComplete && someStarted && (
             <span className="text-orange-600">
-              ⚠️ Algunos medidores están incompletos - Completa todos los campos requeridos
+              Pendiente: {utilities.filter((utility: any) => !isUtilityComplete(utility)).map((utility: any) => {
+                const missing = [];
+                if (utility.current_reading === null || utility.current_reading === undefined || utility.current_reading === '') missing.push('lectura');
+                else if (utility.previous_reading != null && Number(utility.current_reading) < Number(utility.previous_reading)) missing.push('revisar lectura menor a la anterior');
+                if (utility.requires_photo && !utility.photo_url) missing.push('foto');
+                return `${utility.meter_name}: ${missing.join(', ')}`;
+              }).join('; ')}. Puedes guardar el borrador.
             </span>
           )}
           {!allComplete && !someStarted && (
@@ -551,7 +554,7 @@ export function UtilitiesSection() {
           size="lg"
           className="w-full sm:min-w-[200px] sm:w-auto"
         >
-          {saving ? 'Guardando...' : 'Guardar Utilidades'}
+          {saving ? 'Guardando...' : allComplete ? 'Guardar Utilidades' : 'Guardar borrador'}
         </Button>
       </div>
     </div>

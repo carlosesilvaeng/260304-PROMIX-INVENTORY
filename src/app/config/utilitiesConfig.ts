@@ -229,16 +229,6 @@ export const UTILITIES_CONFIG: PlantUtilitiesConfig[] = [
         initial_reading: 88000,
       },
       {
-        id: 'water_well_primary',
-        meter_name: 'Agua Pozo - Principal',
-        meter_number: 'WELL-HUM-001',
-        utility_type: 'WATER_WELL',
-        uom: 'gallons',
-        provider: 'Pozo Propio',
-        requires_photo: true,
-        initial_reading: 102000,
-      },
-      {
         id: 'electricity_plant',
         meter_name: 'Electricidad - Planta',
         meter_number: 'LUMA-HUM-44444',

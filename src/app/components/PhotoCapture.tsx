@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from './Button';
+import { withTimeout } from '../utils/withTimeout';
 import { compressInventoryPhoto } from '../utils/imageCompression';
 import { useAuth } from '../contexts/AuthContext';
 import { projectId } from '/utils/supabase/info';
@@ -35,6 +36,7 @@ export function PhotoCapture({
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
+  const [photoMessage, setPhotoMessage] = useState('');
   const busy = compressing || uploading;
   const imageFitClass = fit === 'contain' ? 'object-contain bg-gray-100' : 'object-cover';
 
@@ -44,74 +46,63 @@ export function PhotoCapture({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
+    if (!file || busy) return;
+    setPhotoMessage('');
+    setCompressing(true);
+    try {
+      const result = await withTimeout((signal) => new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onloadend = async () => {
-          const result = reader.result as string;
-
-          // Show preview immediately (uncompressed)
-          setPreview(result);
-
-          // Compress if enabled
-          if (compress) {
-            setCompressing(true);
-            console.log('[PhotoCapture] Compressing photo...');
-
-            let compressed: string;
-            try {
-              compressed = await compressInventoryPhoto(result);
-              console.log('[PhotoCapture] Photo compressed successfully');
-            } catch (compressionError) {
-              console.error('[PhotoCapture] Compression failed, using original:', compressionError);
-              compressed = result;
-            } finally {
-              setCompressing(false);
-            }
-
-            // Upload compressed image to Supabase Storage
-            setUploading(true);
-            console.log('[PhotoCapture] Uploading to storage...');
-            try {
-              const res = await fetch(`${API_BASE_URL}/photos/upload`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify({
-                  base64: compressed,
-                  filename: file.name,
-                  plant_id: currentPlant?.id,
-                }),
-              });
-              const json = await res.json();
-              if (json.success && json.url) {
-                console.log('[PhotoCapture] Upload successful:', json.url);
-                onPhotoCapture(json.url);
-              } else {
-                console.warn('[PhotoCapture] Upload returned no URL, falling back to base64');
-                onPhotoCapture(compressed);
-              }
-            } catch (uploadError) {
-              console.error('[PhotoCapture] Upload failed, falling back to base64:', uploadError);
-              onPhotoCapture(compressed); // graceful fallback
-            } finally {
-              setUploading(false);
-            }
-          } else {
-            // No compression, no upload
-            onPhotoCapture(result);
-          }
-        };
+        signal.addEventListener('abort', () => reader.abort(), { once: true });
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('No se pudo leer la foto. Selecciónala nuevamente.'));
+        reader.onabort = () => reject(new Error('La lectura de la foto se interrumpió. Intenta nuevamente.'));
         reader.readAsDataURL(file);
-      } catch (error) {
-        console.error('[PhotoCapture] Error reading file:', error);
+      }), 15000);
+
+      let photo = result;
+      if (compress) {
+        photo = await withTimeout(() => compressInventoryPhoto(result), 20000);
       }
+      setPreview(photo);
+      setCompressing(false);
+      if (compress) {
+        setUploading(true);
+        try {
+          const json = await withTimeout(async (signal) => {
+            const res = await fetch(`${API_BASE_URL}/photos/upload`, {
+              method: 'POST',
+              signal,
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ base64: photo, filename: file.name, plant_id: currentPlant?.id }),
+            });
+            if (!res.ok) throw new Error('No se pudo subir la foto.');
+            return res.json();
+          }, 30000);
+          if (!json.success || !json.url) throw new Error('No se pudo subir la foto.');
+          onPhotoCapture(json.url);
+        } catch {
+          // Keep the compressed evidence in the draft when storage is unavailable.
+          onPhotoCapture(photo);
+          setPhotoMessage('La subida no terminó. La foto está en el borrador; pulsa Guardar para conservarla antes de salir.');
+        }
+      } else {
+        onPhotoCapture(photo);
+      }
+    } catch (error) {
+      setPreview(currentPhoto);
+      setPhotoMessage(error instanceof Error ? error.message : 'No se pudo procesar la foto. Intenta nuevamente.');
+    } finally {
+      setCompressing(false);
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleRemove = () => {
+    setPhotoMessage('');
     setPreview(undefined);
     setExpanded(false);
     onPhotoCapture('');
@@ -228,7 +219,7 @@ export function PhotoCapture({
             <p className="text-[#5F6773]">Toca para tomar o cargar una foto</p>
             {compress && (
               <p className="text-xs text-[#5F6773] mt-2 px-4 text-center">
-                💡 La imagen se optimizará y guardará automáticamente
+                💡 La imagen se optimizará. Pulsa Guardar al terminar la sección.
               </p>
             )}
           </button>
@@ -241,12 +232,12 @@ export function PhotoCapture({
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileChange}
         className="hidden"
         disabled={busy}
       />
 
+      {photoMessage && <p role="status" className="mt-2 text-sm text-amber-700">{photoMessage}</p>}
       {error && (
         <p className="mt-2 text-sm text-[#C94A4A]">{error}</p>
       )}
