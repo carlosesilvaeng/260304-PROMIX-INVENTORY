@@ -10,6 +10,7 @@ import {
   executePlantSilosImport,
   getCalibrationCurvesCatalog,
   getPlantConfig,
+  getMateriales,
   getPlantSilos,
   previewPlantSilosImport,
   updatePlantSilos,
@@ -205,8 +206,8 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getPlantSilos(plant.id), getPlantConfig(plant.id), getCalibrationCurvesCatalog(plant.id)])
-      .then(([silosResponse, configResponse, curvesResponse]) => {
+    Promise.all([getPlantSilos(plant.id), getPlantConfig(plant.id), getCalibrationCurvesCatalog(plant.id), getMateriales()])
+      .then(([silosResponse, configResponse, curvesResponse, materialsResponse]) => {
         if (silosResponse.success) {
           setSilos(
             (silosResponse.data ?? []).map((s: any) => ({
@@ -243,11 +244,17 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
             value: unit.id,
             label: `${unit.name_es || unit.code} (${unit.symbol || unit.code})`,
           })));
-          setProductOptions(
-            (configResponse.data.products ?? [])
-              .map((product: any) => String(product.product_name || '').trim())
+        }
+
+        if (materialsResponse.success) {
+          setProductOptions(Array.from(new Set(
+            (materialsResponse.data ?? [])
+              .filter((material) => material.is_active !== false)
+              .map((material) => material.nombre.trim())
               .filter(Boolean)
-          );
+          )));
+        } else {
+          setError(materialsResponse.error ?? 'Error cargando materiales');
         }
 
         if (curvesResponse.success) {
@@ -549,7 +556,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                     <li>Cada silo puede limitar qué productos aparecen durante el inventario.</li>
                     <li>La plantilla usa la misma estructura para exportar, editar e importar.</li>
                     <li>Cada silo usa una curva de conversión para calcular volumen disponible desde el nivel.</li>
-                    <li>Productos permitidos se separan con <strong>|</strong> y deben existir como aceites/productos activos.</li>
+                    <li>Productos permitidos se separan con <strong>|</strong> y deben existir en el catálogo de materiales activos.</li>
                   </ul>
                 </div>
 

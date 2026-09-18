@@ -3604,10 +3604,9 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
       .select('id, silo_name, sort_order')
       .eq('plant_id', plantId),
     supabase
-      .from('plant_products_config')
-      .select('product_name')
-      .eq('plant_id', plantId)
-      .neq('is_active', false),
+      .from('materiales_catalog')
+      .select('nombre')
+      .eq('is_active', true),
     listPlantCalibrationCurves(plantId),
   ]);
 
@@ -3625,7 +3624,7 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
 
   const availableProducts = new Set(
     (productRows || [])
-      .map((row: any) => String(row.product_name || '').trim())
+      .map((row: any) => String(row.nombre || '').trim())
       .filter(Boolean)
   );
 
@@ -3679,14 +3678,14 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
     }
 
     if (allowedProducts.length > 0 && availableProducts.size === 0) {
-      rowErrors.push({ column: 'Productos permitidos', message: 'la planta no tiene aceites y productos activos para asignar' });
+      rowErrors.push({ column: 'Productos permitidos', message: 'el catálogo no tiene materiales activos para asignar' });
     }
 
     allowedProducts.forEach((productName) => {
       if (!availableProducts.has(productName)) {
         rowErrors.push({
           column: 'Productos permitidos',
-          message: `"${productName}" no existe como aceite/producto activo en esta planta`,
+          message: `"${productName}" no existe en el catálogo de materiales activos`,
         });
       }
     });
@@ -3718,7 +3717,7 @@ export async function previewSilosImport(plantId: string, input: SilosImportInpu
   });
 
   if (availableProducts.size === 0) {
-    warnings.push('La planta no tiene aceites y productos activos. Solo podras importar silos sin productos permitidos.');
+    warnings.push('El catálogo no tiene materiales activos. Solo podras importar silos sin productos permitidos.');
   }
 
   return {

@@ -110,13 +110,13 @@ function buildInstructionRows(meta: SilosImportMeta, productOptions: string[]) {
     ['3', 'Nombre de curva debe existir en Catalogos > Curvas de conversion para esta planta.'],
     ['4', 'Unidad de lectura se sincroniza desde la curva seleccionada.'],
     ['5', 'Productos permitidos acepta varios nombres separados por |.'],
-    ['6', 'Cada producto permitido debe existir como Aceite o Producto activo en la planta.'],
+    ['6', 'Cada producto permitido debe existir en el catálogo de materiales activos.'],
     ['7', 'Activo acepta Sí o No.'],
     ['', ''],
     ['Valores permitidos', ''],
     ['Metodo de medicion', SILOS_IMPORT_METHOD_OPTIONS.join(', ')],
     ['Booleanos', SILOS_IMPORT_BOOLEAN_OPTIONS.join(', ')],
-    ['Productos activos sugeridos', productOptions.join(', ') || 'No hay productos activos configurados'],
+    ['Materiales activos sugeridos', productOptions.join(', ') || 'No hay materiales activos en el catálogo'],
   ];
 }
 
