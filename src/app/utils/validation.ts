@@ -121,6 +121,7 @@ export function validateSilosSection(entries: any[]): SectionValidationResult {
     let entryComplete = true;
     const siloLabel = entry.silo_name || 'Silo';
     const productLabel = entry.product_name || entry.product_in_silo;
+    const requiresProduct = entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE';
 
     if (entry.reading_value === null || entry.reading_value === undefined) {
       issues.push({
@@ -131,7 +132,7 @@ export function validateSilosSection(entries: any[]): SectionValidationResult {
       entryComplete = false;
     }
 
-    if (!productLabel) {
+    if (requiresProduct && !productLabel) {
       issues.push({
         field: `${siloLabel} - Producto`,
         message: 'Debe seleccionar un producto',
@@ -140,7 +141,7 @@ export function validateSilosSection(entries: any[]): SectionValidationResult {
       entryComplete = false;
     }
 
-    if (!entry.photo_url) {
+    if ((entry.requires_photo ?? true) && !entry.photo_url) {
       issues.push({
         field: `${siloLabel} - Foto`,
         message: 'Foto del medidor requerida',
