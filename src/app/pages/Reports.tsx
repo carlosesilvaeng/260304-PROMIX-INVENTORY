@@ -77,12 +77,14 @@ export function Reports({ onNavigate }: ReportsProps) {
   const { user, currentPlant, accessToken } = useAuth();
   const { t, language } = useLanguage();
   const normalizedRole = String(user?.role || '').toLowerCase();
+  const canViewGlobalReports = normalizedRole === 'admin' || normalizedRole === 'super_admin';
 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedPlant, setSelectedPlant] = useState('all');
   const [showExportSuccess, setShowExportSuccess] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [previewingPDF, setPreviewingPDF] = useState(false);
@@ -101,26 +103,30 @@ export function Reports({ onNavigate }: ReportsProps) {
     setLoading(true);
     setError(null);
     try {
-      if (!currentPlant?.id) {
+      if (!currentPlant?.id && !canViewGlobalReports) {
         setReports([]);
         return;
       }
 
-      const params = new URLSearchParams({ plant_id: currentPlant.id });
-      const res = await fetch(`${API_BASE_URL}/reports?${params.toString()}`, {
+      const params = new URLSearchParams();
+      if (currentPlant?.id) params.set('plant_id', currentPlant.id);
+      const query = params.toString();
+      const res = await fetch(`${API_BASE_URL}/reports${query ? `?${query}` : ''}`, {
         headers: { Authorization: `Bearer ${accessToken || publicAnonKey}` },
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Error al cargar reportes');
       // Keep the selected plant as the UI boundary even if an older backend
       // deployment returns a broader set of reports.
-      setReports((json.data || []).filter((report: Report) => report.plant_id === currentPlant.id));
+      setReports((json.data || []).filter((report: Report) =>
+        currentPlant?.id ? report.plant_id === currentPlant.id : canViewGlobalReports
+      ));
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [accessToken, currentPlant?.id]);
+  }, [accessToken, currentPlant?.id, canViewGlobalReports]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -135,6 +141,7 @@ export function Reports({ onNavigate }: ReportsProps) {
   // ── Filter client-side ────────────────────────────────────────────────────
 
   const filteredReports = reports.filter(r => {
+    if (!currentPlant && selectedPlant !== 'all' && r.plant_id !== selectedPlant) return false;
     const [year, month] = r.year_month.split('-');
     if (selectedYear !== 'all' && year !== selectedYear) return false;
     if (selectedMonth !== 'all' && month !== MONTH_TO_NUM[selectedMonth]) return false;
@@ -288,6 +295,17 @@ export function Reports({ onNavigate }: ReportsProps) {
       <Card>
         <h3 className="text-lg text-[#3B3A36] mb-4">Filtros</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {!currentPlant && canViewGlobalReports && (
+            <Select
+              label="Planta"
+              value={selectedPlant}
+              onChange={(e) => setSelectedPlant(e.target.value)}
+              options={[
+                { value: 'all', label: 'Todas las plantas' },
+                ...Array.from(new Set(reports.map(report => report.plant_id))).sort().map(plantId => ({ value: plantId, label: plantId })),
+              ]}
+            />
+          )}
           <Select
             label="Mes"
             value={selectedMonth}
