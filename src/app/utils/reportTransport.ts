@@ -1,5 +1,5 @@
 import type {InventoryReport} from './inventoryReportModel';
-export interface ReportFilters {plant_id?:string;year_month?:string;year?:string;month?:string;status?:string;as_of?:string;user_id?:string;inventory_month_id?:string}
+export interface ReportFilters {plant_id?:string;year_month?:string;year?:string;month?:string;status?:string;as_of?:string;user_id?:string;inventory_month_id?:string;activity_order?:'asc'|'desc'}
 export interface ReportPage {reporting_version:number;data:any[];pagination:{offset:number;limit:number;total:number;has_more:boolean};totals?:any;years?:string[];snapshot_id?:string;as_of?:string}
 export interface ReportOptions {signal?:AbortSignal;onProgress?:(done:number,total:number)=>void;filters?:ReportFilters;details?:InventoryReport[]}
 export function checkCancellation(signal?:AbortSignal){if(signal?.aborted)throw new DOMException('Exportación cancelada.','AbortError');}

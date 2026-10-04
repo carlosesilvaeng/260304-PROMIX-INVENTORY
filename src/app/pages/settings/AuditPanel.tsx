@@ -65,6 +65,7 @@ interface AuditUser {
 // ============================================================================
 
 const ACTION_LABELS: Record<string, string> = {
+  REPORT_DELETED: 'Inventario eliminado',
   CONFIGURATION_IMPORT_PREVIEWED: 'Configuración: vista previa revisada',
   CONFIGURATION_IMPORTED: 'Configuración importada',
   INVENTORY_STARTED: 'Inventario iniciado',
@@ -80,6 +81,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_ICONS: Record<string, string> = {
+  REPORT_DELETED: '🗑️',
   INVENTORY_STARTED: '🟢',
   INVENTORY_SUBMITTED: '📤',
   INVENTORY_APPROVED: '✅',

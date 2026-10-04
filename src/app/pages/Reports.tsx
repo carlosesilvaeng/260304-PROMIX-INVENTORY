@@ -20,6 +20,7 @@ interface ReportsProps {onNavigate?:(view:string,sectionId?:string,context?:{pla
 export function Reports({onNavigate}:ReportsProps){
  const {user,currentPlant,allPlants,accessToken}=useAuth();
  const [selectedPlant,setSelectedPlant]=useState(''),[year,setYear]=useState(''),[month,setMonth]=useState(''),[status,setStatus]=useState('');
+ const [activityOrder,setActivityOrder]=useState<'asc'|'desc'|''>('');
  const [page,setPage]=useState<ReportPage|null>(null),[offset,setOffset]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
  const [detail,setDetail]=useState<InventoryReport|null>(null),[detailLoading,setDetailLoading]=useState(false),[detailError,setDetailError]=useState(''),[detailOpen,setDetailOpen]=useState(false);
  const [timeline,setTimeline]=useState<any[]>([]),[timelineTotal,setTimelineTotal]=useState(0),[timelineError,setTimelineError]=useState(''),[timelineLoading,setTimelineLoading]=useState(false);
@@ -27,7 +28,7 @@ export function Reports({onNavigate}:ReportsProps){
  const [confirmDelete,setConfirmDelete]=useState<any>(null),[deleting,setDeleting]=useState(false);
  const exportController=useRef<AbortController|null>(null),detailController=useRef<AbortController|null>(null);
  const identityRef=useRef(user?.id);identityRef.current=user?.id;
- const filters:ReportFilters={plant_id:currentPlant?.id||selectedPlant||undefined,year:year||undefined,month:month||undefined,status:status||undefined};
+ const filters:ReportFilters={plant_id:currentPlant?.id||selectedPlant||undefined,year:year||undefined,month:month||undefined,status:status||undefined,activity_order:activityOrder||undefined};
  const filterKey=JSON.stringify(filters);
  useEffect(()=>{setOffset(0);},[filterKey,user?.id]);
  useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');setPage(null);
@@ -53,7 +54,7 @@ export function Reports({onNavigate}:ReportsProps){
    if(!controller.signal.aborted&&owner===identityRef.current)setExportSuccess(kind==='preview'?'Vista previa generada con los datos guardados.':'Archivo generado con todos los inventarios seleccionados. Las omisiones de fotos se indican en el archivo.');
   }catch(error:any){if(owner===identityRef.current)setExportError(error.name==='AbortError'?'Exportación cancelada.':error.message);}finally{if(owner===identityRef.current){setExporting('');setExportProgress('');}if(exportController.current===controller)exportController.current=null;}
  };
- const deleteReport=async()=>{setDeleting(true);setError('');try{const response=await fetch(`${base}/reports/${encodeURIComponent(confirmDelete.id)}`,{method:'DELETE',headers:{Authorization:`Bearer ${accessToken}`}});const reply=await response.json();if(!response.ok||!reply.success)throw Error(reply.error||'No se pudo eliminar el reporte.');setConfirmDelete(null);setOffset(0);setRefresh(value=>value+1);}catch(error:any){setError(error.message);}finally{setDeleting(false);}};
+ const deleteReport=async()=>{if(!confirmDelete||deleting)return;setDeleting(true);setError('');try{const response=await fetch(`${base}/reports/${encodeURIComponent(confirmDelete.id)}`,{method:'DELETE',headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify({confirm:true,plant_id:confirmDelete.plant_id,year_month:confirmDelete.year_month,write_revision:confirmDelete.write_revision})});const reply=await response.json();if(!response.ok||!reply.success)throw Error(reply.error||'No se pudo eliminar el reporte.');setConfirmDelete(null);setExportSuccess(`Inventario eliminado y registrado en Auditoría.${reply.warnings?.length?' '+reply.warnings.join(' '):''}`);setOffset(0);setRefresh(value=>value+1);}catch(error:any){setError(error.message);}finally{setDeleting(false);}};
  const reports=page?.data||[];const availablePlants=allPlants.filter(plant=>user?.role!=='plant_manager'||user.assigned_plants.includes(plant.id));
  return <div className="p-4 sm:p-6 space-y-5">
   <div className="flex justify-center"><PromixLogo size="lg"/></div><h2 className="text-2xl">Reportes y avance de inventarios</h2>
@@ -64,7 +65,7 @@ export function Reports({onNavigate}:ReportsProps){
    <Select label="Año" value={year} onChange={event=>setYear(event.target.value)} options={[{value:'',label:'Todos los años'},...[...new Set([...(page?.years||[]),String(new Date().getFullYear()),...(year?[year]:[])])].sort().reverse().map(value=>({value,label:value}))]}/>
    <Select label="Mes" value={month} onChange={event=>setMonth(event.target.value)} options={[{value:'',label:'Todos los meses'},...months.map((label,index)=>({value:String(index+1).padStart(2,'0'),label}))]}/>
    <Select label="Estado" value={status} onChange={event=>setStatus(event.target.value)} options={[{value:'',label:'Todos los estados'},...Object.entries(statuses).map(([value,label])=>({value,label}))]}/>
-  </div><div className="mt-4 flex flex-wrap gap-2">
+  </div><p className="mt-3 text-sm text-slate-600">Pulsa Actividad recibida para alternar entre más reciente y más antigua. Se usa la última fecha de guardado, evento o actualización recibida.</p><div className="mt-4 flex flex-wrap gap-2">
    <Button variant="outline" disabled={loading||!!exporting} onClick={()=>setRefresh(value=>value+1)}>Actualizar</Button>
    <Button variant="secondary" disabled={loading||!!exporting||!page?.pagination.total} onClick={()=>runExport('excel')}>Excel · todos los resultados</Button>
    <Button variant="secondary" disabled={loading||!!exporting||!page?.pagination.total} onClick={()=>runExport('pdf')}>Descargar PDF</Button>
@@ -72,11 +73,11 @@ export function Reports({onNavigate}:ReportsProps){
    {exporting&&<><p role="status" className="self-center">{exportProgress||'Preparando evidencias…'}</p><Button variant="outline" onClick={()=>exportController.current?.abort()}>Cancelar exportación</Button></>}
   </div></Card>
   {page&&<div className="grid gap-3 sm:grid-cols-4">{[['Inventarios filtrados',page.totals.total],['En progreso',page.totals.in_progress],['Enviados',page.totals.submitted],['Aprobados',page.totals.approved]].map(([label,value])=><Card key={label}><p className="text-sm">{label}</p><p className="text-2xl font-bold">{value}</p></Card>)}</div>}
-  <Card noPadding><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-[#3B3A36] text-white"><tr>{['Planta / período','Estado del proceso','Avance guardado','Actividad recibida','Acciones'].map(label=><th className="p-3 text-left" key={label}>{label}</th>)}</tr></thead><tbody>
-   {loading?<tr><td colSpan={5} className="p-6">Consultando reportes…</td></tr>:reports.length===0?<tr><td colSpan={5} className="p-6">No hay inventarios para estos filtros.</td></tr>:reports.map(report=><tr className="border-b" key={report.id}>
-    <td className="p-3"><p className="font-semibold">{report.plant_name||report.plant_id}</p><p>{report.year_month}</p></td><td className="p-3">{statuses[report.status]}</td>
+  <Card noPadding><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-[#3B3A36] text-white"><tr>{['Planta / período','Estado del proceso','Avance guardado','Actividad recibida','Acciones'].map(label=><th className="p-3 text-left" key={label} aria-sort={label==='Actividad recibida' ? (activityOrder==='asc'?'ascending':activityOrder==='desc'?'descending':'none') : undefined}>{label==='Actividad recibida'?<button type="button" onClick={()=>setActivityOrder(value=>value==='desc'?'asc':'desc')} aria-label="Ordenar por actividad recibida">{label} <span aria-hidden="true">{activityOrder==='asc'?'↑':activityOrder==='desc'?'↓':'⇅'}</span></button>:label}</th>)}</tr></thead><tbody>
+   {loading?<tr><td colSpan={5} className="p-6">Consultando reportes…</td></tr>:error?<tr><td colSpan={5} className="p-6">No se pudieron consultar los inventarios. Intenta actualizar.</td></tr>:reports.length===0?<tr><td colSpan={5} className="p-6">No hay inventarios para estos filtros.</td></tr>:reports.map(report=><tr className="border-b" key={report.id}>
+    <td className="p-3"><p className="font-semibold">{report.plant_name||report.plant_id}</p><p>{report.year_month}</p></td><td className={`p-3 ${report.status==='IN_PROGRESS'?'text-red-700 font-semibold':''}`}>{statuses[report.status]}</td>
     <td className="p-3"><p>{count(report.progress.captured_count)} con información</p><p>{count(report.progress.complete_count)} completos · {count(report.progress.pending_count)} pendientes</p><p className="text-xs text-slate-500">{report.progress.saved_count} registros guardados</p></td>
-    <td className="p-3"><p>Inicio: {date(report.created_at)}</p><p>Primera captura: {date(report.progress.first_capture_received_at)}</p><p>Guardado: {date(report.progress.last_save_received_at)}</p></td>
+    <td className="p-3"><p className="font-semibold">Última actividad: {date(report.activity_at)}</p><p>Inicio: {date(report.created_at)}</p><p>Primera captura: {date(report.progress.first_capture_received_at)}</p><p>Guardado: {date(report.progress.last_save_received_at)}</p></td>
     <td className="p-3"><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={()=>openDetail(report)}>Ver detalle y cronología</Button>
      {isPlantManagerLike(user?.role)&&report.status==='IN_PROGRESS'&&<Button variant="outline" size="sm" onClick={()=>onNavigate?.('inventory',undefined,{plantId:report.plant_id,yearMonth:report.year_month})}>Continuar</Button>}
      {canApproveInventory(user?.role)&&report.status==='SUBMITTED'&&<Button variant="outline" size="sm" onClick={()=>onNavigate?.('review',undefined,{plantId:report.plant_id,yearMonth:report.year_month})}>Revisar / Aprobar</Button>}
@@ -94,6 +95,6 @@ export function Reports({onNavigate}:ReportsProps){
    </>}
   </Modal>
   <Modal isOpen={!!pdfUrl} onClose={()=>setPdfUrl(null)} title="Vista PDF" size="xl">{pdfUrl&&<iframe src={pdfUrl} title="Reporte PDF" className="w-full h-[75vh]"/>}</Modal>
-  <Modal isOpen={!!confirmDelete} onClose={()=>!deleting&&setConfirmDelete(null)} title="Eliminar inventario"><p>¿Eliminar el inventario de {confirmDelete?.plant_id} / {confirmDelete?.year_month}? Esta acción elimina sus registros y no puede deshacerse.</p><div className="mt-4 flex gap-2"><Button variant="outline" disabled={deleting} onClick={()=>setConfirmDelete(null)}>Cancelar</Button><Button variant="destructive" disabled={deleting} onClick={deleteReport}>{deleting?'Eliminando…':'Eliminar inventario'}</Button></div></Modal>
+  <Modal isOpen={!!confirmDelete} onClose={()=>!deleting&&setConfirmDelete(null)} title="Eliminar inventario"><p>¿Eliminar el inventario de {confirmDelete?.plant_name||confirmDelete?.plant_id} / {confirmDelete?.year_month}? Esta acción elimina sus registros y fotografías y no puede deshacerse. La eliminación quedará registrada en Auditoría; las fotos compartidas con otros inventarios se conservarán.</p><div className="mt-4 flex gap-2"><Button variant="outline" disabled={deleting} onClick={()=>setConfirmDelete(null)}>Cancelar</Button><Button variant="destructive" disabled={deleting} onClick={deleteReport}>{deleting?'Eliminando…':'Eliminar inventario'}</Button></div></Modal>
  </div>;
 }

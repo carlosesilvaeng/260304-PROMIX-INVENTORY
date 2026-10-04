@@ -52,5 +52,42 @@ DO $$ DECLARE page jsonb; second jsonb; mid text; receipt jsonb; report jsonb; p
  BEGIN PERFORM inventory_reports_page('r3_manager','{}',0,101);RAISE EXCEPTION 'invalid limit accepted';EXCEPTION WHEN invalid_parameter_value THEN NULL;END;
  PERFORM pg_temp.verify(NOT has_function_privilege('authenticated','inventory_reports_page(text,jsonb,integer,integer)','EXECUTE') AND NOT has_function_privilege('anon','inventory_report_snapshot(text,text)','EXECUTE'),'report RPCs executable only through authenticated server');
 END $$;
+-- Sorting must apply before pagination. Deletion must roll back if audit fails.
+INSERT INTO plants(id,name,code) VALUES('R3_SORT','Sorting','R3_SORT');
+INSERT INTO inventory_month(id,plant_id,year_month,created_by,created_at,updated_at) VALUES
+ ('r3_old','R3_SORT','2026-08','r3_manager','2026-08-01','2026-08-02'),
+ ('r3_new','R3_SORT','2026-09','r3_manager','2026-09-01','2026-09-02');
+INSERT INTO plant_products_config(id,plant_id,product_name,unit,measure_mode) VALUES('r3_sort_product','R3_SORT','Sort Product','unit','COUNT');
+INSERT INTO inventory_products_entries(id,inventory_month_id,product_config_id,quantity,uom) VALUES('r3_old_product','r3_old','r3_sort_product',1,'unit'),('r3_new_product','r3_new','r3_sort_product',2,'unit');
+DO $$ DECLARE page jsonb; receipt jsonb; BEGIN
+ page:=inventory_reports_page('r3_admin','{"plant_id":"R3_SORT","activity_order":"asc"}',0,1);
+ PERFORM pg_temp.verify(page->'data'->0->>'id'='r3_old','ascending activity order before pagination');
+ page:=inventory_reports_page('r3_admin','{"plant_id":"R3_SORT","activity_order":"desc"}',0,1);
+ PERFORM pg_temp.verify(page->'data'->0->>'id'='r3_new','descending activity order before pagination');
+ page:=inventory_reports_page('r3_admin','{"plant_id":"R3_SORT","activity_order":"desc"}',1,1);
+ PERFORM pg_temp.verify(page->'data'->0->>'id'='r3_old','next activity page has the remaining row');
+ INSERT INTO audit_logs(user_id,user_email,action,plant_id,inventory_month_id,timestamp) VALUES('r3_admin','r3admin@example.invalid','SECTION_SAVED','R3_SORT','r3_old','2026-10-01');
+ PERFORM pg_temp.verify(inventory_reports_page('r3_admin','{"plant_id":"R3_SORT","activity_order":"desc"}',0,1)->'data'->0->>'id'='r3_old','latest received event outranks month creation');
+ PERFORM pg_temp.verify(page->>'snapshot_id'<>inventory_reports_page('r3_admin','{"plant_id":"R3_SORT","activity_order":"desc"}',0,1)->>'snapshot_id','activity changes invalidate pagination fingerprint');
+ BEGIN PERFORM delete_inventory_report_guarded('r3_manager','r3_old','R3_SORT','2026-08',0); RAISE EXCEPTION 'manager deletion accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM delete_inventory_report_guarded('r3_admin','r3_old','R3_SORT','2026-08',1); RAISE EXCEPTION 'stale deletion accepted'; EXCEPTION WHEN serialization_failure THEN NULL; END;
+ PERFORM pg_temp.verify(EXISTS(SELECT 1 FROM inventory_month WHERE id='r3_old'),'rejected deletion leaves inventory intact');
+ receipt:=delete_inventory_report_guarded('r3_admin','r3_old','R3_SORT','2026-08',0);
+ PERFORM pg_temp.verify(NOT EXISTS(SELECT 1 FROM inventory_month WHERE id='r3_old'),'confirmed administrator deletion removes month');
+ PERFORM pg_temp.verify(NOT EXISTS(SELECT 1 FROM inventory_products_entries WHERE id='r3_old_product'),'confirmed deletion removes child rows');
+ PERFORM pg_temp.verify(EXISTS(SELECT 1 FROM audit_logs WHERE id=receipt->>'audit_id' AND action='REPORT_DELETED' AND user_id='r3_admin' AND details->>'year_month'='2026-08'),'deletion audit keeps actor and period after month removed');
+ page:=inventory_audit_page('r3_admin','{"year_month":"2026-08","plant_id":"R3_SORT"}',0,50);
+ PERFORM pg_temp.verify(page->'data'->0->>'action'='REPORT_DELETED','deleted inventory event remains visible under period filter');
+ PERFORM pg_temp.verify(NOT has_function_privilege('authenticated','delete_inventory_report_guarded(text,text,text,text,bigint)','EXECUTE'),'deletion RPC restricted to server');
+END $$;
+CREATE FUNCTION pg_temp.fail_deletion_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='REPORT_DELETED' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$;
+CREATE TRIGGER test_report_audit_failure BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION pg_temp.fail_deletion_audit();
+DO $$ BEGIN
+ BEGIN PERFORM delete_inventory_report_guarded('r3_admin','r3_new','R3_SORT','2026-09',0); RAISE EXCEPTION 'audit failure ignored'; EXCEPTION WHEN OTHERS THEN IF SQLERRM <> 'synthetic audit failure' THEN RAISE; END IF; END;
+ PERFORM pg_temp.verify(EXISTS(SELECT 1 FROM inventory_month WHERE id='r3_new'),'audit failure rolls back inventory deletion');
+ PERFORM pg_temp.verify(EXISTS(SELECT 1 FROM inventory_products_entries WHERE id='r3_new_product'),'audit failure rolls back child deletion');
+END $$;
+DROP TRIGGER test_report_audit_failure ON public.audit_logs;
+
 ROLLBACK;
 SELECT 'Reporting SQL assertions passed; fixtures rolled back.';

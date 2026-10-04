@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Select } from '../components/Select';
@@ -98,6 +98,8 @@ export function PhotosReport() {
 
   // Filters
   const [filterPlant, setFilterPlant]   = useState('all');
+  const [filterSection, setFilterSection] = useState('all');
+  const [sort, setSort] = useState<{key: 'plant_name' | 'section' | 'created_at'; direction: 'asc' | 'desc'}>({key:'created_at', direction:'desc'});
   const [filterMonth, setFilterMonth]   = useState('');   // "YYYY-MM" or ''
 
   // Lightbox
@@ -190,8 +192,20 @@ export function PhotosReport() {
   }
 
   // ── Derived stats ───────────────────────────────────────────────────────────
-  const uniquePlants   = new Set(photos.map(p => p.plant_id)).size;
-  const uniqueSections = new Set(photos.map(p => p.section)).size;
+  const sections = [...new Set(['Agregados','Silos','Aditivos','Diesel','Aceites y Productos','Utilidades','Petty Cash',...photos.map(p => p.section)])].sort((a,b)=>a.localeCompare(b,'es'));
+  const visiblePhotos = useMemo(() => photos.filter(p => filterSection === 'all' || p.section === filterSection).sort((a,b) => {
+    let comparison: number;
+    if (sort.key === 'created_at') {
+      const left = Date.parse(a.created_at), right = Date.parse(b.created_at);
+      if (!Number.isFinite(left) || !Number.isFinite(right)) return Number.isFinite(left) ? -1 : Number.isFinite(right) ? 1 : a.id.localeCompare(b.id);
+      comparison = left - right;
+    } else comparison = a[sort.key].localeCompare(b[sort.key], 'es', {sensitivity:'base', numeric:true});
+    return (sort.direction === 'asc' ? comparison : -comparison) || a.id.localeCompare(b.id);
+  }), [photos,filterSection,sort]);
+  const toggleSort = (key: typeof sort.key) => setSort(previous => ({key, direction:previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc'}));
+  const sortHeader = (key: typeof sort.key, label: string) => <th className="px-4 py-3 text-left text-sm font-medium" aria-sort={sort.key === key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}><button type="button" className="flex items-center gap-2" onClick={() => toggleSort(key)} aria-label={`Ordenar por ${label}`}>{label}<span aria-hidden="true">{sort.key === key ? (sort.direction === 'asc' ? '↑' : '↓') : '⇅'}</span></button></th>;
+  const uniquePlants   = new Set(visiblePhotos.map(p => p.plant_id)).size;
+  const uniqueSections = new Set(visiblePhotos.map(p => p.section)).size;
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -218,7 +232,7 @@ export function PhotosReport() {
       {/* Filters */}
       <Card>
         <h3 className="text-base font-semibold text-[#3B3A36] mb-4">Filtros</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <Select
             label="Planta"
             value={filterPlant}
@@ -228,6 +242,7 @@ export function PhotosReport() {
               ...plants.map(p => ({ value: p.id, label: p.name })),
             ]}
           />
+          <Select label="Sección" aria-label="Sección" value={filterSection} onChange={e => setFilterSection(e.target.value)} options={[{value:'all',label:'Todas las secciones'},...sections.map(section=>({value:section,label:section}))]}/>
           <div>
             <label className="block text-[#3B3A36] mb-1.5">Período</label>
             <input
@@ -240,7 +255,7 @@ export function PhotosReport() {
           <div className="flex gap-2">
             <Button
               variant="secondary"
-              onClick={() => { setFilterPlant('all'); setFilterMonth(''); }}
+              onClick={() => { setFilterPlant('all'); setFilterMonth(''); setFilterSection('all'); }}
             >
               Limpiar
             </Button>
@@ -252,7 +267,7 @@ export function PhotosReport() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <p className="text-sm text-[#5F6773] mb-1">Total Fotos</p>
-          <p className="text-3xl font-bold text-[#2475C7]">{loading ? '—' : photos.length}</p>
+          <p className="text-3xl font-bold text-[#2475C7]">{loading ? '—' : visiblePhotos.length}</p>
         </Card>
         <Card>
           <p className="text-sm text-[#5F6773] mb-1">Plantas</p>
@@ -270,11 +285,11 @@ export function PhotosReport() {
           <table className="w-full">
             <thead className="bg-[#3B3A36] text-white">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">Planta</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Sección</th>
+                {sortHeader('plant_name', 'Planta')}
+                {sortHeader('section', 'Sección')}
                 <th className="px-4 py-3 text-left text-sm font-medium">Ítem</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Período</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Fecha / Hora</th>
+                {sortHeader('created_at', 'Fecha / Hora')}
                 <th className="px-4 py-3 text-left text-sm font-medium">Notas</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Foto</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Tipo / Tamaño</th>
@@ -290,7 +305,7 @@ export function PhotosReport() {
                     </div>
                   </td>
                 </tr>
-              ) : photos.length === 0 ? (
+              ) : visiblePhotos.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-[#5F6773]">
                     <div className="flex flex-col items-center gap-2">
@@ -301,7 +316,7 @@ export function PhotosReport() {
                   </td>
                 </tr>
               ) : (
-                photos.map(photo => (
+                visiblePhotos.map(photo => (
                   <tr
                     key={photo.id}
                     className="border-b border-[#9D9B9A] hover:bg-[#F2F3F5] transition-colors"
@@ -377,10 +392,10 @@ export function PhotosReport() {
         </div>
 
         {/* Table footer with count */}
-        {!loading && photos.length > 0 && (
+        {!loading && visiblePhotos.length > 0 && (
           <div className="px-4 py-3 border-t border-[#9D9B9A] bg-[#F2F3F5]">
             <p className="text-xs text-[#5F6773]">
-              Mostrando {photos.length} foto{photos.length !== 1 ? 's' : ''}
+              Mostrando {visiblePhotos.length} foto{visiblePhotos.length !== 1 ? 's' : ''}
             </p>
           </div>
         )}

@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-import {build} from 'esbuild';
+import {build,transformSync} from 'esbuild';
+import {readFileSync} from 'node:fs';
 import {buildInventoryReport,consolidateInventoryReports,storedNumber,reportingMetadata} from '../supabase/functions/make-server/report_model.ts';
 import {parseReportingQuery} from '../supabase/functions/make-server/report_query.ts';
 const modules=await build({stdin:{contents:"export * from './src/app/utils/reportWorkbook.ts';export * from './src/app/utils/reportTransport.ts'",resolveDir:process.cwd()},bundle:true,platform:'node',format:'cjs',packages:'external',write:false,logLevel:'silent'});
@@ -33,3 +34,21 @@ test('detail requests have bounded concurrency and cancellation stops fetching',
 test('actual XLSX serialization preserves numeric zero and metadata',()=>{const model=buildInventoryReport(snapshot({productos:[{product_name:'Producto cero',quantity:0,uom:'unit',measure_mode:'COUNT'}]}));const workbook=createReportWorkbook([model],{year_month:'2026-10'});const reopened=XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'});assert.match(reopened.Sheets['Información'].B3.v,/2026-10/);assert.ok(Object.values(reopened.Sheets['Consolidado']).some(cell=>cell?.t==='n'&&cell.v===0));});
 
 test('partial totals stay unknown and numeric overflow is rejected',()=>{const model=buildInventoryReport(snapshot({productos:[{product_name:'P',quantity:5,uom:'unit'},{product_name:'P',quantity:null,uom:'unit'}]}));assert.equal(model.metrics[0].value,null);assert.throws(()=>buildInventoryReport(snapshot({productos:[{product_name:'P',quantity:1e308,uom:'unit'},{product_name:'P',quantity:1e308,uom:'unit'}]})));});
+
+test('activity sorting accepts only asc or desc',()=>{assert.equal(parseReportingQuery({activity_order:'desc'}).filters.activity_order,'desc');assert.equal(parseReportingQuery({activity_order:'asc'}).filters.activity_order,'asc');assert.throws(()=>parseReportingQuery({activity_order:'newest'}),/Orden/);});
+
+test('delete API requires explicit confirmation of plant, period and revision',async()=>{
+ const source=readFileSync(new URL('../supabase/functions/make-server/index.ts',import.meta.url),'utf8');
+ const start=source.indexOf('app.delete("/make-server/reports/:id"');
+ const snippet=source.slice(start,source.indexOf('// DEBUG ENDPOINTS',start));
+ let handler;const calls=[];
+ new Function('app','requireAdmin','deleteInventoryMonthCascade','inventoryErrorResponse',transformSync(snippet,{loader:'ts',format:'cjs'}).code)(
+  {delete:(...args)=>{handler=args.at(-1);}},()=>{},async(id,options)=>{calls.push({id,options});return {deletedPhotos:0,warnings:[]};},(_c,e)=>{throw e;});
+ const context=body=>({req:{param:()=> 'synthetic-month',json:async()=>body},get:()=>({id:'admin',email:'admin@example.invalid',name:'Admin'}),json:(body,status=200)=>({body,status})});
+ for(const body of [null,{}, {confirm:false}, {confirm:true,plant_id:'A',year_month:'2026-10'}, {confirm:true,plant_id:'A',year_month:'2026-10',write_revision:-1}]){
+  assert.equal((await handler(context(body))).status,400);
+ }
+ assert.equal(calls.length,0);
+ const body={confirm:true,plant_id:'A',year_month:'2026-10',write_revision:0};
+ assert.equal((await handler(context(body))).status,200);assert.equal(calls.length,1);assert.deepEqual(calls[0].options.confirmation,body);assert.equal(calls[0].options.auditAction,'REPORT_DELETED');
+});

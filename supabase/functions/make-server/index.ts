@@ -668,6 +668,7 @@ async function deleteInventoryMonthCascade(
     actor?: { email: string; name?: string; id?: string };
     auditAction?: string | null;
     auditDetails?: Record<string, any>;
+    confirmation?: {plant_id:string;year_month:string;write_revision:number};
   }
 ) {
   const supabase = options?.supabase || db.getSupabaseClient();
@@ -687,7 +688,20 @@ async function deleteInventoryMonthCascade(
   const deletedRowsByTable: Record<string, number> = {};
   const warnings: string[] = [];
 
-  for (const table of childTables) {
+  let deletionReceipt: any = null;
+  if (options?.auditAction === 'REPORT_DELETED' && options.actor && options.confirmation) {
+    const { data, error } = await supabase.rpc('delete_inventory_report_guarded', {
+      p_actor_id:options.actor.id, p_month_id:inventoryMonthId,
+      p_plant_id:options.confirmation.plant_id, p_year_month:options.confirmation.year_month,
+      p_expected_revision:options.confirmation.write_revision,
+    });
+    if (error) throw error;
+    deletionReceipt = data;
+    photoUrls.push(...data.photo_urls);
+    Object.assign(deletedRowsByTable, data.deleted_rows_by_table);
+  }
+
+  for (const table of deletionReceipt ? [] : childTables) {
     const { data: rows, error: rowsError } = await supabase
       .from(table)
       .select('photo_url')
@@ -716,6 +730,7 @@ async function deleteInventoryMonthCascade(
     const exclusivePaths = storagePaths.filter(path => !path.startsWith('phase2/'));
 
     if (exclusivePaths.length > 0) {
+      try {
       const { error: storageError } = await supabase.storage
         .from('inventory-photos')
         .remove(exclusivePaths);
@@ -726,22 +741,33 @@ async function deleteInventoryMonthCascade(
       } else {
         deletedPhotos = exclusivePaths.length;
       }
+      } catch (error: any) { warnings.push(`No se pudo completar la limpieza de fotos: ${error.message}`); }
     }
   }
 
-  for (const table of childTables) {
+  for (const table of deletionReceipt ? [] : childTables) {
     const { error } = await supabase.from(table).delete().eq('inventory_month_id', inventoryMonthId);
     if (error) throw error;
   }
 
-  const { error: deleteError } = await supabase
-    .from('inventory_month')
-    .delete()
-    .eq('id', inventoryMonthId);
+  if (!deletionReceipt) {
+    const { error: deleteError } = await supabase
+      .from('inventory_month')
+      .delete()
+      .eq('id', inventoryMonthId);
+    if (deleteError) throw deleteError;
+  }
+  if (deletionReceipt) {
+    try {
+    const { error } = await supabase.from('audit_logs').update({details:{
+      ...deletionReceipt.audit_details,
+      year_month:report.year_month,deleted_rows_by_table:deletedRowsByTable,photos_deleted:deletedPhotos,warnings,storage_cleanup:warnings.length?'Completed with warnings':'Completed',
+    }}).eq('id',deletionReceipt.audit_id);
+    if (error) throw error;
+    } catch { warnings.push('La eliminación está auditada; no se pudo actualizar el resultado de limpieza de fotos.'); }
+  }
 
-  if (deleteError) throw deleteError;
-
-  if (options?.auditAction && options.actor) {
+  if (!deletionReceipt && options?.auditAction && options.actor) {
     logAudit(supabase, {
       user_email: options.actor.email,
       user_name: options.actor.name,
@@ -3736,9 +3762,14 @@ app.delete("/make-server/reports/:id", requireAdmin, async (c) => {
   try {
     const reportId = c.req.param('id');
     const user = c.get('user');
+    const confirmation = await c.req.json().catch(() => null);
+    if (confirmation?.confirm !== true || typeof confirmation.plant_id !== 'string' || typeof confirmation.year_month !== 'string' || !Number.isSafeInteger(confirmation.write_revision) || confirmation.write_revision < 0) {
+      return c.json({success:false,error:'Confirma explícitamente el inventario antes de eliminar.'},400);
+    }
     const result = await deleteInventoryMonthCascade(reportId, {
       actor: { email: user.email, name: user.name, id: user.id },
       auditAction: 'REPORT_DELETED',
+      confirmation,
     });
 
     console.log(`[DELETE REPORT] Report ${reportId} deleted. Photos removed: ${result.deletedPhotos}`);
@@ -3746,8 +3777,8 @@ app.delete("/make-server/reports/:id", requireAdmin, async (c) => {
 
   } catch (error: any) {
     console.error('[DELETE REPORT] Error:', error);
-    const status = error.message === 'Reporte no encontrado' ? 404 : 500;
-    return c.json({ success: false, error: error.message }, status);
+    if (error.message === 'Reporte no encontrado') return c.json({success:false,error:error.message},404);
+    return inventoryErrorResponse(c,error);
   }
 });
 
