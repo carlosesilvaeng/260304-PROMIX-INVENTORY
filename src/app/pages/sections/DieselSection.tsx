@@ -9,7 +9,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveDieselEntry } from '../../utils/api';
+import { saveDieselEntry, inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -296,15 +296,15 @@ export function DieselSection() {
         plant_id: diesel.plant_id || currentPlant?.id || null,
         unit: dieselUnits.inventoryLabel || diesel.unit || 'gallons',
         reading_uom: dieselUnits.captureLabel || diesel.reading_uom || 'inches',
-        reading_inches: diesel.reading_inches ?? 0,
-        reading: diesel.reading_inches ?? diesel.reading ?? 0,
-        calculated_gallons: diesel.calculated_gallons ?? 0,
+        reading_inches: diesel.reading_inches ?? null,
+        reading: diesel.reading_inches ?? diesel.reading ?? null,
+        calculated_gallons: diesel.calculated_gallons ?? null,
         calibration_table: diesel.calibration_table || null,
-        tank_capacity_gallons: diesel.tank_capacity_gallons ?? 0,
-        beginning_inventory: diesel.beginning_inventory ?? 0,
-        purchases_gallons: diesel.purchases_gallons ?? 0,
-        ending_inventory: diesel.ending_inventory ?? 0,
-        consumption_gallons: diesel.consumption_gallons ?? 0,
+        tank_capacity_gallons: diesel.tank_capacity_gallons ?? null,
+        beginning_inventory: diesel.beginning_inventory ?? null,
+        purchases_gallons: diesel.purchases_gallons ?? null,
+        ending_inventory: diesel.ending_inventory ?? null,
+        consumption_gallons: diesel.consumption_gallons ?? null,
         photo_url: diesel.photo_url || null,
         notes: diesel.notes || '',
       };
@@ -316,7 +316,7 @@ export function DieselSection() {
 
       if (response.success) {
         markChangesSaved('diesel', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Diesel guardado exitosamente' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         // Reload data to get fresh ID from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();
@@ -333,10 +333,7 @@ export function DieselSection() {
       });
     } finally {
       setSaving(false);
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => {
-        setSaveMessage(null);
-      }, 3000);
+      // Keep errors visible until the user retries.
     }
   };
 

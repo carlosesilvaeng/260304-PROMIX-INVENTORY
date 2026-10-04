@@ -5,18 +5,19 @@ import * as kv from "./kv_store.tsx";
 import * as db from "./database.tsx";
 import * as seed from "./seed.tsx";
 import * as auth from "./auth.tsx";
-import { calculateSiloGeometry, roundSiloResult } from "./silo_geometry.ts";
-import {
-  calculateSiloInventoryPresentation,
-  resolveSiloProductFactor,
-} from "./silo_inventory.ts";
+import { calculateSiloGeometry } from "./silo_geometry.ts";
 import {
   calculateAdditiveMeasurement,
   normalizeAdditiveMeasurementMethod,
-  roundAdditiveMeasurement,
 } from "./additive_measurement.ts";
 
+import { INVENTORY_SECTIONS, InventoryError, requireInventoryWriter, prepareInventoryRows, summarizeInventorySection } from './inventory_guard.ts';
+
 const app = new Hono();
+function inventoryErrorResponse(c: any, error: any) {
+  const status = error instanceof InventoryError ? error.status : error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : ['40001', '23505'].includes(error.code) ? 409 : ['22023', '23514'].includes(error.code) ? 400 : 500;
+  return c.json({ success: false, error: error.message || 'No se pudo guardar el inventario.', code: error.code || 'INVENTORY_ERROR' }, status);
+}
 
 // ============================================================================
 // BUILD VERSION - Update manually when deploying
@@ -26,12 +27,9 @@ const BUILD_VERSION = '2609011514';
 
 console.log('🚀 [PROMIX] Edge Function Started - Build', BUILD_VERSION);
 console.log('📋 [PROMIX] Environment Check:');
-console.log('   SUPABASE_URL:', Deno.env.get('SUPABASE_URL'));
 console.log('   CLIENT_ANON_KEY length:', Deno.env.get('CLIENT_ANON_KEY')?.length);
-console.log('   CLIENT_ANON_KEY prefix:', Deno.env.get('CLIENT_ANON_KEY')?.substring(0, 50) + '...');
 console.log('   SUPABASE_SERVICE_ROLE_KEY exists:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
 console.log('   SUPABASE_SERVICE_ROLE_KEY length:', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.length || 0);
-console.log('   SUPABASE_SERVICE_ROLE_KEY prefix:', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.substring(0, 50) + '...');
 
 type NumericCalibrationTable = Record<string, number>;
 
@@ -297,9 +295,10 @@ async function loadAuthorizedInventoryMonth(
     .from('inventory_month')
     .select(fields)
     .eq('id', inventoryMonthId)
-    .single();
+    .maybeSingle();
 
-  if (error || !inventoryMonth) {
+  if (error) throw error;
+  if (!inventoryMonth) {
     return {
       inventoryMonth: null,
       response: c.json({ success: false, error: 'Inventory month not found' }, 404),
@@ -514,7 +513,7 @@ async function applyInventoryWorkflowAction(
       c,
       user,
       inventoryMonthId,
-      ['status', 'year_month'],
+      ['status', 'year_month', 'write_revision'],
     );
     currentMonth = loaded.inventoryMonth;
 
@@ -529,20 +528,20 @@ async function applyInventoryWorkflowAction(
     };
   }
 
-  if (action === 'submit') {
-    const coverage = await db.getInventoryPersistenceCoverage(currentMonth.plant_id, inventoryMonthId);
+  if (action === 'submit' || action === 'approve') {
+    const coverage = await db.getInventorySubmissionValidation(currentMonth.plant_id, inventoryMonthId);
     const incompleteSections = coverage.filter((section) => (
       section.configured_count > 0 && !section.complete
     ));
 
     if (incompleteSections.length > 0) {
       const summary = incompleteSections
-        .map((section) => `${section.section_name}: ${section.saved_count} de ${section.configured_count} guardados`)
+        .map((section) => `${section.section_name}: ${section.complete_count ?? 0} de ${section.configured_count} completos${section.error ? ` (${section.error})` : ''}`)
         .join('; ');
       return {
         response: c.json({
           success: false,
-          error: `No se puede enviar el inventario porque faltan datos guardados. ${summary}.`,
+          error: `No se puede continuar porque faltan mediciones válidas o fotos obligatorias. ${summary}.`,
           code: 'INVENTORY_SECTIONS_NOT_PERSISTED',
           incomplete_sections: incompleteSections,
         }, 400),
@@ -564,61 +563,13 @@ async function applyInventoryWorkflowAction(
     return { response: transition.response };
   }
 
-  const { data, error } = await supabase
-    .from('inventory_month')
-    .update(transition.updateData)
-    .eq('id', inventoryMonthId)
-    .eq('status', currentMonth.status)
-    .select()
-    .maybeSingle();
-
-  if (error) throw error;
-
-  if (!data) {
-    const { data: latestMonth, error: latestError } = await supabase
-      .from('inventory_month')
-      .select('*')
-      .eq('id', inventoryMonthId)
-      .single();
-    if (latestError) throw latestError;
-
-    if (action === 'submit' && latestMonth?.status === 'SUBMITTED') {
-      return {
-        response: c.json({ success: true, data: latestMonth, already_applied: true }),
-      };
-    }
-
-    return {
-      response: c.json({
-        success: false,
-        error: 'El inventario cambió de estado mientras se procesaba la solicitud. Actualiza la pantalla e inténtalo nuevamente.',
-        data: latestMonth,
-      }, 409),
-    };
-  }
-
-  console.log(`[${transition.logLabel}] Inventory ${inventoryMonthId} ${transition.logMessage}`);
-
-  if (transition.auditAction) {
-    logAudit(supabase, {
-      user_email: user.email,
-      user_name: user.name,
-      user_id: user.id,
-      action: transition.auditAction,
-      plant_id: currentMonth.plant_id,
-      inventory_month_id: inventoryMonthId,
-      details: {
-        year_month: currentMonth.year_month,
-        from_status: currentMonth.status,
-        to_status: transition.nextStatus,
-        ...transition.auditDetails,
-      },
-    });
-  }
-
-  return {
-    response: c.json({ success: true, data }),
-  };
+  const { data, error } = await supabase.rpc('apply_inventory_workflow_guarded', {
+    p_inventory_month_id: inventoryMonthId, p_actor_id: user.id, p_action: action,
+    p_expected_revision: currentMonth.write_revision,
+    p_notes: action === 'reject' ? normalizeOptionalText(options.rejectionNotes) : normalizeOptionalText(options.approvalNotes),
+  });
+  if (error) return { response: inventoryErrorResponse(c, error) };
+  return { response: c.json({ success: true, data }) };
 }
 
 // ============================================================================
@@ -859,7 +810,6 @@ app.get("/make-server/debug/env", (c) => {
   console.log('🔍 [debug/env] Environment inspection:');
   console.log('   CLIENT_ANON_KEY exists:', !!clientAnonKey);
   console.log('   CLIENT_ANON_KEY length:', clientAnonKey?.length || 0);
-  console.log('   CLIENT_ANON_KEY prefix:', clientAnonKey?.substring(0, 50) + '...');
   console.log('   SUPABASE_ANON_KEY (legacy) exists:', !!legacyAnonKey);
   console.log('   SUPABASE_ANON_KEY (legacy) length:', legacyAnonKey?.length || 0);
   console.log('   JWT_SECRET exists:', !!jwtSecret);
@@ -3291,33 +3241,13 @@ app.post("/make-server/inventory/month", async (c) => {
     const accessError = assertPlantAccess(c, user, plant_id);
     if (accessError) return accessError;
 
-    // Check if it already exists before creating
-    const { data: existing } = await supabase
-      .from('inventory_month')
-      .select('id')
-      .eq('plant_id', plant_id)
-      .eq('year_month', year_month)
-      .single();
-
-    const inventoryMonth = await db.getOrCreateInventoryMonth(plant_id, year_month, effectiveCreatedBy);
-
-    // Audit: only log when a NEW inventory month is created
-    if (!existing) {
-      logAudit(supabase, {
-        user_email: user.email,
-        user_name: user.name,
-        user_id: user.id,
-        action: 'INVENTORY_STARTED',
-        plant_id: plant_id,
-        inventory_month_id: inventoryMonth.id,
-        details: { year_month, created_by: effectiveCreatedBy },
-      });
-    }
+    requireInventoryWriter(user);
+    const inventoryMonth = await db.getOrCreateInventoryMonth(plant_id, year_month, user.id);
 
     return c.json({ success: true, data: inventoryMonth });
   } catch (error) {
     console.error("Error creating/getting inventory month:", error);
-    return c.json({ success: false, error: error.message }, 500);
+    return inventoryErrorResponse(c, error);
   }
 });
 
@@ -3369,7 +3299,7 @@ app.put("/make-server/inventory/month/:inventoryMonthId/status", async (c) => {
       return c.json({ success: false, error: "Missing status" }, 400);
     }
 
-    const loaded = await loadAuthorizedInventoryMonth(c, user, inventoryMonthId, ['status', 'year_month']);
+    const loaded = await loadAuthorizedInventoryMonth(c, user, inventoryMonthId, ['status', 'year_month', 'write_revision']);
     if (loaded.response) return loaded.response;
 
     let action: 'save_draft' | 'submit' | 'approve' | 'reject';
@@ -3404,7 +3334,7 @@ app.put("/make-server/inventory/month/:inventoryMonthId/status", async (c) => {
     return result.response;
   } catch (error) {
     console.error("Error updating inventory month status:", error);
-    return c.json({ success: false, error: error.message }, 500);
+    return inventoryErrorResponse(c, error);
   }
 });
 
@@ -3418,6 +3348,14 @@ app.post('/make-server/photos/upload', async (c) => {
   try {
     const supabase = db.getSupabaseClient();
     const { base64, filename, plant_id } = await c.req.json();
+    const user = c.get('user');
+    requireInventoryWriter(user);
+    if (!plant_id) throw new InventoryError('La planta es obligatoria.');
+    const accessError = assertPlantAccess(c, user, plant_id);
+    if (accessError) return accessError;
+    const { data: plant, error: plantError } = await supabase.from('plants').select('id').eq('id', plant_id).eq('is_active', true).maybeSingle();
+    if (plantError) throw plantError;
+    if (!plant) throw new InventoryError('Planta no disponible.');
 
     // Validate input
     if (!base64 || !base64.startsWith('data:image/')) {
@@ -3460,7 +3398,7 @@ app.post('/make-server/photos/upload', async (c) => {
     return c.json({ success: true, url: urlData.publicUrl });
   } catch (err: any) {
     console.error('[photos/upload] Unexpected error:', err.message);
-    return c.json({ success: false, error: err.message }, 500);
+    return inventoryErrorResponse(c, err);
   }
 });
 
@@ -3469,629 +3407,69 @@ app.post('/make-server/photos/upload', async (c) => {
 // ============================================================================
 
 // Save aggregates entries
-app.post("/make-server/inventory/aggregates", async (c) => {
+app.post('/make-server/inventory/activity', async (c) => {
   try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entries } = body;
-
-    if (!inventory_month_id || !entries) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
+    const user = c.get('user'); requireInventoryWriter(user);
+    const { inventory_month_id, section, occurred_at } = await c.req.json();
+    if (!INVENTORY_SECTIONS.includes(section) || typeof occurred_at !== 'string' || !Number.isFinite(Date.parse(occurred_at))) {
+      throw new InventoryError('Actividad inválida.');
     }
-
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
-    if (payloadError) return payloadError;
-    
-    const dbEntries = entries.map((e: any) => ({
-      ...(e.id ? { id: e.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      aggregate_config_id: e.aggregate_config_id,
-      aggregate_name: e.aggregate_name,
-      material_type: e.material_type,
-      location_area: e.location_area,
-      measurement_method: e.measurement_method,
-      unit: e.unit,
-      box_width_ft: e.box_width_ft,
-      box_height_ft: e.box_height_ft,
-      box_length_ft: e.box_length_ft,
-      calculated_volume_cy: e.calculated_volume_cy,
-      cone_m1: e.cone_m1,
-      cone_m2: e.cone_m2,
-      cone_m3: e.cone_m3,
-      cone_m4: e.cone_m4,
-      cone_m5: e.cone_m5,
-      cone_m6: e.cone_m6,
-      cone_d1: e.cone_d1,
-      cone_d2: e.cone_d2,
-      photo_url: e.photo_url,
-      notes: e.notes,
-    }));
-
-    await db.replaceInventorySectionRowsAtomic('aggregates', inventoryMonth.id, dbEntries);
-    const { data, error } = await supabase
-      .from('inventory_aggregates_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id);
-
-    if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'aggregates' } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving aggregates entries:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Save silos entries
-app.post("/make-server/inventory/silos", async (c) => {
-  try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entries } = body;
-
-    if (!inventory_month_id || !entries) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
-    }
-
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
-    if (payloadError) return payloadError;
-
-    const configIds = entries.map((e: any) => e.silo_config_id).filter(Boolean);
-    const { data: configs, error: configsError } = await supabase
-      .from('plant_silos_config')
-      .select('*')
-      .in('id', configIds);
-    if (configsError) throw configsError;
-    const configById = new Map((configs || []).map((config: any) => [config.id, config]));
-
-    const dbEntries = await Promise.all(entries.map(async (e: any) => {
-      const config: any = configById.get(e.silo_config_id);
-      if (!config) throw new Error(`${e.silo_name || 'Silo'}: configuración no encontrada.`);
-      const readingValue = Number(e.reading_value ?? e.reading);
-      if (!Number.isFinite(readingValue) || readingValue < 0) {
-        throw new Error(`${config.silo_name}: ingresa una lectura válida.`);
-      }
-      if ((config.requires_photo ?? true) && !e.photo_url) {
-        throw new Error(`${config.silo_name}: la fotografía es obligatoria.`);
-      }
-
-      const calculationMethod = config.calculation_method || 'CALIBRATION_CURVE';
-      let calculatedVolumeFt3: number | null = null;
-      let calculatedResult: number;
-      let resultUnitId: string | null = null;
-      let presentationLbs: number | null = null;
-      let presentationSacks: number | null = null;
-      let presentationMetricTons: number | null = null;
-      let metadata: any;
-
-      if (calculationMethod === 'GEOMETRIC_CYLINDER_CONE') {
-        const selectedProduct = String(e.product_name || e.product_in_silo || '').trim();
-        if (!selectedProduct) throw new Error(`${config.silo_name}: selecciona el producto almacenado.`);
-        const geometry = calculateSiloGeometry({
-          diameter_in: config.diameter_in,
-          total_height_in: config.total_height_in,
-          cone_height_in: config.cone_height_in,
-          bottom_diameter_in: config.bottom_diameter_in,
-          cylinder_height_mode: config.cylinder_height_mode,
-          slope_divisor_mode: config.slope_divisor_mode,
-          reading_reference: config.reading_reference,
-          reading_in: readingValue,
-          geometry_model: config.geometry_model || 'LEGACY_LINEAR',
-          capacity_fraction: Number(config.capacity_fraction ?? 1),
-        });
-        calculatedVolumeFt3 = geometry.calculated_volume_ft3;
-        const { data: material } = await supabase.from('materiales_catalog').select('id,nombre')
-          .ilike('nombre', selectedProduct).maybeSingle();
-        const { data: factors, error: factorError } = await supabase
-          .from('material_conversion_factors')
-          .select('*, material:materiales_catalog(id,nombre)')
-          .eq('active', true)
-          .eq('from_unit_id', 'ft3')
-          .eq('to_unit_id', 'lb')
-          .or(`plant_id.eq.${config.plant_id},plant_id.is.null`);
-        if (factorError) throw factorError;
-
-        const factor = resolveSiloProductFactor({
-          factors: factors || [],
-          plantId: config.plant_id,
-          productName: selectedProduct,
-          explicitFactorId: config.material_conversion_factor_id,
-          materialId: material?.id,
-        });
-
-        if (factor) {
-          const presentation = calculateSiloInventoryPresentation(calculatedVolumeFt3, factor);
-          calculatedResult = presentation.pounds;
-          resultUnitId = 'lb';
-          presentationLbs = presentation.pounds;
-          presentationSacks = presentation.sacks;
-          presentationMetricTons = presentation.pounds / 2204.6226218;
-          metadata = {
-            geometry,
-            factor: { id: factor.id, factor: factor.factor, material_id: factor.material_id || null },
-            product: selectedProduct,
-            sack_weight_lbs: presentation.sackWeightLbs,
-          };
-        } else {
-          if (config.inventory_unit_id === 'lb' || config.inventory_unit_id === 'sack') {
-            throw new Error(`${config.silo_name}: no existe un factor activo de ft³ a lb para ${selectedProduct}.`);
-          }
-          calculatedResult = calculatedVolumeFt3;
-          resultUnitId = 'ft3';
-          metadata = {
-            geometry,
-            factor: null,
-            product: selectedProduct,
-            conversion_pending: true,
-          };
-        }
-      } else {
-        if (!hasCalibrationPoints(config.conversion_table)) {
-          throw new Error(`${config.silo_name}: falta tabla de calibración para calcular la lectura del silo.`);
-        }
-        calculatedResult = interpolateCalibrationTable(readingValue, config.conversion_table);
-        resultUnitId = config.inventory_unit_id || null;
-        metadata = { calibration_curve_name: config.calibration_curve_name };
-      }
-
-      const persistedResult = roundSiloResult(calculatedResult);
-      return {
-        ...(e.id ? { id: e.id } : {}),
-        inventory_month_id: inventoryMonth.id,
-        silo_config_id: config.id,
-        silo_name: config.silo_name,
-        measurement_method: config.measurement_method,
-        allowed_products: e.allowed_products,
-        product_id: e.product_id,
-        product_name: e.product_name,
-        product_in_silo: e.product_in_silo,
-        reading_uom: config.reading_uom,
-        reading_value: readingValue,
-        reading: readingValue,
-        previous_reading: e.previous_reading,
-        calculated_result_cy: persistedResult,
-        calculated_volume: persistedResult,
-        conversion_table: config.conversion_table,
-        calculation_method: calculationMethod,
-        reading_reference: config.reading_reference,
-        geometry_model: config.geometry_model || 'LEGACY_LINEAR',
-        capacity_fraction: Number(config.capacity_fraction ?? 1),
-        calculated_volume_ft3: calculatedVolumeFt3 === null ? null : roundSiloResult(calculatedVolumeFt3),
-        calculated_result: persistedResult,
-        calculated_result_unit_id: resultUnitId,
-        presentation_lbs: presentationLbs === null ? null : roundSiloResult(presentationLbs),
-        presentation_sacks: presentationSacks === null ? null : roundSiloResult(presentationSacks),
-        presentation_metric_tons: presentationMetricTons === null ? null : roundSiloResult(presentationMetricTons),
-        calculation_metadata: metadata,
-        requires_photo: config.requires_photo ?? true,
-        photo_url: e.photo_url,
-        notes: e.notes,
-      };
-    }));
-    await db.replaceInventorySilosAtomic(inventoryMonth.id, dbEntries);
-    const { data, error } = await supabase
-      .from('inventory_silos_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id);
-
-    if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'silos', methods: dbEntries.map((entry: any) => ({ silo: entry.silo_name, method: entry.calculation_method })) } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving silos entries:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Save additives entries
-app.post("/make-server/inventory/additives", async (c) => {
-  try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entries } = body;
-
-    if (!inventory_month_id || !entries) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
-    }
-
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
-    if (payloadError) return payloadError;
-
-    if (!Array.isArray(entries)) {
-      return c.json({ success: false, error: 'Payload inválido: entries debe ser un arreglo.' }, 400);
-    }
-
-    const additiveConfigIds = Array.from(new Set(entries.map((entry: any) => entry.additive_config_id).filter(Boolean)));
-    const additiveConfigsQuery = additiveConfigIds.length > 0
-      ? supabase.from('plant_additives_config').select('*').eq('plant_id', inventoryMonth.plant_id).in('id', additiveConfigIds)
-      : Promise.resolve({ data: [], error: null });
-    const [{ data: additiveConfigs, error: additivesError }, { data: units, error: unitsError }, { data: measurementConfigs, error: measurementError }] = await Promise.all([
-      additiveConfigsQuery,
-      supabase.from('units').select('*').eq('active', true),
-      supabase.from('measurement_configs').select('*').or(`plant_id.eq.${inventoryMonth.plant_id},plant_id.is.null`).eq('active', true),
-    ]);
-    if (additivesError) throw additivesError;
-    if (unitsError) throw unitsError;
-    if (measurementError) throw measurementError;
-
-    const configById = new Map((additiveConfigs || []).map((config: any) => [config.id, config]));
-    const unitsById = new Map((units || []).map((unit: any) => [unit.id, unit]));
-
-    const dbEntries = await Promise.all(entries.map(async (e: any) => {
-      const config: any = configById.get(e.additive_config_id);
-      if (!config) {
-        throw new Error(`${e.product_name || 'Aditivo'}: configuración inexistente o ajena a la planta.`);
-      }
-      if (config.requires_photo && !String(e.photo_url || '').trim()) {
-        throw new Error(`${config.additive_name}: la foto es requerida.`);
-      }
-      const method = normalizeAdditiveMeasurementMethod(
-        config.measurement_method || (String(config.additive_type).toUpperCase() === 'TANK' ? 'CURVE' : 'MANUAL'),
-      );
-      const effective = resolveAdditiveMeasurementConfig(
-        measurementConfigs || [],
-        inventoryMonth.plant_id,
-        config.id,
-      );
-      const captureUnitId = effective?.capture_unit_id || config.dimension_unit_id || config.reading_uom || 'in';
-      const calculationUnitId = method === 'MANUAL'
-        ? config.capacity_unit_id
-        : effective?.calculation_unit_id || config.capacity_unit_id || 'gal_us';
-      const displayUnitId = effective?.display_unit_id || calculationUnitId;
-      const inventoryUnitId = effective?.inventory_unit_id || calculationUnitId;
-      const readingValue = Number(e.reading_value ?? e.reading);
-
-      const calculationUnit = method === 'MANUAL'
-        ? unitsById.get(calculationUnitId)
-        : requireUnit(unitsById, calculationUnitId, `${config.additive_name}: unidad de cálculo`);
-      let measurement;
-      if (method === 'CURVE') {
-        measurement = calculateAdditiveMeasurement({
-          method,
-          conversion_table: config.conversion_table,
-        }, { reading: readingValue });
-      } else if (method === 'MANUAL') {
-        requireUnit(unitsById, config.capacity_unit_id, `${config.additive_name}: unidad de capacidad`);
-        measurement = calculateAdditiveMeasurement({
-          method,
-          capacity: config.capacity,
-        }, { quantity: e.quantity });
-      } else {
-        const dimensionUnit = requireUnit(unitsById, config.dimension_unit_id, config.additive_name);
-        const capacityUnit = requireUnit(unitsById, config.capacity_unit_id, config.additive_name);
-        measurement = calculateAdditiveMeasurement({
-          method,
-          diameter: config.diameter,
-          length: config.length,
-          width: config.width,
-          total_height: config.total_height,
-          capacity: config.capacity,
-          dimension_factor_to_base: Number(dimensionUnit.factor_to_base),
-          calculation_volume_factor_to_base: unitFactorToCubicMeters(calculationUnit),
-          capacity_volume_factor_to_base: unitFactorToCubicMeters(capacityUnit),
-        }, { reading: readingValue });
-      }
-
-      const calculatedVolume = roundAdditiveMeasurement(measurement.calculated_volume);
-      const percentage = measurement.inventory_percentage === null
-        ? null
-        : roundAdditiveMeasurement(measurement.inventory_percentage);
-      let displayVolume = calculatedVolume;
-      let inventoryQuantity = calculatedVolume;
-      if (method !== 'MANUAL') {
-        const displayUnit = requireUnit(unitsById, displayUnitId, `${config.additive_name}: unidad visible`);
-        const inventoryUnit = requireUnit(unitsById, inventoryUnitId, `${config.additive_name}: unidad de inventario`);
-        let materialFactor = null;
-        if (effective?.material_conversion_factor_id) {
-          const { data: factor, error: factorError } = await supabase
-            .from('material_conversion_factors')
-            .select('*')
-            .eq('id', effective.material_conversion_factor_id)
-            .eq('active', true)
-            .maybeSingle();
-          if (factorError) throw factorError;
-          materialFactor = factor;
-        }
-        displayVolume = roundAdditiveMeasurement(convertAdditiveVolume(calculatedVolume, calculationUnit, displayUnit));
-        inventoryQuantity = roundAdditiveMeasurement(
-          convertAdditiveVolume(calculatedVolume, calculationUnit, inventoryUnit, materialFactor),
-        );
-      }
-
-      return {
-        ...(e.id ? { id: e.id } : {}),
-        inventory_month_id: inventoryMonth.id,
-        additive_config_id: config.id,
-        additive_type: method === 'MANUAL' ? 'MANUAL' : 'TANK',
-        measurement_method: method,
-        product_name: config.additive_name,
-        brand: config.brand,
-        uom: config.uom,
-        requires_photo: config.requires_photo,
-        tank_name: config.tank_name,
-        reading_uom: method === 'CURVE' ? config.reading_uom : captureUnitId,
-        reading_value: method === 'MANUAL' ? null : readingValue,
-        reading: method === 'MANUAL' ? null : readingValue,
-        calculated_volume: calculatedVolume,
-        calculated_gallons: calculationUnitId === 'gal_us' ? calculatedVolume : null,
-        conversion_table: method === 'CURVE' ? config.conversion_table : null,
-        quantity: method === 'MANUAL' ? calculatedVolume : e.quantity,
-        diameter: config.diameter,
-        length: config.length,
-        width: config.width,
-        total_height: config.total_height,
-        capacity: config.capacity,
-        dimension_unit_id: config.dimension_unit_id,
-        capacity_unit_id: config.capacity_unit_id,
-        capture_unit_id: captureUnitId,
-        calculation_unit_id: calculationUnitId,
-        display_unit_id: displayUnitId,
-        inventory_unit_id: inventoryUnitId,
-        inventory_percentage: percentage,
-        display_volume: displayVolume,
-        inventory_quantity: inventoryQuantity,
-        photo_url: e.photo_url,
-        notes: e.notes,
-      };
-    }));
-    await db.replaceInventoryAdditivesAtomic(inventoryMonth.id, dbEntries);
-    const { data, error } = await supabase
-      .from('inventory_additives_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id);
-
-    if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'additives' } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving additives entries:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Save diesel entry
-app.post("/make-server/inventory/diesel", async (c) => {
-  try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entry } = body;
-
-    if (!inventory_month_id || !entry) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
-    }
-
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entry, 'entry');
-    if (payloadError) return payloadError;
-
-    if (!hasCalibrationPoints(entry.calibration_table)) {
-      throw new Error('Falta tabla de calibración para calcular la lectura del tanque de diesel.');
-    }
-    const dieselReading = Number(entry.reading_inches ?? entry.reading ?? 0) || 0;
-    const calculatedGallons = interpolateCalibrationTable(dieselReading, entry.calibration_table);
-    const consumptionGallons = roundTo(
-      (Number(entry.beginning_inventory ?? 0) || 0) +
-      (Number(entry.purchases_gallons ?? 0) || 0) -
-      calculatedGallons
-    );
-
-    const dieselRow = {
-      ...(entry.id ? { id: entry.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      diesel_config_id: entry.diesel_config_id,
-      plant_id: entry.plant_id,
-      unit: entry.unit,
-      reading_uom: entry.reading_uom,
-      reading_inches: dieselReading,
-      reading: dieselReading,
-      calculated_gallons: calculatedGallons,
-      calibration_table: entry.calibration_table,
-      tank_capacity_gallons: entry.tank_capacity_gallons,
-      beginning_inventory: entry.beginning_inventory,
-      purchases_gallons: entry.purchases_gallons,
-      ending_inventory: calculatedGallons,
-      consumption_gallons: consumptionGallons,
-      photo_url: entry.photo_url,
-      notes: entry.notes,
-    };
-    await db.replaceInventorySectionRowsAtomic('diesel', inventoryMonth.id, [dieselRow]);
-    const { data, error } = await supabase
-      .from('inventory_diesel_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id)
-      .maybeSingle();
-
-    if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'diesel' } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving diesel entry:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Save products entries
-app.post("/make-server/inventory/products", async (c) => {
-  try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entries } = body;
-
-    if (!inventory_month_id || !entries) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
-    }
-
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
-    if (payloadError) return payloadError;
-
-    const dbEntries = entries.map((entry: any) => {
-      const isTankReading = String(entry.measure_mode || '').toUpperCase() === 'TANK_READING';
-      if (isTankReading && !hasCalibrationPoints(entry.calibration_table)) {
-        throw new Error(`${entry.product_name || 'Producto'}: falta tabla de calibración para calcular la lectura del tanque.`);
-      }
-      const readingValue = Number(entry.reading_value ?? 0) || 0;
-      const calculatedQuantity = isTankReading
-        ? interpolateCalibrationTable(readingValue, entry.calibration_table)
-        : Number(entry.calculated_quantity ?? 0) || 0;
-
-      return {
-        ...(entry.id ? { id: entry.id } : {}),
-        inventory_month_id: inventoryMonth.id,
-        product_config_id: entry.product_config_id,
-        producto_config_id: entry.producto_config_id,
-        product_name: entry.product_name,
-        category: entry.category,
-        measure_mode: entry.measure_mode,
-        uom: entry.uom,
-        requires_photo: entry.requires_photo,
-        reading_uom: entry.reading_uom,
-        reading_value: readingValue,
-        calculated_quantity: calculatedQuantity,
-        calibration_table: entry.calibration_table,
-        tank_capacity: entry.tank_capacity,
-        unit_count: entry.unit_count,
-        unit_volume: entry.unit_volume,
-        total_volume: entry.total_volume,
-        quantity: isTankReading ? calculatedQuantity : entry.quantity,
-        photo_url: entry.photo_url,
-        notes: entry.notes,
-      };
+    const loaded = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
+    if (loaded.response) return loaded.response;
+    const { error } = await db.getSupabaseClient().rpc('record_inventory_capture_started', {
+      p_month_id: inventory_month_id, p_actor_id: user.id, p_section: section, p_occurred_at: occurred_at,
     });
-    await db.replaceInventorySectionRowsAtomic('products', inventoryMonth.id, dbEntries);
-    const { data, error } = await supabase
-      .from('inventory_products_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id);
-
     if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'products' } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving products entries:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
+    return c.json({ success: true });
+  } catch (error) { return inventoryErrorResponse(c, error); }
 });
 
-// Save utilities entries
-app.post("/make-server/inventory/utilities", async (c) => {
-  try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entries } = body;
-
-    if (!inventory_month_id || !entries) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
+for (const section of INVENTORY_SECTIONS) {
+  app.post(`/make-server/inventory/${section}`, async (c) => {
+    let attemptedMonth: any = null;
+    let attemptedOperation: string | null = null;
+    try {
+      const user = c.get('user');
+      requireInventoryWriter(user);
+      const body = await c.req.json();
+      const { inventory_month_id, expected_revision, operation_id } = body;
+      if (!inventory_month_id || !Number.isSafeInteger(expected_revision) || expected_revision < 0 ||
+          typeof operation_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operation_id)) {
+        throw new InventoryError('Actualiza la aplicación y vuelve a cargar el inventario antes de guardar.', 400, 'INVENTORY_PROTOCOL_REQUIRED');
+      }
+      const loaded = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
+      if (loaded.response) return loaded.response;
+      const m = loaded.inventoryMonth;
+      attemptedMonth = m; attemptedOperation = operation_id;
+      const rawInputs = section === 'diesel' || section === 'petty-cash' ? [body.entry] : body.entries;
+      if (!Array.isArray(rawInputs)) throw new InventoryError('Registros inválidos.');
+      const mismatch = rejectMismatchedInventoryMonthPayload(c, m.id, rawInputs, 'entries');
+      if (mismatch) return mismatch;
+      const hashBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ section, inputs: rawInputs, expected_revision })));
+      const requestHash = Array.from(new Uint8Array(hashBytes), b => b.toString(16).padStart(2, '0')).join('');
+      const replay = await db.findInventoryWriteReceipt(m.id, operation_id, user.id, section, requestHash);
+      if (replay) return c.json({ success: true, ...replay, already_applied: true });
+      if (m.status !== 'IN_PROGRESS') throw new InventoryError('El inventario ya no permite modificaciones.', 409, 'INVENTORY_LOCKED');
+      const pack = await db.getPlantConfigPackage(m.plant_id);
+      const previousPeriod = db.previousInventoryPeriod(m.year_month);
+      const previous = await db.getInventoryMonthByPlantAndDate(m.plant_id, previousPeriod);
+      const rows = prepareInventoryRows(section, rawInputs, pack, previous || {});
+      const summary = summarizeInventorySection(section, rows);
+      const receipt = await db.saveInventorySectionGuarded(m.id, section, rows, user.id, expected_revision, operation_id, requestHash, summary);
+      return c.json({ success: true, ...receipt });
+    } catch (error) {
+      if (attemptedMonth) {
+        try {
+          const user = c.get('user');
+          await createAuditEntry(db.getSupabaseClient(), { user_id: user.id, user_email: user.email, user_name: user.name,
+            action: 'SECTION_SAVE_FAILED', plant_id: attemptedMonth.plant_id, inventory_month_id: attemptedMonth.id,
+            details: { section, year_month: attemptedMonth.year_month, operation_id: attemptedOperation, code: error.code || 'INVENTORY_ERROR', origin: 'server' } });
+        } catch (auditError) { console.error('[AUDIT] Failed to record save failure:', auditError); }
+      }
+      return inventoryErrorResponse(c, error);
     }
-    
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entries, 'entries');
-    if (payloadError) return payloadError;
-    
-    const dbEntries = entries.map((entry: any) => ({
-      ...(entry.id ? { id: entry.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      utility_config_id: entry.utility_config_id,
-      utility_meter_config_id: entry.utility_meter_config_id,
-      meter_name: entry.meter_name,
-      meter_number: entry.meter_number,
-      utility_type: entry.utility_type,
-      uom: entry.uom,
-      provider: entry.provider,
-      requires_photo: entry.requires_photo,
-      previous_reading: entry.previous_reading,
-      current_reading: entry.current_reading,
-      reading: entry.reading,
-      consumption: entry.consumption,
-      photo_url: entry.photo_url,
-      notes: entry.notes,
-    }));
-    await db.replaceInventorySectionRowsAtomic('utilities', inventoryMonth.id, dbEntries);
-    const { data, error } = await supabase
-      .from('inventory_utilities_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id);
-
-    if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'utilities' } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving utilities entries:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Save petty cash entry
-app.post("/make-server/inventory/petty-cash", async (c) => {
-  try {
-    const supabase = db.getSupabaseClient();
-    const user = c.get('user');
-    const body = await c.req.json();
-    const { inventory_month_id, entry } = body;
-    
-    if (!inventory_month_id || !entry) {
-      return c.json({ success: false, error: "Missing required fields" }, 400);
-    }
-    
-    const { inventoryMonth, response } = await loadAuthorizedInventoryMonth(c, user, inventory_month_id);
-    if (response) return response;
-
-    const payloadError = rejectMismatchedInventoryMonthPayload(c, inventoryMonth.id, entry, 'entry');
-    if (payloadError) return payloadError;
-    
-    const pettyCashRow = {
-      ...(entry.id ? { id: entry.id } : {}),
-      inventory_month_id: inventoryMonth.id,
-      petty_cash_config_id: entry.petty_cash_config_id,
-      plant_id: entry.plant_id,
-      established_amount: entry.established_amount,
-      currency: entry.currency,
-      receipts: entry.receipts,
-      cash: entry.cash,
-      total: entry.total,
-      difference: entry.difference,
-      beginning_balance: entry.beginning_balance,
-      ending_balance: entry.ending_balance,
-      amount: entry.amount,
-      photo_url: entry.photo_url,
-      notes: entry.notes,
-    };
-    await db.replaceInventorySectionRowsAtomic('petty-cash', inventoryMonth.id, [pettyCashRow]);
-    const { data, error } = await supabase
-      .from('inventory_petty_cash_entries')
-      .select('*')
-      .eq('inventory_month_id', inventoryMonth.id)
-      .maybeSingle();
-
-    if (error) throw error;
-    logAudit(supabase, { user_email: user.email, user_name: user.name, user_id: user.id, action: 'SECTION_SAVED', inventory_month_id: inventoryMonth.id, details: { section: 'petty-cash' } });
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error("Error saving petty cash entry:", error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
+  });
+}
 
 // ============================================================================
 // INVENTORY SUBMISSION AND APPROVAL ENDPOINTS
@@ -4116,7 +3494,7 @@ app.post("/make-server/inventory/save-draft", async (c) => {
     return result.response;
   } catch (error) {
     console.error("Error saving draft:", error);
-    return c.json({ success: false, error: error.message }, 500);
+    return inventoryErrorResponse(c, error);
   }
 });
 
@@ -4139,7 +3517,7 @@ app.post("/make-server/inventory/submit", async (c) => {
     return result.response;
   } catch (error) {
     console.error("Error submitting inventory:", error);
-    return c.json({ success: false, error: error.message }, 500);
+    return inventoryErrorResponse(c, error);
   }
 });
 
@@ -4164,7 +3542,7 @@ app.post("/make-server/inventory/approve", async (c) => {
     return result.response;
   } catch (error) {
     console.error("Error approving inventory:", error);
-    return c.json({ success: false, error: error.message }, 500);
+    return inventoryErrorResponse(c, error);
   }
 });
 
@@ -4188,7 +3566,7 @@ app.post("/make-server/inventory/reject", async (c) => {
     return result.response;
   } catch (error) {
     console.error("Error rejecting inventory:", error);
-    return c.json({ success: false, error: error.message }, 500);
+    return inventoryErrorResponse(c, error);
   }
 });
 

@@ -9,7 +9,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveSilosEntries } from '../../utils/api';
+import { saveSilosEntries, inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -341,26 +341,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
       const savedRevision = getSectionRevision('silos');
       // Prepare entries for saving (remove temp IDs and internal flags)
       const entriesToSave = prefillData.silosEntries.map(entry => {
-        const isGeometric = entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE';
-        if (!isGeometric && !hasCalibrationPoints(entry.conversion_table)) {
-          throw new Error(`${entry.silo_name}: falta tabla de calibración para calcular la lectura del silo.`);
-        }
-        if (isGeometric && !entry.product_name) {
-          throw new Error(`${entry.silo_name}: selecciona el producto almacenado.`);
-        }
-        if ((entry.requires_photo ?? true) && !entry.photo_url) {
-          throw new Error(`${entry.silo_name}: la fotografía es obligatoria.`);
-        }
-
-        const readingValue = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
-        const calculatedVolume = isGeometric
-          ? getSiloVolumeMetrics(
-              entry,
-              prefillData.config?.calibration_curves,
-              prefillData.config?.material_conversion_factors,
-              currentPlant?.id,
-            ).calculatedVolumeFt3 || 0
-          : convertReadingToVolume(readingValue, entry.conversion_table);
+        const readingValue = entry.reading_value ?? entry.reading ?? null;
+        const calculatedVolume = entry.calculated_result_cy ?? entry.calculated_volume ?? null;
 
         return {
           ...(entry._isNew ? {} : { id: entry.id }),
@@ -395,7 +377,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
       if (response.success) {
         markChangesSaved('silos', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Silos guardados exitosamente' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         setTimeout(() => setSaveMessage(null), 3000);
       } else {
         setSaveMessage({ type: 'error', text: `Error: ${response.error}` });

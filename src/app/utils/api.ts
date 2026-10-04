@@ -1,9 +1,18 @@
+import { InventoryWriteProtocol } from './inventoryWriteProtocol';
 import { withTimeout } from './withTimeout';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
+const inventoryWriteProtocol = new InventoryWriteProtocol();
+const inventorySaveEndpoints = new Set(['aggregates', 'silos', 'additives', 'diesel', 'products', 'utilities', 'petty-cash']);
+
 interface ApiResponse<T = any> {
+  summary?: { captured_count: number; complete_count: number; pending_count: number };
+  code?: string;
+  revision?: number;
+  operation_id?: string;
+  saved_at?: string;
   success: boolean;
   data?: T;
   error?: string;
@@ -20,6 +29,11 @@ async function apiRequest<T = any>(
   body?: any
 ): Promise<ApiResponse<T>> {
   try {
+    const requestIdentity = localStorage.getItem('promix_access_token') || '';
+    inventoryWriteProtocol.setIdentity(requestIdentity);
+    const section = endpoint.startsWith('/inventory/') ? endpoint.slice('/inventory/'.length) : '';
+    const isInventorySave = method === 'POST' && inventorySaveEndpoints.has(section);
+    const requestBody = isInventorySave ? { ...body, ...inventoryWriteProtocol.prepare(body.inventory_month_id, section, body) } : body;
     const options: RequestInit = {
       method,
       headers: {
@@ -29,7 +43,7 @@ async function apiRequest<T = any>(
     };
 
     if (body && method !== 'GET') {
-      options.body = JSON.stringify(body);
+      options.body = JSON.stringify(requestBody);
     }
 
     const { response, rawResponse } = await withTimeout(async (signal) => {
@@ -59,6 +73,10 @@ async function apiRequest<T = any>(
       console.log(`API Info [${method} ${endpoint}]: Month not found (expected for first-time access)`);
     }
 
+    const sameIdentity = requestIdentity === (localStorage.getItem('promix_access_token') || '');
+    if (sameIdentity && data.success && isInventorySave) {
+      inventoryWriteProtocol.confirm(body.inventory_month_id, section, requestBody.operation_id, data.revision);
+    }
     return data;
   } catch (error) {
     console.error(`Network error calling ${method} ${endpoint}:`, error);
@@ -476,6 +494,7 @@ export interface InventoryMonth {
 }
 
 export interface InventoryMonthData {
+  section_revisions?: Record<string, number>;
   month: InventoryMonth;
   silos: any[];
   agregados: any[];
@@ -1593,4 +1612,27 @@ export async function executePlantProductsImport(
   }
 ): Promise<ApiResponse<ProductsImportExecuteResponse>> {
   return apiRequest(`/plants/${plantId}/config-import/products/execute`, 'POST', payload);
+}
+
+export async function recordInventoryCaptureStarted(inventoryMonthId: string, section: string) {
+  return apiRequest('/inventory/activity', 'POST', {
+    inventory_month_id: inventoryMonthId, section, occurred_at: new Date().toISOString(),
+  });
+}
+
+export function inventorySaveMessage(response: ApiResponse) {
+  const summary = response.summary;
+  if (!summary) return '✓ Información guardada.';
+  return summary.pending_count > 0
+    ? `✓ Borrador guardado: ${summary.complete_count} completos y ${summary.pending_count} pendientes.`
+    : `✓ Sección completa y guardada: ${summary.complete_count} registros.`;
+}
+
+// Accept revisions only when the editor installs the corresponding rows. Reads
+// in reports or audit must never advance the revision of unsaved editor data.
+export function acceptInventorySnapshot(snapshot: InventoryMonthData) {
+  inventoryWriteProtocol.setIdentity(localStorage.getItem('promix_access_token') || '');
+  if (!snapshot.section_revisions) return;
+  const revisions = Object.fromEntries([...inventorySaveEndpoints].map(key => [key, snapshot.section_revisions![key] || 0]));
+  inventoryWriteProtocol.observe(snapshot.month.id, revisions);
 }

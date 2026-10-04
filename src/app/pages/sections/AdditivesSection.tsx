@@ -9,7 +9,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatOptionalNumber, formatNumber } from '../../utils/numberFormatting';
-import { saveAdditivesEntries } from '../../utils/api';
+import { saveAdditivesEntries, inventorySaveMessage } from '../../utils/api';
 import {
   convertForCalculationToDisplay,
   resolveEffectiveMeasurementConfig,
@@ -498,22 +498,8 @@ export function AdditivesSection() {
           entry.measurement_method || (entry.additive_type === 'TANK' ? 'CURVE' : 'MANUAL'),
         );
         const isTank = method !== 'MANUAL';
-        if (method === 'CURVE' && !hasCalibrationPoints(entry.conversion_table)) {
-          throw new Error(`${entry.product_name}: falta tabla de calibración para calcular la lectura del tanque.`);
-        }
-
-        const readingValue = Number(entry.reading_value ?? entry.reading ?? 0) || 0;
-        const rawCalculatedVolume = method === 'CURVE'
-          ? convertReadingToVolume(readingValue, entry.conversion_table)
-          : Number(entry.calculated_volume ?? 0) || 0;
-        const tankMetrics = isTank
-          ? getEntryMetrics({
-            ...entry,
-            reading_value: readingValue,
-            calculated_volume: rawCalculatedVolume,
-          })
-          : null;
-        const calculatedVolume = tankMetrics?.availableVolume ?? rawCalculatedVolume;
+        const readingValue = entry.reading_value ?? entry.reading ?? null;
+        const calculatedVolume = entry.calculated_volume ?? null;
 
         return {
           ...(entry._isNew ? {} : { id: entry.id }),
@@ -532,7 +518,7 @@ export function AdditivesSection() {
           calculated_volume: calculatedVolume,
           calculated_gallons: isTank ? calculatedVolume : entry.calculated_gallons ?? calculatedVolume,
           conversion_table: entry.conversion_table || null,
-          quantity: entry.quantity ?? 0,
+          quantity: entry.quantity ?? null,
           diameter: entry.diameter ?? null,
           length: entry.length ?? null,
           width: entry.width ?? null,
@@ -553,7 +539,7 @@ export function AdditivesSection() {
 
       if (response.success) {
         markChangesSaved('aditivos', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Aditivos guardados exitosamente' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         // Reload data to get fresh IDs from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();

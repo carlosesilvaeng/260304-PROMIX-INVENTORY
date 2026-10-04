@@ -14,7 +14,7 @@ import {
 } from '../../utils/products';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveProductsEntries } from '../../utils/api';
+import { saveProductsEntries, inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -204,14 +204,14 @@ export function ProductsSection() {
           uom: producto.uom || '',
           requires_photo: producto.requires_photo ?? false,
           reading_uom: producto.reading_uom || null,
-          reading_value: producto.reading_value ?? 0,
-          calculated_quantity: producto.calculated_quantity ?? 0,
+          reading_value: producto.reading_value ?? null,
+          calculated_quantity: producto.calculated_quantity ?? null,
           calibration_table: producto.calibration_table || null,
           tank_capacity: producto.tank_capacity ?? null,
-          unit_count: producto.unit_count ?? 0,
+          unit_count: producto.unit_count ?? null,
           unit_volume: producto.unit_volume ?? null,
-          total_volume: producto.total_volume ?? 0,
-          quantity: producto.quantity ?? 0,
+          total_volume: producto.total_volume ?? null,
+          quantity: producto.quantity ?? null,
           photo_url: producto.photo_url || null,
           notes: producto.notes || '',
         };
@@ -224,7 +224,7 @@ export function ProductsSection() {
 
       if (response.success) {
         markChangesSaved('productos', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Aceites y Productos guardados exitosamente' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         // Reload data to get fresh IDs from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();

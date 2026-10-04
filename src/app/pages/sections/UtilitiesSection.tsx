@@ -14,7 +14,7 @@ import {
 } from '../../config/utilitiesConfig';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveUtilitiesEntries } from '../../utils/api';
+import { saveUtilitiesEntries, inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -162,7 +162,7 @@ export function UtilitiesSection() {
 
       if (response.success) {
         markChangesSaved('utilities', savedRevision);
-        setSaveMessage({ type: 'success', text: allComplete ? '✓ Utilidades completas y guardadas' : '✓ Borrador guardado. Completa los pendientes para cerrar la sección.' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         // Reload data to get fresh IDs from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();

@@ -1,3 +1,4 @@
+import { recordInventoryCaptureStarted, acceptInventorySnapshot } from '../utils/api';
 import { appendConfiguredEntries } from '../utils/appendConfiguredEntries';
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { 
@@ -80,10 +81,16 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
   const [dirtySectionRevisions, setDirtySectionRevisions] = useState<Record<string, number>>({});
   const dirtySectionRevisionsRef = useRef<Record<string, number>>({});
+  const activityMonthRef = useRef<string | null>(null);
+  const loadSequenceRef = useRef(0);
+  const loadedByRef = useRef<string | undefined>();
+  const reportedCaptureRef = useRef(new Set<string>());
   const inFlightLoadRef = useRef<Promise<void> | null>(null);
   const inFlightLoadKeyRef = useRef<string | null>(null);
 
   const { allPlants, user } = useAuth();
+  const currentUserRef = useRef(user?.id);
+  currentUserRef.current = user?.id;
 
   const getYearMonthFromDate = (date: Date): string => (
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -151,7 +158,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     }
 
     const currentPlant = allPlants.find((p: any) => p.id === config.plant_id);
-    const cajones = currentPlant?.cajones || [];
+    const cajones = config.cajones?.length ? config.cajones : currentPlant?.cajones || [];
     const aggregateMeasurementConfig = resolveMeasurementConfig(config.measurement_configs || [], {
       plantId: config.plant_id,
       sectionCode: 'aggregates',
@@ -161,7 +168,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     // Backward compatibility: some plants only have cajones configured and no
     // plant_aggregates_config rows yet. Build BOX aggregates from those cajones.
     return cajones.map((cajon: any, index: number) => ({
-      id: `fallback_cajon_${cajon.id || index}`,
+      id: cajon.id,
       aggregate_name: cajon.name,
       material_type: cajon.material || 'AGREGADO',
       location_area: cajon.procedencia || cajon.name,
@@ -589,6 +596,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
     if (
       !force &&
+      loadedByRef.current === user?.id &&
       currentPlantId === plantId &&
       currentYearMonth === yearMonth &&
       prefillData.inventoryMonth &&
@@ -598,6 +606,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       return;
     }
 
+    const loadSequence = ++loadSequenceRef.current;
+    activityMonthRef.current = null;
     setPrefillData(prev => ({ ...prev, loading: true, error: null }));
     setCurrentPlantId(plantId);
     setCurrentYearMonth(yearMonth);
@@ -609,7 +619,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         const previousMonthStr = getPreviousMonth(yearMonth);
         console.log('[PlantPrefill] Attempting to load previous month:', previousMonthStr);
 
-        const [configResponse, monthResponse, prevMonthResponse] = await Promise.all([
+        let [configResponse, monthResponse, prevMonthResponse] = await Promise.all([
           getPlantConfig(plantId),
           getInventoryMonth(plantId, yearMonth),
           getInventoryMonth(plantId, previousMonthStr),
@@ -617,6 +627,10 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
         if (!configResponse.success || !configResponse.data) {
           throw new Error(`Failed to load plant config: ${configResponse.error}`);
+        }
+
+        if (!prevMonthResponse.success && prevMonthResponse.error !== 'Month not found') {
+          throw new Error(prevMonthResponse.error || 'No se pudo consultar el inventario anterior.');
         }
 
         const config = configResponse.data;
@@ -629,6 +643,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           inventoryMonth = monthResponse.data.month;
           console.log('[PlantPrefill] Current month found:', inventoryMonth);
         } else {
+          if (monthResponse.error !== 'Month not found') throw new Error(monthResponse.error || 'No se pudo consultar el inventario.');
           console.log('[PlantPrefill] Month not found, creating new month...');
 
           try {
@@ -645,7 +660,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
               throw new Error(`Failed to create month: ${createResponse.error || 'Unknown error'}`);
             }
 
-            inventoryMonth = createResponse.data;
+            // Re-read a consistent snapshot, including section revisions. Another
+            // session may have created or saved the month in the meantime.
+            monthResponse = await getInventoryMonth(plantId, yearMonth);
+            if (!monthResponse.success || !monthResponse.data) {
+              throw new Error(monthResponse.error || 'No se pudo confirmar el inventario creado.');
+            }
+            inventoryMonth = monthResponse.data.month;
             console.log('[PlantPrefill] New month created:', inventoryMonth);
           } catch (createError) {
             console.error('[PlantPrefill] Error creating month:', createError);
@@ -944,6 +965,10 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           }));
         }
 
+        if (loadSequence !== loadSequenceRef.current || currentUserRef.current !== user?.id) return;
+        acceptInventorySnapshot(monthResponse.data!);
+        loadedByRef.current = user?.id;
+        activityMonthRef.current = inventoryMonth?.id || null;
         // 6. Update state
         setPrefillData({
           inventoryMonth,
@@ -966,6 +991,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         console.log('[PlantPrefill] Data loaded successfully');
       } catch (error) {
         console.error('[PlantPrefill] Error loading plant data:', error);
+        if (loadSequence !== loadSequenceRef.current || currentUserRef.current !== user?.id) return;
         setPrefillData(prev => ({
           ...prev,
           loading: false,
@@ -1003,6 +1029,15 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   // ============================================================================
   
   const updateEntry = useCallback((section: string, entryId: string, data: any) => {
+    const monthId = activityMonthRef.current;
+    const serverSection = ({ agregados: 'aggregates', aditivos: 'additives', productos: 'products', pettyCash: 'petty-cash', meters: 'utilities' } as Record<string,string>)[section] || section;
+    const captureKey = `${user?.id}:${monthId}:${serverSection}`;
+    if (monthId && !reportedCaptureRef.current.has(captureKey)) {
+      reportedCaptureRef.current.add(captureKey);
+      void recordInventoryCaptureStarted(monthId, serverSection).then(response => {
+        if (!response.success) reportedCaptureRef.current.delete(captureKey);
+      }).catch(() => reportedCaptureRef.current.delete(captureKey));
+    }
     const nextRevision = (dirtySectionRevisionsRef.current[section] || 0) + 1;
     dirtySectionRevisionsRef.current = {
       ...dirtySectionRevisionsRef.current,
@@ -1045,7 +1080,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       
       return prev;
     });
-  }, []);
+  }, [user?.id]);
 
   const getSectionRevision = useCallback((section: string) => (
     dirtySectionRevisionsRef.current[section] || 0

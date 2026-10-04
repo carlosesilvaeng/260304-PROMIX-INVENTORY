@@ -249,6 +249,8 @@ export async function verifyToken(accessToken: string): Promise<{ user: User | n
       return { user: null, error: 'User not found' };
     }
     
+    if (!userData.is_active) return { user: null, error: 'Usuario inactivo' };
+
     console.log('✅ [verifyToken] User verified:', userData.email);
     
     return {

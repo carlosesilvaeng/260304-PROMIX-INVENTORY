@@ -41,6 +41,9 @@ interface AuditLog {
   inventory_month_id?: string;
   details?: {
     section?: string;
+    captured_count?: number;
+    complete_count?: number;
+    pending_count?: number;
     year_month?: string;
     reason?: string;
     notes?: string;
@@ -66,6 +69,9 @@ const ACTION_LABELS: Record<string, string> = {
   INVENTORY_APPROVED: 'Inventario aprobado',
   INVENTORY_REJECTED: 'Inventario rechazado',
   SECTION_SAVED: 'Sección guardada',
+  SECTION_SAVE_FAILED: 'Guardado fallido',
+  INVENTORY_CAPTURE_STARTED: 'Captura iniciada (informada por el dispositivo)',
+  INVENTORY_DRAFT_SAVED: 'Borrador guardado',
   USER_LOGIN: 'Inicio de sesión',
 };
 
@@ -75,6 +81,9 @@ const ACTION_ICONS: Record<string, string> = {
   INVENTORY_APPROVED: '✅',
   INVENTORY_REJECTED: '❌',
   SECTION_SAVED: '💾',
+  SECTION_SAVE_FAILED: '⚠️',
+  INVENTORY_CAPTURE_STARTED: '✏️',
+  INVENTORY_DRAFT_SAVED: '💾',
   USER_LOGIN: '🔐',
 };
 
@@ -231,7 +240,8 @@ export function AuditPanel() {
 
   const getActionLabel = (log: AuditLog) => {
     if (log.action === 'SECTION_SAVED' && log.details?.section) {
-      return `Seccion guardada: ${SECTION_LABELS[log.details.section] || log.details.section}`;
+      const counts = log.details.complete_count === undefined ? '' : ` · ${log.details.captured_count} con información, ${log.details.complete_count} completos, ${log.details.pending_count} pendientes`;
+      return `Sección guardada: ${SECTION_LABELS[log.details.section] || log.details.section}${counts}`;
     }
     return ACTION_LABELS[log.action] || log.action;
   };

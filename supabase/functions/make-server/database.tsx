@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { InventoryError, validateInventorySubmissionSection, INVENTORY_SECTIONS } from './inventory_guard.ts';
 
 // Initialize Supabase client with service role key
 export const getSupabaseClient = () => {
@@ -2152,10 +2153,10 @@ export async function getPlantConfigPackage(plantId: string) {
       supabase.from('plant_silos_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_cajones_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_additives_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
-      supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
+      supabase.from('plant_diesel_config').select('*').eq('plant_id', plantId).eq('is_active', true).maybeSingle(),
       supabase.from('plant_products_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
       supabase.from('plant_utilities_meters_config').select('*').eq('plant_id', plantId).neq('is_active', false).order('sort_order'),
-      supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).single(),
+      supabase.from('plant_petty_cash_config').select('*').eq('plant_id', plantId).eq('is_active', true).maybeSingle(),
       supabase.from('measurement_configs').select('*').or(`plant_id.eq.${plantId},plant_id.is.null`).eq('active', true).order('sort_order'),
       supabase.from('unit_categories').select('*').eq('active', true).order('sort_order'),
       supabase.from('units').select('*').eq('active', true).order('sort_order'),
@@ -2197,6 +2198,11 @@ export async function getPlantConfigPackage(plantId: string) {
       console.error(`❌ [getPlantConfigPackage] Material conversion factors query error:`, materialConversionFactorsRes.error);
     }
     
+    for (const result of [aggregatesRes, silosRes, cajonesRes, additivesRes, dieselRes, productsRes, utilitiesRes, pettyCashRes, measurementConfigsRes, unitCategoriesRes, unitsRes, materialConversionFactorsRes]) {
+      if (result.error) throw result.error;
+    }
+    const { data: plant, error: plantError } = await supabase.from('plants').select('petty_cash_established').eq('id', plantId).single();
+    if (plantError) throw plantError;
     const calibration_curves = buildCalibrationCurveMapForPackage(curves || []);
     const siloIds = (silosRes.data || []).map((silo) => silo.id).filter(Boolean);
     let siloAllowedProductsBySiloId: Record<string, string[]> = {};
@@ -2208,7 +2214,7 @@ export async function getPlantConfigPackage(plantId: string) {
         .in('silo_config_id', siloIds);
 
       if (siloAllowedProductsError) {
-        console.error(`❌ [getPlantConfigPackage] Silo allowed products query error:`, siloAllowedProductsError);
+        throw siloAllowedProductsError;
       } else {
         siloAllowedProductsBySiloId = (siloAllowedProductsRows || []).reduce((acc: Record<string, string[]>, row: any) => {
           if (!row?.silo_config_id || !row?.product_name) return acc;
@@ -2238,6 +2244,7 @@ export async function getPlantConfigPackage(plantId: string) {
     
     return {
       plant_id: plantId,
+      plant_petty_cash_established: plant.petty_cash_established,
       aggregates: aggregatesRes.data || [],
       cajones,
       silos,
@@ -2372,75 +2379,59 @@ export async function listPlantConfigurationCounts(plantIds: string[]) {
 // INVENTORY MONTH OPERATIONS
 // ============================================================================
 
-export async function getOrCreateInventoryMonth(plantId: string, yearMonth: string, createdBy: string) {
-  const supabase = getSupabaseClient();
-  
-  // Try to get existing inventory month
-  const { data: existing } = await supabase
-    .from('inventory_month')
-    .select('*')
-    .eq('plant_id', plantId)
-    .eq('year_month', yearMonth)
-    .single();
-  
-  if (existing) {
-    return existing;
-  }
-  
-  // Create new inventory month
-  const { data: newMonth, error } = await supabase
-    .from('inventory_month')
-    .insert({
-      plant_id: plantId,
-      year_month: yearMonth,
-      status: 'IN_PROGRESS',
-      created_by: createdBy
-    })
-    .select()
-    .single();
-  
+export async function getOrCreateInventoryMonth(plantId: string, yearMonth: string, actorId: string) {
+  const { data, error } = await getSupabaseClient().rpc('start_inventory_guarded', {
+    p_plant_id: plantId, p_year_month: yearMonth, p_actor_id: actorId,
+  });
   if (error) throw error;
-  return newMonth;
+  return data;
+}
+
+export function previousInventoryPeriod(period: string) {
+  const [year, month] = period.split('-').map(Number);
+  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
+}
+
+export async function findInventoryWriteReceipt(monthId: string, operationId: string, actorId: string, section: string, requestHash: string) {
+  const { data, error } = await getSupabaseClient().from('inventory_write_receipts').select('*')
+    .eq('inventory_month_id', monthId).eq('operation_id', operationId).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  if (data.actor_id !== actorId || data.section !== section || data.request_hash !== requestHash) {
+    throw new InventoryError('La operación ya se utilizó para otros datos.', 409, 'OPERATION_CONFLICT');
+  }
+  return data.receipt;
+}
+
+export async function saveInventorySectionGuarded(monthId: string, section: string, rows: any[], actorId: string,
+  revision: number, operationId: string, requestHash: string, summary: any) {
+  const { data, error } = await getSupabaseClient().rpc('save_inventory_section_guarded', {
+    p_inventory_month_id: monthId, p_section: section, p_rows: rows,
+    p_actor_id: actorId, p_expected_revision: revision, p_operation_id: operationId,
+    p_request_hash: requestHash, p_summary: summary,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function getInventorySubmissionValidation(plantId: string, monthId: string) {
+  const pack = await getPlantConfigPackage(plantId);
+  const saved = await getInventoryMonthData(monthId);
+  const previous = await getInventoryMonthByPlantAndDate(plantId, previousInventoryPeriod(saved.inventory_month.year_month));
+  const sectionData: any = { aggregates: saved.aggregates_entries, silos: saved.silos_entries, additives: saved.additives_entries,
+    diesel: saved.diesel_entry ? [saved.diesel_entry] : [], products: saved.products_entries,
+    utilities: saved.utilities_entries, 'petty-cash': saved.petty_cash_entry ? [saved.petty_cash_entry] : [] };
+  const result = INVENTORY_SECTIONS.map(section => validateInventorySubmissionSection(section, sectionData[section], pack, previous || {}));
+  if (!result.some(r => r.configured_count > 0)) throw new InventoryError('No hay secciones configuradas para enviar este inventario.');
+  return result;
 }
 
 export async function getInventoryMonthData(inventoryMonthId: string) {
-  const supabase = getSupabaseClient();
-  
-  try {
-    const [
-      monthRes,
-      aggregatesRes,
-      silosRes,
-      additivesRes,
-      dieselRes,
-      productsRes,
-      utilitiesRes,
-      pettyCashRes
-    ] = await Promise.all([
-      supabase.from('inventory_month').select('*').eq('id', inventoryMonthId).single(),
-      supabase.from('inventory_aggregates_entries').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_silos_entries').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_additives_entries').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_diesel_entries').select('*').eq('inventory_month_id', inventoryMonthId).single(),
-      supabase.from('inventory_products_entries').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_utilities_entries').select('*').eq('inventory_month_id', inventoryMonthId),
-      supabase.from('inventory_petty_cash_entries').select('*').eq('inventory_month_id', inventoryMonthId).single()
-    ]);
-    
-    return {
-      inventory_month: monthRes.data,
-      aggregates_entries: aggregatesRes.data || [],
-      silos_entries: silosRes.data || [],
-      additives_entries: additivesRes.data || [],
-      diesel_entry: dieselRes.data || null,
-      products_entries: productsRes.data || [],
-      utilities_entries: utilitiesRes.data || [],
-      petty_cash_entry: pettyCashRes.data || null
-    };
-  } catch (error) {
-    console.error('Error fetching inventory month data:', error);
-    throw error;
-  }
+  const { data, error } = await getSupabaseClient().rpc('get_inventory_snapshot', { p_month_id: inventoryMonthId });
+  if (error) throw error;
+  return { inventory_month: data.month, aggregates_entries: data.agregados, silos_entries: data.silos,
+    additives_entries: data.aditivos, diesel_entry: data.diesel, products_entries: data.productos,
+    utilities_entries: data.utilities, petty_cash_entry: data.pettyCash };
 }
 
 export interface InventorySectionPersistenceCoverage {
@@ -2521,45 +2512,17 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
       .select('*')
       .eq('plant_id', plantId)
       .eq('year_month', yearMonth)
-      .single();
+      .maybeSingle();
     
-    if (monthError || !month) {
+    if (monthError) throw monthError;
+    if (!month) {
       return null;
     }
     
-    // Get all entries for this month
-    const [
-      silosRes,
-      agregadosRes,
-      aditivosRes,
-      dieselRes,
-      productosRes,
-      utilitiesRes,
-      pettyCashRes
-    ] = await Promise.all([
-      supabase.from('inventory_silos_entries').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_aggregates_entries').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_additives_entries').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_diesel_entries').select('*').eq('inventory_month_id', month.id).maybeSingle(),
-      supabase.from('inventory_products_entries').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_utilities_entries').select('*').eq('inventory_month_id', month.id),
-      supabase.from('inventory_petty_cash_entries').select('*').eq('inventory_month_id', month.id).maybeSingle()
-    ]);
-    
+    const { data: snapshot, error: snapshotError } = await supabase.rpc('get_inventory_snapshot', { p_month_id: month.id });
+    if (snapshotError) throw snapshotError;
     const persistenceCoverage = await getInventoryPersistenceCoverage(plantId, month.id);
-
-    return {
-      month,
-      silos: silosRes.data || [],
-      agregados: agregadosRes.data || [],
-      aditivos: aditivosRes.data || [],
-      diesel: dieselRes.data || null,
-      productos: productosRes.data || [],
-      utilities: utilitiesRes.data || [],
-      meters: utilitiesRes.data || [], // meters are also in utilities
-      pettyCash: pettyCashRes.data || null,
-      persistence_coverage: persistenceCoverage,
-    };
+    return { ...snapshot, persistence_coverage: persistenceCoverage };
   } catch (error) {
     console.error('Error fetching inventory month by plant and date:', error);
     throw error;

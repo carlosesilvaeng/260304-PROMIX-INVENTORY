@@ -7,7 +7,7 @@ import { PhotoCapture } from '../../components/PhotoCapture';
 import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
-import { saveAggregatesEntries } from '../../utils/api';
+import { saveAggregatesEntries, inventorySaveMessage } from '../../utils/api';
 import { formatFeetInches, isFeetInchesUnit } from '../../utils/feetInches';
 import { formatNumber } from '../../utils/numberFormatting';
 import {
@@ -255,7 +255,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
       if (response.success) {
         markChangesSaved('agregados', savedRevision);
-        setSaveMessage({ type: 'success', text: '✓ Agregados guardados exitosamente' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         setTimeout(() => setSaveMessage(null), 3000);
       } else {
         setSaveMessage({ type: 'error', text: `Error: ${response.error}` });

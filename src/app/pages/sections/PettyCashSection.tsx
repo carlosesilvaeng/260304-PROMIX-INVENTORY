@@ -12,7 +12,7 @@ import {
   formatCurrency,
 } from '../../config/pettyCashConfig';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
-import { savePettyCashEntry } from '../../utils/api';
+import { savePettyCashEntry, inventorySaveMessage } from '../../utils/api';
 
 export function PettyCashSection() {
   const { currentPlant } = useAuth();
@@ -157,7 +157,7 @@ export function PettyCashSection() {
 
       if (response.success) {
         markChangesSaved('pettyCash', savedRevision);
-        setSaveMessage({ type: 'success', text: complete ? '✓ Petty Cash completo y guardado' : '✓ Borrador guardado. Completa los pendientes para cerrar la sección.' });
+        setSaveMessage({ type: 'success', text: inventorySaveMessage(response) });
         // Reload data to get fresh ID from database
         if (currentPlant) {
           const yearMonth = getCurrentYearMonth();
