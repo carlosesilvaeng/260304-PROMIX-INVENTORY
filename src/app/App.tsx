@@ -25,6 +25,7 @@ import { UtilitiesSection } from "./pages/sections/UtilitiesSection";
 import { PettyCashSection } from "./pages/sections/PettyCashSection";
 import { ProductsSection } from "./pages/sections/ProductsSection";
 import { ReviewAndApproveSection } from "./pages/sections/ReviewAndApproveSection";
+import { InventorySyncStatus } from './components/InventorySyncStatus';
 import { ErrorBoundary } from "./utils/errorBoundary";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { isPlantManagerLike } from "./utils/permissions";
@@ -70,7 +71,7 @@ const BUILD_VERSION = '2609011514';
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
-  const { hasPendingChanges, hasPendingChangesForSection, currentYearMonth } = usePlantPrefill();
+  const { hasPendingChanges, hasUnprotectedChanges, hasPendingChangesForSection, currentYearMonth } = usePlantPrefill();
   const isOperationalUser = isPlantManagerLike(user?.role);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -114,7 +115,7 @@ function AppContent() {
       }
     };
 
-    if (currentView === 'section' && currentSectionHasPendingChanges) {
+    if (currentView === 'section' && hasUnprotectedChanges) {
       setPendingExitAction(() => navigate);
       return;
     }
@@ -127,7 +128,7 @@ function AppContent() {
   };
 
   useEffect(() => {
-    if (!hasPendingChanges) return;
+    if (!hasUnprotectedChanges) return;
 
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -136,7 +137,7 @@ function AppContent() {
 
     window.addEventListener('beforeunload', warnBeforeUnload);
     return () => window.removeEventListener('beforeunload', warnBeforeUnload);
-  }, [hasPendingChanges]);
+  }, [hasUnprotectedChanges]);
 
   const sectionLabels: Record<string, string> = {
     agregados: 'Agregados',
@@ -243,6 +244,7 @@ function AppContent() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <InventorySyncStatus section={currentSection} />
         <div className={currentView === 'section' ? 'hidden lg:block' : ''}>
           <TopBar
             onChangePlant={handleChangePlant}
@@ -271,7 +273,7 @@ function AppContent() {
                       ? 'bg-amber-100 text-amber-800'
                       : 'bg-green-100 text-green-800'
                   }`}>
-                    {currentSectionHasPendingChanges ? 'Cambios sin guardar' : 'Datos sincronizados'}
+                    {currentSectionHasPendingChanges ? 'Cambios pendientes' : 'Inventario'}
                   </span>
                   {!currentSectionHasPendingChanges && currentPlant && (
                     <button
@@ -377,7 +379,7 @@ function AppContent() {
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
             <h2 id="unsaved-changes-title" className="text-xl font-bold text-[#3B3A36]">Cambios sin guardar</h2>
             <p className="mt-3 text-[#5F6773]">
-              Esta sección tiene cambios que todavía no se han guardado. Si sales ahora, esos cambios podrían perderse al cerrar o recargar el navegador.
+              No se ha confirmado el guardado de todos los cambios en este dispositivo. Exporta el borrador o espera a que se guarde antes de salir.
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button

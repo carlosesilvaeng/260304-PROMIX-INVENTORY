@@ -7,7 +7,7 @@ import { PhotoCapture } from '../../components/PhotoCapture';
 import { UnitFlowSummary } from '../../components/UnitFlowSummary';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
-import { saveAggregatesEntries, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 import { formatFeetInches, isFeetInchesUnit } from '../../utils/feetInches';
 import { formatNumber } from '../../utils/numberFormatting';
 import {
@@ -27,7 +27,7 @@ interface AggregatesSectionProps {
 
 export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -240,18 +240,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
     try {
       const savedRevision = getSectionRevision('agregados');
-      // Prepare entries for saving (remove temp IDs and _isNew flag)
-      const entriesToSave = prefillData.agregadosEntries.map(entry => ({
-        ...entry,
-        unit: displayUnit,
-        id: entry._isNew ? undefined : entry.id, // Remove temp ID for new entries
-        _isNew: undefined, // Remove internal flag
-      }));
-
-      const response = await saveAggregatesEntries(
-        prefillData.inventoryMonth.id,
-        entriesToSave
-      );
+      const response = await saveSection('aggregates');
 
       if (response.success) {
         markChangesSaved('agregados', savedRevision);

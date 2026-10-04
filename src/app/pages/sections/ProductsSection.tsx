@@ -14,7 +14,7 @@ import {
 } from '../../utils/products';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveProductsEntries, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -50,7 +50,7 @@ function getProductModeLabel(producto: any) {
 
 export function ProductsSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -189,38 +189,7 @@ export function ProductsSection() {
 
     try {
       const savedRevision = getSectionRevision('productos');
-      console.log('[ProductsSection] Saving entries:', productos);
-
-      const entriesToSave = productos.map((producto: any) => {
-        const configId = producto.product_config_id || producto.producto_config_id || null;
-
-        return {
-          inventory_month_id: prefillData.inventoryMonth.id,
-          product_config_id: configId,
-          producto_config_id: configId,
-          product_name: producto.product_name,
-          category: producto.category || 'OTHER',
-          measure_mode: producto.measure_mode || 'COUNT',
-          uom: producto.uom || '',
-          requires_photo: producto.requires_photo ?? false,
-          reading_uom: producto.reading_uom || null,
-          reading_value: producto.reading_value ?? null,
-          calculated_quantity: producto.calculated_quantity ?? null,
-          calibration_table: producto.calibration_table || null,
-          tank_capacity: producto.tank_capacity ?? null,
-          unit_count: producto.unit_count ?? null,
-          unit_volume: producto.unit_volume ?? null,
-          total_volume: producto.total_volume ?? null,
-          quantity: producto.quantity ?? null,
-          photo_url: producto.photo_url || null,
-          notes: producto.notes || '',
-        };
-      });
-      
-      const response = await saveProductsEntries(
-        prefillData.inventoryMonth.id,
-        entriesToSave
-      );
+      const response = await saveSection('products');
 
       if (response.success) {
         markChangesSaved('productos', savedRevision);

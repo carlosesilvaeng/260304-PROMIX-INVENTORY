@@ -2522,7 +2522,7 @@ export async function getInventoryMonthByPlantAndDate(plantId: string, yearMonth
     const { data: snapshot, error: snapshotError } = await supabase.rpc('get_inventory_snapshot', { p_month_id: month.id });
     if (snapshotError) throw snapshotError;
     const persistenceCoverage = await getInventoryPersistenceCoverage(plantId, month.id);
-    return { ...snapshot, persistence_coverage: persistenceCoverage };
+    return { ...snapshot, sync_protocol: 2, persistence_coverage: persistenceCoverage };
   } catch (error) {
     console.error('Error fetching inventory month by plant and date:', error);
     throw error;

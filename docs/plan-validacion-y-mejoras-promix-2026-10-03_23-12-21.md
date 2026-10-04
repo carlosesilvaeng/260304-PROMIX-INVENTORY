@@ -364,3 +364,8 @@ Cada hallazgo tendrá evidencia, impacto, reproducción, corrección, prueba y e
 **Cierre de la intervención actual:** satisfacer el criterio de salida de la Fase 1, documentar las pruebas realizadas y señalar expresamente cualquier validación pendiente. El cierre de esta fase no equivale al cierre del plan general.
 
 No se realizará una reescritura completa ni se cambiarán reglas de cálculo históricas sin pruebas de equivalencia. La prioridad será estabilizar lo existente y demostrar cada mejora con casos reproducibles.
+
+
+## Actualización de alcance — 2026-10-04 13:00:45 (America/Bogota)
+
+El usuario autorizó posteriormente implementar la Fase 2. Las restricciones de alcance anteriores se conservan como registro de la autorización original de la Fase 1. La implementación y sus comprobaciones locales constan en [fase-2-implementacion-2026-10-04_13-00-45.md](fase-2-implementacion-2026-10-04_13-00-45.md). Quedan pendientes la aceptación en un clon real, teléfonos y planta piloto. No se publicaron cambios en producción; las Fases 3, 4 y 5 siguen pendientes.

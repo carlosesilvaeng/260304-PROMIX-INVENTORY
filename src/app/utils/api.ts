@@ -7,7 +7,8 @@ const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`
 const inventoryWriteProtocol = new InventoryWriteProtocol();
 const inventorySaveEndpoints = new Set(['aggregates', 'silos', 'additives', 'diesel', 'products', 'utilities', 'petty-cash']);
 
-interface ApiResponse<T = any> {
+export interface ApiResponse<T = any> {
+  status?: number;
   summary?: { captured_count: number; complete_count: number; pending_count: number };
   code?: string;
   revision?: number;
@@ -33,7 +34,7 @@ async function apiRequest<T = any>(
     inventoryWriteProtocol.setIdentity(requestIdentity);
     const section = endpoint.startsWith('/inventory/') ? endpoint.slice('/inventory/'.length) : '';
     const isInventorySave = method === 'POST' && inventorySaveEndpoints.has(section);
-    const requestBody = isInventorySave ? { ...body, ...inventoryWriteProtocol.prepare(body.inventory_month_id, section, body) } : body;
+    const requestBody = isInventorySave ? { ...body, ...(body.operation_id ? {} : inventoryWriteProtocol.prepare(body.inventory_month_id, section, body)) } : body;
     const options: RequestInit = {
       method,
       headers: {
@@ -62,6 +63,7 @@ async function apiRequest<T = any>(
 
       return {
         success: false,
+        status: response.status,
         error: 'El servidor devolvio una respuesta no valida. Si este modulo es nuevo, verifica que la Edge Function este publicada y actualizada.',
       };
     }
@@ -77,7 +79,7 @@ async function apiRequest<T = any>(
     if (sameIdentity && data.success && isInventorySave) {
       inventoryWriteProtocol.confirm(body.inventory_month_id, section, requestBody.operation_id, data.revision);
     }
-    return data;
+    return { ...data, ...(!response.ok ? {success:false,error:data.error || `Error ${response.status}`} : {}), status: response.status };
   } catch (error) {
     console.error(`Network error calling ${method} ${endpoint}:`, error);
     return {
@@ -494,6 +496,7 @@ export interface InventoryMonth {
 }
 
 export interface InventoryMonthData {
+  sync_protocol?: number;
   section_revisions?: Record<string, number>;
   month: InventoryMonth;
   silos: any[];
@@ -1635,4 +1638,31 @@ export function acceptInventorySnapshot(snapshot: InventoryMonthData) {
   if (!snapshot.section_revisions) return;
   const revisions = Object.fromEntries([...inventorySaveEndpoints].map(key => [key, snapshot.section_revisions![key] || 0]));
   inventoryWriteProtocol.observe(snapshot.month.id, revisions);
+}
+
+export async function syncInventorySection(monthId: string, section: string, rows: any[], operationId: string, revision: number) {
+  const entries = rows.map(row => {
+    const { _isNew, ...entry } = row;
+    if (_isNew || String(entry.id || '').startsWith('temp_')) delete entry.id;
+    return entry;
+  });
+  return apiRequest(`/inventory/${section}`, 'POST', {
+    inventory_month_id: monthId, operation_id: operationId, expected_revision: revision,
+    ...(['diesel','petty-cash'].includes(section) ? { entry: entries[0] } : { entries }),
+  });
+}
+export async function uploadPendingInventoryPhotos(rows: any[], plantId: string, monthId: string, section: string) {
+  const uploaded = structuredClone(rows);
+  for (const row of uploaded) {
+    if (!row.photo_url?.startsWith('data:image/')) continue;
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(row.photo_url));
+    const photoId = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2,'0')).join('');
+    const response: any = await apiRequest('/photos/upload', 'POST', { base64: row.photo_url, plant_id: plantId, inventory_month_id: monthId, section, photo_id: photoId });
+    if (!response.success || !response.url) {
+      const error = new Error(response.error || 'No se pudo confirmar la fotografía.');
+      Object.assign(error, { status: response.status }); throw error;
+    }
+    row.photo_url = response.url;
+  }
+  return uploaded;
 }

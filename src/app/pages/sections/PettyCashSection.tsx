@@ -12,11 +12,11 @@ import {
   formatCurrency,
 } from '../../config/pettyCashConfig';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
-import { savePettyCashEntry, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 
 export function PettyCashSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -142,18 +142,7 @@ export function PettyCashSection() {
 
     try {
       const savedRevision = getSectionRevision('pettyCash');
-      const entryToSave = {
-        ...pettyCash,
-        id: pettyCash._isNew ? undefined : pettyCash.id,
-        _isNew: undefined,
-      };
-
-      console.log('[PettyCashSection] Saving entry:', entryToSave);
-      
-      const response = await savePettyCashEntry(
-        prefillData.inventoryMonth.id,
-        entryToSave
-      );
+      const response = await saveSection('petty-cash');
 
       if (response.success) {
         markChangesSaved('pettyCash', savedRevision);

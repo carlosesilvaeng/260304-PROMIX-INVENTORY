@@ -14,7 +14,7 @@ import {
 } from '../../config/utilitiesConfig';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveUtilitiesEntries, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -23,7 +23,7 @@ import {
 
 export function UtilitiesSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -147,18 +147,7 @@ export function UtilitiesSection() {
 
     try {
       const savedRevision = getSectionRevision('utilities');
-      const entriesToSave = utilities.map((entry: any) => ({
-        ...entry,
-        id: entry._isNew ? undefined : entry.id,
-        _isNew: undefined,
-      }));
-
-      console.log('[UtilitiesSection] Saving entries:', entriesToSave);
-      
-      const response = await saveUtilitiesEntries(
-        prefillData.inventoryMonth.id,
-        entriesToSave
-      );
+      const response = await saveSection('utilities');
 
       if (response.success) {
         markChangesSaved('utilities', savedRevision);

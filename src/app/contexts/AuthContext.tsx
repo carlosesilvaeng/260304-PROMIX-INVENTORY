@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { withTimeout } from '../utils/withTimeout';
+import { inventoryDraftStore } from '../utils/inventoryDraftStore';
 import { UserRole } from '../utils/permissions';
 
 // DIAGNOSTIC LOG - Verificar que se carguen los valores correctos
@@ -130,7 +132,7 @@ async function callAPI(endpoint: string, method: string = 'GET', body?: any, tok
   console.log(`📡 [API] ${method} ${url}`);
   
   try {
-    const response = await fetch(url, options);
+    const response = await withTimeout(signal => fetch(url, { ...options, signal }), 15000, 'La conexión tardó demasiado.');
     
     console.log(`📡 [API] Response status: ${response.status}`);
     
@@ -140,12 +142,14 @@ async function callAPI(endpoint: string, method: string = 'GET', body?: any, tok
       data = await response.json();
     } catch (parseError) {
       console.error('❌ [API] Failed to parse JSON response:', parseError);
-      throw new Error('El servidor no respondió con datos válidos. Verifica que la Edge Function esté desplegada.');
+      const error = new Error('El servidor no respondió con datos válidos. Verifica que la Edge Function esté desplegada.');
+      Object.assign(error,{status:response.status}); throw error;
     }
 
     if (!response.ok) {
       console.error('❌ [API] Error response:', data);
-      throw new Error(data.error || `Error ${response.status}: ${response.statusText}`);
+      const error = new Error(data.error || `Error ${response.status}: ${response.statusText}`);
+      Object.assign(error,{status:response.status}); throw error;
     }
 
     return data;
@@ -207,8 +211,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ============================================================================
 
   useEffect(() => {
+    const restoreCachedSession = async () => {
+      try {
+          const token = localStorage.getItem('promix_access_token');
+          const owner = JSON.parse(localStorage.getItem('promix_user') || 'null');
+          if (token && owner?.is_active && ['plant_manager','operations_manager'].includes(owner.role)) {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+            if (payload.exp * 1000 > Date.now()) {
+              const cached = await inventoryDraftStore.get(`plants:${projectId}:${owner.id}`);
+              const plants = (cached?.plants || []).filter((plant: Plant) => plant.isActive && (owner.role === 'operations_manager' || owner.assigned_plants?.includes(plant.id)));
+              setUser(normalizeUser(owner)); setAccessToken(token); setAllPlants(plants);
+              const selected = JSON.parse(localStorage.getItem('promix_plant') || 'null');
+              setCurrentPlant(plants.find((plant: Plant) => plant.id === selected?.id) || null);
+              return true;
+            }
+          }
+      } catch { /* No intact cached session is available. */ }
+      return false;
+    };
     const initializeAuth = async () => {
       try {
+        if (!navigator.onLine && await restoreCachedSession()) return;
         // PRIMERO: Verificar si es first-time setup (no hay usuarios)
         console.log('🔍 [AuthContext] Checking first-time setup...');
         console.log('🔍 [AuthContext] Calling:', `${API_BASE_URL}/auth/check-first-time`);
@@ -281,6 +304,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               // Otros errores (red, servidor caído, etc.), mantener sesión por si acaso
               console.warn('⚠️ Network error, keeping session for retry...');
+              if (!error.status || error.status >= 500) await restoreCachedSession();
             }
           }
         }
@@ -315,7 +339,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadPlants = async (token: string): Promise<Plant[]> => {
     try {
+      const owner = JSON.parse(localStorage.getItem('promix_user') || 'null');
       const response = await callAPI('/plants', 'GET', undefined, token);
+      if (localStorage.getItem('promix_access_token') !== token || JSON.parse(localStorage.getItem('promix_user') || 'null')?.id !== owner?.id) return [];
       if (response.success && response.data) {
         const plants: Plant[] = response.data.map((p: any) => ({
           id: p.id,
@@ -334,6 +360,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isActive: p.is_active,
         }));
         setAllPlants(plants);
+        try {
+          if (owner?.id) await inventoryDraftStore.put(`plants:${projectId}:${owner.id}`, { plants });
+        } catch { /* A cache error must not prevent an online login. */ }
         console.log(`✅ [AuthContext] Loaded ${plants.length} plants from API`);
         return plants;
       }

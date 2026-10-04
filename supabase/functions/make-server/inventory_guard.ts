@@ -128,7 +128,7 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
         if ((input.product_name ?? input.product_in_silo) != null && typeof (input.product_name ?? input.product_in_silo) !== 'string') throw new InventoryError('Producto inválido.');
         const reading = optionalNumber(input.reading_value ?? input.reading); const product = String(input.product_name || input.product_in_silo || '').trim() || null;
         if (product && c.allowed_products?.length && !c.allowed_products.includes(product)) throw new InventoryError('Producto no permitido en este silo.');
-        const row: any = { ...base, silo_config_id: c.id, ...select(c, ['silo_name', 'measurement_method', 'reading_uom', 'conversion_table', 'reading_reference']),
+        const row: any = { ...base, silo_config_id: c.id, ...select(c, ['silo_name', 'measurement_method', 'reading_uom', 'conversion_table', 'reading_reference', 'diameter_in', 'total_height_in', 'cone_height_in', 'bottom_diameter_in', 'cylinder_height_mode', 'slope_divisor_mode', 'material_conversion_factor_id', 'calibration_curve_name']),
           allowed_products: c.allowed_products || [], product_name: product, product_in_silo: product, product_id: null,
           calculation_method: c.calculation_method || 'CALIBRATION_CURVE', geometry_model: c.geometry_model || 'LEGACY_LINEAR', capacity_fraction: Number(c.capacity_fraction ?? 1),
           requires_photo: c.requires_photo ?? true, reading_value: reading, reading,

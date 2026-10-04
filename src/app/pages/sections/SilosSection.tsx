@@ -9,7 +9,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveSilosEntries, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -206,7 +206,7 @@ function SiloLevelIndicator({
 
 export function SilosSection({ onBack }: SilosSectionProps) {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -339,41 +339,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
     try {
       const savedRevision = getSectionRevision('silos');
-      // Prepare entries for saving (remove temp IDs and internal flags)
-      const entriesToSave = prefillData.silosEntries.map(entry => {
-        const readingValue = entry.reading_value ?? entry.reading ?? null;
-        const calculatedVolume = entry.calculated_result_cy ?? entry.calculated_volume ?? null;
-
-        return {
-          ...(entry._isNew ? {} : { id: entry.id }),
-          inventory_month_id: entry.inventory_month_id,
-          silo_config_id: entry.silo_config_id,
-          silo_name: entry.silo_name,
-          measurement_method: entry.measurement_method,
-          allowed_products: entry.allowed_products || [],
-          product_id: entry.product_id || entry.product_name || null,
-          product_name: entry.product_name || null,
-          product_in_silo: entry.product_name || null,
-          reading_uom: entry.reading_uom || null,
-          reading_value: readingValue,
-          reading: readingValue,
-          previous_reading: entry.previous_reading ?? 0,
-          calculated_result_cy: calculatedVolume,
-          calculated_volume: calculatedVolume,
-          conversion_table: entry.conversion_table || null,
-          calculation_method: entry.calculation_method || 'CALIBRATION_CURVE',
-          reading_reference: entry.reading_reference || null,
-          geometry_model: entry.geometry_model || 'LEGACY_LINEAR',
-          capacity_fraction: Number(entry.capacity_fraction ?? 1),
-          photo_url: entry.photo_url,
-          notes: entry.notes || '',
-        };
-      });
-
-      const response = await saveSilosEntries(
-        prefillData.inventoryMonth.id,
-        entriesToSave
-      );
+      const response = await saveSection('silos');
 
       if (response.success) {
         markChangesSaved('silos', savedRevision);

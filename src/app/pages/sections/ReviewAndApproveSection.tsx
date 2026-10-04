@@ -38,7 +38,7 @@ const REVIEW_SECTION_CONFIG = {
 export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAndApproveSectionProps) {
   const { user, currentPlant, allPlants } = useAuth();
   const { moduleSettings, isModuleEnabled } = useModules();
-  const { prefillData, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
+  const { prefillData, loadPlantData, getCurrentYearMonth, flushDrafts } = usePlantPrefill();
   const normalizedRole = String(user?.role || '').toLowerCase();
   
   const [validation, setValidation] = useState<OverallValidationResult | null>(null);
@@ -158,6 +158,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     }
 
     try {
+      if (!(await flushDrafts())) throw new Error('Hay borradores pendientes de sincronizar. Revisa el estado antes de continuar.');
       const response = await saveInventoryDraft(prefillData.inventoryMonth.id);
       if (response.success) {
         setActionMessage({ type: 'success', text: '✓ Borrador guardado exitosamente' });
@@ -193,6 +194,10 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     setActionMessage(null);
 
     try {
+      if (!(await flushDrafts())) {
+        setActionMessage({ type:'error', text:'No se envió: hay borradores pendientes de sincronizar o que requieren atención.' });
+        return;
+      }
       const response = await submitInventoryForApproval(
         prefillData.inventoryMonth.id
       );

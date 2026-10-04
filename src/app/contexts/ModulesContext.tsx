@@ -7,6 +7,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ModuleKey, ModuleSettings, DEFAULT_MODULE_CONFIG } from '../config/moduleConfig';
 import { getModuleSettings, updateModuleSettings } from '../utils/api';
+import { inventoryDraftStore } from '../utils/inventoryDraftStore';
+import { projectId } from '/utils/supabase/info';
 import { useAuth } from './AuthContext';
 
 interface ModulesContextType {
@@ -31,12 +33,21 @@ export function ModulesProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     
     try {
+      const key = `modules:${projectId}:${user?.id}`;
+      if (!navigator.onLine) {
+        const cached = await inventoryDraftStore.get(key);
+        setModuleSettings(cached?.settings || DEFAULT_MODULE_CONFIG); return;
+      }
       console.log('[ModulesContext] Loading module settings...');
       const response = await getModuleSettings();
       
       if (response.success && response.data) {
         console.log('[ModulesContext] Module settings loaded:', response.data);
         setModuleSettings(response.data);
+        try { await inventoryDraftStore.put(key,{settings:response.data}); } catch {}
+      } else if (!response.success && (!response.status || response.status >= 500)) {
+        const cached = await inventoryDraftStore.get(key);
+        setModuleSettings(cached?.settings || DEFAULT_MODULE_CONFIG);
       } else if (response.error === 'Unauthorized') {
         console.log('[ModulesContext] Skipping module sync until authenticated');
         setModuleSettings(DEFAULT_MODULE_CONFIG);
@@ -46,7 +57,7 @@ export function ModulesProvider({ children }: { children: React.ReactNode }) {
         setModuleSettings(DEFAULT_MODULE_CONFIG);
         
         // Save defaults to backend
-        await updateModuleSettings(DEFAULT_MODULE_CONFIG);
+        if (response.success && user?.role === 'super_admin') await updateModuleSettings(DEFAULT_MODULE_CONFIG);
       }
     } catch (err) {
       console.error('[ModulesContext] Error loading module settings:', err);
@@ -56,7 +67,7 @@ export function ModulesProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     if (!accessToken || !user) {

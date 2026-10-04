@@ -1,6 +1,6 @@
-import { recordInventoryCaptureStarted, acceptInventorySnapshot } from '../utils/api';
+import { recordInventoryCaptureStarted, acceptInventorySnapshot, syncInventorySection, uploadPendingInventoryPhotos } from '../utils/api';
 import { appendConfiguredEntries } from '../utils/appendConfiguredEntries';
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { 
   getPlantConfig, 
   getInventoryMonth,
@@ -12,6 +12,14 @@ import { getPlantUtilitiesConfig } from '../config/utilitiesConfig';
 import { getPettyCashConfig } from '../config/pettyCashConfig';
 import { resolveMeasurementConfig } from '../utils/unitConversion';
 import { useAuth } from './AuthContext';
+import { InventorySync, type SyncState } from '../utils/inventorySync';
+import { inventoryDraftStore, inventoryScopeKey } from '../utils/inventoryDraftStore';
+import { projectId } from '/utils/supabase/info';
+
+const sectionFields: Record<string, keyof PrefillData> = { aggregates: 'agregadosEntries', silos: 'silosEntries', additives: 'aditivosEntries', diesel: 'dieselEntry', products: 'productosEntries', utilities: 'utilitiesEntries', 'petty-cash': 'pettyCashEntry' };
+const toServerSection = (section: string) => ({ agregados: 'aggregates', aditivos: 'additives', productos: 'products', aceites: 'products', utilidades: 'utilities', pettyCash: 'petty-cash' } as Record<string,string>)[section] || section;
+const rowsFor = (data: PrefillData, section: string): any[] => { const value = data[sectionFields[section]]; return Array.isArray(value) ? value : value ? [value] : []; };
+const installRows = (data: PrefillData, section: string, rows: any[]) => ({ ...data, [sectionFields[section]]: ['diesel','petty-cash'].includes(section) ? rows[0] || null : rows });
 
 // ============================================================================
 // TYPES
@@ -42,6 +50,12 @@ export interface PrefillData {
 
 interface PlantPrefillContextType {
   prefillData: PrefillData;
+  syncStates: Record<string, SyncState>;
+  saveSection: (section: string) => Promise<any>;
+  flushDrafts: () => Promise<boolean>;
+  resolveDraft: (section: string, keepLocal: boolean, reviewedRevision?: number) => Promise<void>;
+  exportDrafts: () => void;
+  hasUnprotectedChanges: boolean;
   hasPendingChanges: boolean;
   hasPendingChangesForSection: (section: string | null | undefined) => boolean;
   loadPlantData: (plantId: string, yearMonth: string) => Promise<void>;
@@ -56,12 +70,7 @@ interface PlantPrefillContextType {
 
 const PlantPrefillContext = createContext<PlantPrefillContextType | undefined>(undefined);
 
-// ============================================================================
-// PROVIDER
-// ============================================================================
-
-export function PlantPrefillProvider({ children }: { children: React.ReactNode }) {
-  const [prefillData, setPrefillData] = useState<PrefillData>({
+const emptyPrefill: PrefillData = {
     inventoryMonth: null,
     previousMonth: null,
     config: null,
@@ -75,8 +84,19 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     pettyCashEntry: null,
     loading: false,
     error: null,
-  });
+  };
 
+// ============================================================================
+// PROVIDER
+// ============================================================================
+
+export function PlantPrefillProvider({ children }: { children: React.ReactNode }) {
+  const [prefillData, setPrefillData] = useState<PrefillData>(emptyPrefill);
+
+  const prefillRef = useRef(prefillData);
+  prefillRef.current = prefillData;
+  const syncRef = useRef<InventorySync | null>(null);
+  const [syncStates, setSyncStates] = useState<Record<string, SyncState>>({});
   const [currentPlantId, setCurrentPlantId] = useState<string | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string | null>(null);
   const [dirtySectionRevisions, setDirtySectionRevisions] = useState<Record<string, number>>({});
@@ -91,6 +111,75 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   const { allPlants, user } = useAuth();
   const currentUserRef = useRef(user?.id);
   currentUserRef.current = user?.id;
+  const currentActorRef = useRef(user);
+  currentActorRef.current = user;
+
+  const installDrafts = useCallback(async (loaded: PrefillData, revisions: Record<string, number>, fresh = true, compatible = true) => {
+    syncRef.current?.stop();
+    syncRef.current = null;
+    if (!user || currentUserRef.current !== user.id || !loaded.inventoryMonth || !['plant_manager','operations_manager'].includes(user.role)) return loaded;
+    const month = loaded.inventoryMonth;
+    const scope = inventoryScopeKey(projectId, user.id, month.plant_id, month.year_month);
+    setSyncStates({});
+    const engine = new InventorySync(scope, {
+      store: inventoryDraftStore,
+      unavailableReason: compatible ? undefined : 'El servidor debe actualizarse antes de sincronizar. El borrador permanece en este dispositivo.',
+      ready: () => {
+        const token = localStorage.getItem('promix_access_token');
+        if (!compatible || !token || !currentActorRef.current?.is_active || !['plant_manager','operations_manager'].includes(currentActorRef.current?.role || '') || currentUserRef.current !== user.id) return false;
+        try { const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return payload.exp * 1000 > Date.now(); } catch { return false; }
+      },
+      online: () => navigator.onLine,
+      preparePhotos: (rows, draft) => uploadPendingInventoryPhotos(rows, month.plant_id, month.id, draft.section),
+      send: (draft, operation) => syncInventorySection(draft.monthId, draft.section, operation.rows, operation.id, operation.expected),
+      notify: (section, state, rows) => {
+        if (syncRef.current !== engine || currentUserRef.current !== user.id) return;
+        setSyncStates(previous => ({ ...previous, [section]: state }));
+        if (rows) {
+          setPrefillData(previous => {
+            if (previous.inventoryMonth?.id !== month.id) return previous;
+            const next = installRows(previous, section, rows);
+            prefillRef.current = next; return next;
+          });
+          if (state.state === 'server') {
+            const alias = ({aggregates:'agregados',additives:'aditivos',products:'productos','petty-cash':'pettyCash'} as Record<string,string>)[section] || section;
+            delete dirtySectionRevisionsRef.current[alias];
+            setDirtySectionRevisions({ ...dirtySectionRevisionsRef.current });
+          }
+        }
+      },
+    });
+    syncRef.current = engine;
+    let restored = loaded;
+    for (const section of Object.keys(sectionFields)) {
+      if (syncRef.current !== engine || currentUserRef.current !== user.id) return loaded;
+      try {
+        const rows = await engine.restore(month.id, section, rowsFor(loaded, section), revisions[section] || 0, month.status, fresh);
+        restored = installRows(restored, section, rows);
+      } catch (error: any) {
+        if (syncRef.current !== engine || currentUserRef.current !== user.id) return loaded;
+        setSyncStates(previous => ({ ...previous, [section]: { state: 'attention', localSaved: false, message: error.message || 'No se pudo abrir el almacenamiento local.' } }));
+      }
+    }
+    return restored;
+  }, [user]);
+
+  useEffect(() => {
+    const resume = () => syncRef.current?.resume();
+    const hidden = () => { if (document.visibilityState === 'hidden') void syncRef.current?.flushAll(); else resume(); };
+    window.addEventListener('online', resume);
+    document.addEventListener('visibilitychange', hidden);
+    return () => { window.removeEventListener('online',resume); document.removeEventListener('visibilitychange',hidden); };
+  }, []);
+  useEffect(() => {
+    syncRef.current?.stop(); syncRef.current = null;
+    activityMonthRef.current = null;
+    loadedByRef.current = undefined;
+    prefillRef.current = emptyPrefill; setPrefillData(emptyPrefill);
+    dirtySectionRevisionsRef.current = {}; setDirtySectionRevisions({});
+    setSyncStates({});
+    return () => { syncRef.current?.stop(); };
+  }, [user?.id]);
 
   const getYearMonthFromDate = (date: Date): string => (
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -607,11 +696,13 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     }
 
     const loadSequence = ++loadSequenceRef.current;
+    syncRef.current?.stop(); syncRef.current = null; setSyncStates({});
     activityMonthRef.current = null;
     setPrefillData(prev => ({ ...prev, loading: true, error: null }));
     setCurrentPlantId(plantId);
     setCurrentYearMonth(yearMonth);
 
+    let canRecoverOffline = !navigator.onLine;
     const loadPromise = (async () => {
       try {
         console.log(`[PlantPrefill] Loading data for plant ${plantId}, month ${yearMonth}`);
@@ -625,6 +716,8 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           getInventoryMonth(plantId, previousMonthStr),
         ]);
 
+        canRecoverOffline = [configResponse, monthResponse, prevMonthResponse].some(response => !response.success && (!response.status || response.status >= 500));
+        if ([configResponse, monthResponse, prevMonthResponse].some(response => [401,403].includes(response.status || 0))) canRecoverOffline = false;
         if (!configResponse.success || !configResponse.data) {
           throw new Error(`Failed to load plant config: ${configResponse.error}`);
         }
@@ -970,7 +1063,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
         loadedByRef.current = user?.id;
         activityMonthRef.current = inventoryMonth?.id || null;
         // 6. Update state
-        setPrefillData({
+        let loaded: PrefillData = {
           inventoryMonth,
           previousMonth,
           config,
@@ -984,7 +1077,14 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
           pettyCashEntry: entries.pettyCash,
           loading: false,
           error: null,
-        });
+        };
+        const scope = inventoryScopeKey(projectId, user!.id, plantId, yearMonth);
+        try { await inventoryDraftStore.put(`view:${scope}`, { data: loaded, revisions: monthResponse.data?.section_revisions || {}, protocol: monthResponse.data?.sync_protocol }); }
+        catch { /* The engine exposes a storage failure for every editable section. */ }
+        loaded = await installDrafts(loaded, monthResponse.data?.section_revisions || {}, true, monthResponse.data?.sync_protocol === 2);
+        if (loadSequence !== loadSequenceRef.current || currentUserRef.current !== user?.id) return;
+        prefillRef.current = loaded;
+        setPrefillData(loaded);
         dirtySectionRevisionsRef.current = {};
         setDirtySectionRevisions({});
 
@@ -992,6 +1092,19 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       } catch (error) {
         console.error('[PlantPrefill] Error loading plant data:', error);
         if (loadSequence !== loadSequenceRef.current || currentUserRef.current !== user?.id) return;
+        if (canRecoverOffline && user && ['plant_manager','operations_manager'].includes(user.role)) {
+          try {
+            const scope = inventoryScopeKey(projectId, user.id, plantId, yearMonth);
+            const cached = await inventoryDraftStore.get(`view:${scope}`);
+            if (cached?.data && loadSequence === loadSequenceRef.current && currentUserRef.current === user.id) {
+              const restored = await installDrafts({ ...cached.data, loading: false, error: null }, cached.revisions || {}, false, cached.protocol === 2);
+              if (loadSequence !== loadSequenceRef.current || currentUserRef.current !== user.id) return;
+              prefillRef.current = restored; activityMonthRef.current = restored.inventoryMonth?.id || null;
+              loadedByRef.current = user.id;
+              setPrefillData(restored); return;
+            }
+          } catch { /* No offline snapshot; keep the actionable load error. */ }
+        }
         setPrefillData(prev => ({
           ...prev,
           loading: false,
@@ -1008,7 +1121,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     inFlightLoadKeyRef.current = requestKey;
     inFlightLoadRef.current = loadPromise;
     return loadPromise;
-  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, currentPlantId, currentYearMonth, getResolvedAggregatesConfig, prefillData.error, prefillData.inventoryMonth, prefillData.loading, resolveProductConfigKey, resolveUtilityConfigKey, user]);
+  }, [allPlants, applyCarryOver, createEmptyEntriesFromConfig, currentPlantId, currentYearMonth, getResolvedAggregatesConfig, prefillData.error, prefillData.inventoryMonth, prefillData.loading, resolveProductConfigKey, resolveUtilityConfigKey, installDrafts, user]);
 
   const loadPlantData = useCallback(async (plantId: string, yearMonth: string) => {
     await loadPlantDataInternal(plantId, yearMonth);
@@ -1029,58 +1142,63 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   // ============================================================================
   
   const updateEntry = useCallback((section: string, entryId: string, data: any) => {
+    const server = toServerSection(section);
+    const field = sectionFields[server];
+    if (!field || prefillRef.current.loading || loadedByRef.current !== user?.id || prefillRef.current.inventoryMonth?.status !== 'IN_PROGRESS') return;
+    const previous = prefillRef.current;
+    const current = previous[field];
+    // Ignore delayed photo callbacks from an entry that is no longer open.
+    if (Array.isArray(current) ? !current.some((entry: any) => entry.id === entryId) : current?.id !== entryId) return;
     const monthId = activityMonthRef.current;
-    const serverSection = ({ agregados: 'aggregates', aditivos: 'additives', productos: 'products', pettyCash: 'petty-cash', meters: 'utilities' } as Record<string,string>)[section] || section;
-    const captureKey = `${user?.id}:${monthId}:${serverSection}`;
+    const captureKey = `${user?.id}:${monthId}:${server}`;
     if (monthId && !reportedCaptureRef.current.has(captureKey)) {
       reportedCaptureRef.current.add(captureKey);
-      void recordInventoryCaptureStarted(monthId, serverSection).then(response => {
+      void recordInventoryCaptureStarted(monthId, server).then(response => {
         if (!response.success) reportedCaptureRef.current.delete(captureKey);
       }).catch(() => reportedCaptureRef.current.delete(captureKey));
     }
     const nextRevision = (dirtySectionRevisionsRef.current[section] || 0) + 1;
-    dirtySectionRevisionsRef.current = {
-      ...dirtySectionRevisionsRef.current,
-      [section]: nextRevision,
-    };
+    dirtySectionRevisionsRef.current = { ...dirtySectionRevisionsRef.current, [section]: nextRevision };
     setDirtySectionRevisions(dirtySectionRevisionsRef.current);
-    setPrefillData(prev => {
-      const sectionKeyMap: Record<string, keyof PrefillData> = {
-        silos: 'silosEntries',
-        agregados: 'agregadosEntries',
-        aditivos: 'aditivosEntries',
-        productos: 'productosEntries',
-        utilities: 'utilitiesEntries',
-        meters: 'metersEntries',
-        diesel: 'dieselEntry',
-        pettyCash: 'pettyCashEntry',
-      };
-      const sectionKey = sectionKeyMap[section];
-
-      if (!sectionKey) {
-        return prev;
-      }
-
-      const currentEntries = prev[sectionKey];
-      
-      if (Array.isArray(currentEntries)) {
-        return {
-          ...prev,
-          [sectionKey]: currentEntries.map((entry: any) =>
-            entry.id === entryId ? { ...entry, ...data } : entry
-          ),
-        };
-      } else if (currentEntries && typeof currentEntries === 'object') {
-        // For single entry sections (diesel, pettyCash)
-        return {
-          ...prev,
-          [sectionKey]: { ...currentEntries, ...data },
-        };
-      }
-      
-      return prev;
-    });
+    const updated = Array.isArray(current)
+      ? current.map((entry: any) => entry.id === entryId ? { ...entry, ...data } : entry)
+      : { ...current, ...data };
+    const next = { ...previous, [field]: updated };
+    prefillRef.current = next;
+    setPrefillData(next);
+    syncRef.current?.change(server, rowsFor(next, server));
   }, [user?.id]);
+
+  const saveSection = useCallback(async (section: string) => {
+    const server = toServerSection(section); const engine = syncRef.current;
+    if (!engine || prefillRef.current.inventoryMonth?.status !== 'IN_PROGRESS') return { success:false, error:'Este inventario no permite guardar. Vuelve a cargarlo.' };
+    if (!engine.drafts.has(server)) return { success:false, error:'No se pudo conservar el borrador en este dispositivo. Exporta tus cambios.' };
+    const draft = engine.drafts.get(server)!;
+    if (draft.generation === draft.acknowledged && !draft.operation) engine.change(server, rowsFor(prefillRef.current,server));
+    return engine.flush(server);
+  }, []);
+  const flushDrafts = useCallback(async () => {
+    return syncRef.current ? syncRef.current.flushAll() : false;
+  }, []);
+  const resolveDraft = useCallback(async (section: string, keepLocal: boolean, reviewedRevision?: number) => {
+    const engine = syncRef.current; const month = prefillRef.current.inventoryMonth;
+    if (!engine || !month) throw new Error('Selecciona el inventario.');
+    const snapshot = await getInventoryMonth(month.plant_id,month.year_month);
+    if (syncRef.current !== engine || prefillRef.current.inventoryMonth?.id !== month.id) throw new Error('El inventario abierto cambió.');
+    if (!snapshot.success || !snapshot.data) throw new Error(snapshot.error || 'No se pudo consultar el servidor.');
+    if (snapshot.data.month.status !== 'IN_PROGRESS') throw new Error('El inventario fue enviado o aprobado; el borrador sigue conservado y no se enviará.');
+    if (keepLocal && snapshot.data.section_revisions?.[section] !== reviewedRevision) throw new Error('El servidor volvió a cambiar. Consulta las diferencias otra vez.');
+    const property = ({aggregates:'agregados',additives:'aditivos',products:'productos','petty-cash':'pettyCash'} as Record<string,string>)[section] || section;
+    const value = (snapshot.data as any)[property];
+    await engine.resolve(section, Array.isArray(value) ? value : value ? [value] : [], snapshot.data.section_revisions?.[section] || 0, keepLocal);
+    if (!keepLocal) await loadPlantDataInternal(month.plant_id,month.year_month,{force:true});
+  }, [loadPlantDataInternal]);
+  const exportDrafts = useCallback(() => {
+    const data = { environment: projectId, userId: currentUserRef.current, inventory: prefillRef.current.inventoryMonth, data: prefillRef.current, drafts: [...(syncRef.current?.drafts.values() || [])] };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+    const link = document.createElement('a'); link.href = url; link.download = `borrador-promix-${data.inventory?.year_month || 'pendiente'}.json`; link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }, []);
 
   const getSectionRevision = useCallback((section: string) => (
     dirtySectionRevisionsRef.current[section] || 0
@@ -1103,14 +1221,17 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   const hasPendingChangesForSection = useCallback((section: string | null | undefined) => {
     if (!section) return false;
     const normalizedSection = sectionAliases[section] || section;
-    return Object.prototype.hasOwnProperty.call(dirtySectionRevisionsRef.current, normalizedSection);
+    const draft = syncRef.current?.drafts.get(toServerSection(normalizedSection));
+    return Object.prototype.hasOwnProperty.call(dirtySectionRevisionsRef.current, normalizedSection) || !!(draft && (draft.operation || draft.generation > draft.acknowledged));
   }, []);
-  const hasPendingChanges = Object.keys(dirtySectionRevisions).length > 0;
+  const hasPendingChanges = Object.keys(dirtySectionRevisions).length > 0 || !!syncRef.current?.hasPending();
 
   return (
     <PlantPrefillContext.Provider
       value={{
         prefillData,
+        syncStates, saveSection, flushDrafts, resolveDraft, exportDrafts,
+        hasUnprotectedChanges: Object.values(syncStates).some(state => !state.localSaved && state.state !== 'server'),
         hasPendingChanges,
         hasPendingChangesForSection,
         loadPlantData,

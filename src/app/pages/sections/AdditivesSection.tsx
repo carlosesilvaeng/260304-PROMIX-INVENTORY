@@ -9,7 +9,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertReadingToVolume, hasCalibrationPoints } from '../../utils/calibration';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatOptionalNumber, formatNumber } from '../../utils/numberFormatting';
-import { saveAdditivesEntries, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 import {
   convertForCalculationToDisplay,
   resolveEffectiveMeasurementConfig,
@@ -253,7 +253,7 @@ function TankLevelIndicator({
 
 export function AdditivesSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [activeTab, setActiveTab] = useState<TabType>('tanks');
   const [saving, setSaving] = React.useState(false);
@@ -491,51 +491,7 @@ export function AdditivesSection() {
 
     try {
       const savedRevision = getSectionRevision('aditivos');
-      console.log('[AdditivesSection] Saving entries:', prefillData.aditivosEntries);
-
-      const entriesToSave = prefillData.aditivosEntries.map((entry: any) => {
-        const method = normalizeAdditiveMeasurementMethod(
-          entry.measurement_method || (entry.additive_type === 'TANK' ? 'CURVE' : 'MANUAL'),
-        );
-        const isTank = method !== 'MANUAL';
-        const readingValue = entry.reading_value ?? entry.reading ?? null;
-        const calculatedVolume = entry.calculated_volume ?? null;
-
-        return {
-          ...(entry._isNew ? {} : { id: entry.id }),
-          inventory_month_id: entry.inventory_month_id,
-          additive_config_id: entry.additive_config_id,
-          additive_type: entry.additive_type,
-          measurement_method: method,
-          product_name: entry.product_name,
-          brand: entry.brand || '',
-          uom: entry.uom,
-          requires_photo: entry.requires_photo ?? false,
-          tank_name: entry.tank_name || null,
-          reading_uom: entry.reading_uom || null,
-          reading_value: readingValue,
-          reading: readingValue,
-          calculated_volume: calculatedVolume,
-          calculated_gallons: isTank ? calculatedVolume : entry.calculated_gallons ?? calculatedVolume,
-          conversion_table: entry.conversion_table || null,
-          quantity: entry.quantity ?? null,
-          diameter: entry.diameter ?? null,
-          length: entry.length ?? null,
-          width: entry.width ?? null,
-          total_height: entry.total_height ?? null,
-          capacity: entry.capacity ?? null,
-          dimension_unit_id: entry.dimension_unit_id || null,
-          capacity_unit_id: entry.capacity_unit_id || null,
-          inventory_percentage: tankMetrics?.volumePercentage ?? null,
-          photo_url: entry.photo_url || null,
-          notes: entry.notes || '',
-        };
-      });
-      
-      const response = await saveAdditivesEntries(
-        prefillData.inventoryMonth.id,
-        entriesToSave
-      );
+      const response = await saveSection('additives');
 
       if (response.success) {
         markChangesSaved('aditivos', savedRevision);

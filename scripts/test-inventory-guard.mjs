@@ -111,3 +111,7 @@ test('submission requires every configured row, valid mandatory inputs and autho
 test('derived numeric overflow is rejected before it can be serialized as null',()=>{
  assert.throws(()=>prepare('products',{product_config_id:'drum',unit_count:Number.MAX_VALUE}),/rango numérico/);
 });
+test('silo acknowledgement carries configured geometry for subsequent mobile edits',()=>{
+ const configured={...pack,silos:[{...pack.silos[0],diameter_in:144,total_height_in:300,cone_height_in:80,bottom_diameter_in:42,cylinder_height_mode:'FULL',slope_divisor_mode:'NONE',material_conversion_factor_id:'factor'}]};
+ const saved=prepareInventoryRows('silos',[{silo_config_id:'silo',diameter_in:999}],configured)[0];assert.equal(saved.diameter_in,144);assert.equal(saved.total_height_in,300);assert.equal(saved.material_conversion_factor_id,'factor');assert.equal(saved.reading_value,null);
+});

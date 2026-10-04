@@ -9,7 +9,7 @@ import { usePlantPrefill } from '../../contexts/PlantPrefillContext';
 import { convertDieselReadingToGallons, calculateDieselConsumption } from '../../utils/diesel';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
 import { formatNumber } from '../../utils/numberFormatting';
-import { saveDieselEntry, inventorySaveMessage } from '../../utils/api';
+import { inventorySaveMessage } from '../../utils/api';
 import {
   resolveEffectiveMeasurementConfig,
   type MeasurementConfig,
@@ -108,7 +108,7 @@ function TankLevelGraphic({
 
 export function DieselSection() {
   const { currentPlant } = useAuth();
-  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved } = usePlantPrefill();
+  const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -288,31 +288,7 @@ export function DieselSection() {
 
     try {
       const savedRevision = getSectionRevision('diesel');
-      console.log('[DieselSection] Saving entry:', diesel);
-
-      const entryToSave = {
-        inventory_month_id: prefillData.inventoryMonth.id,
-        diesel_config_id: diesel.diesel_config_id || null,
-        plant_id: diesel.plant_id || currentPlant?.id || null,
-        unit: dieselUnits.inventoryLabel || diesel.unit || 'gallons',
-        reading_uom: dieselUnits.captureLabel || diesel.reading_uom || 'inches',
-        reading_inches: diesel.reading_inches ?? null,
-        reading: diesel.reading_inches ?? diesel.reading ?? null,
-        calculated_gallons: diesel.calculated_gallons ?? null,
-        calibration_table: diesel.calibration_table || null,
-        tank_capacity_gallons: diesel.tank_capacity_gallons ?? null,
-        beginning_inventory: diesel.beginning_inventory ?? null,
-        purchases_gallons: diesel.purchases_gallons ?? null,
-        ending_inventory: diesel.ending_inventory ?? null,
-        consumption_gallons: diesel.consumption_gallons ?? null,
-        photo_url: diesel.photo_url || null,
-        notes: diesel.notes || '',
-      };
-      
-      const response = await saveDieselEntry(
-        prefillData.inventoryMonth.id,
-        entryToSave
-      );
+      const response = await saveSection('diesel');
 
       if (response.success) {
         markChangesSaved('diesel', savedRevision);

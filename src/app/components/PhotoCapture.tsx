@@ -3,9 +3,6 @@ import { Button } from './Button';
 import { withTimeout } from '../utils/withTimeout';
 import { compressInventoryPhoto } from '../utils/imageCompression';
 import { useAuth } from '../contexts/AuthContext';
-import { projectId } from '/utils/supabase/info';
-
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server`;
 
 interface PhotoCaptureProps {
   label: string;
@@ -29,15 +26,16 @@ export function PhotoCapture({
   fit = 'contain'
 }: PhotoCaptureProps) {
   const inputId = React.useId();
-  const { accessToken, currentPlant } = useAuth();
+  const { user, currentPlant } = useAuth();
+  const ownerRef = useRef('');
+  ownerRef.current = `${user?.id}:${currentPlant?.id}`;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | undefined>(currentPhoto);
   const [compressing, setCompressing] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const [photoMessage, setPhotoMessage] = useState('');
-  const busy = compressing || uploading;
+  const busy = compressing;
   const imageFitClass = fit === 'contain' ? 'object-contain bg-gray-100' : 'object-cover';
 
   useEffect(() => {
@@ -47,6 +45,7 @@ export function PhotoCapture({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || busy) return;
+    const owner = ownerRef.current;
     setPhotoMessage('');
     setCompressing(true);
     try {
@@ -63,40 +62,15 @@ export function PhotoCapture({
       if (compress) {
         photo = await withTimeout(() => compressInventoryPhoto(result), 20000);
       }
+      if (owner !== ownerRef.current) return;
       setPreview(photo);
-      setCompressing(false);
-      if (compress) {
-        setUploading(true);
-        try {
-          const json = await withTimeout(async (signal) => {
-            const res = await fetch(`${API_BASE_URL}/photos/upload`, {
-              method: 'POST',
-              signal,
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify({ base64: photo, filename: file.name, plant_id: currentPlant?.id }),
-            });
-            if (!res.ok) throw new Error('No se pudo subir la foto.');
-            return res.json();
-          }, 30000);
-          if (!json.success || !json.url) throw new Error('No se pudo subir la foto.');
-          onPhotoCapture(json.url);
-        } catch {
-          // Keep the compressed evidence in the draft when storage is unavailable.
-          onPhotoCapture(photo);
-          setPhotoMessage('La subida no terminó. La foto está en el borrador; pulsa Guardar para conservarla antes de salir.');
-        }
-      } else {
-        onPhotoCapture(photo);
-      }
+      onPhotoCapture(photo);
+      setPhotoMessage('Foto preparada. Consulta el estado del borrador para confirmar su guardado y sincronización.');
     } catch (error) {
       setPreview(currentPhoto);
       setPhotoMessage(error instanceof Error ? error.message : 'No se pudo procesar la foto. Intenta nuevamente.');
     } finally {
       setCompressing(false);
-      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -129,16 +103,6 @@ export function PhotoCapture({
           </div>
         </div>
       )}
-      {uploading && (
-        <div className="mb-3 bg-green-50 border border-green-300 rounded p-3">
-          <div className="flex items-center gap-2">
-            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-[#2ecc71]"></div>
-            <p className="text-sm text-[#27ae60] font-semibold">
-              ☁️ Subiendo foto... Por favor espera
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="space-y-3">
         {preview ? (
@@ -154,7 +118,7 @@ export function PhotoCapture({
               disabled={busy}
               title="Eliminar foto"
               aria-label="Eliminar foto"
-              className={`absolute top-2 right-2 bg-[#C94A4A] text-white p-2 rounded-full hover:bg-[#a03838] transition-colors ${
+              className={`absolute top-2 right-2 min-h-11 min-w-11 bg-[#C94A4A] text-white p-2 rounded-full hover:bg-[#a03838] transition-colors ${
                 busy ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -168,7 +132,7 @@ export function PhotoCapture({
               disabled={busy}
               title="Ampliar foto"
               aria-label="Ampliar foto"
-              className={`absolute bottom-2 right-2 bg-[#2475C7] text-white p-2 rounded-full shadow hover:bg-[#1d5fa1] transition-colors ${
+              className={`absolute bottom-2 right-2 min-h-11 min-w-11 bg-[#2475C7] text-white p-2 rounded-full shadow hover:bg-[#1d5fa1] transition-colors ${
                 busy ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -182,16 +146,6 @@ export function PhotoCapture({
                   <div className="flex items-center gap-2">
                     <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-[#2475C7]"></div>
                     <p className="text-sm text-[#2475C7] font-semibold">Optimizando...</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {uploading && (
-              <div className="absolute inset-0 bg-black/20 rounded flex items-center justify-center">
-                <div className="bg-white rounded-lg p-4 shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-[#2ecc71]"></div>
-                    <p className="text-sm text-[#27ae60] font-semibold">Subiendo foto...</p>
                   </div>
                 </div>
               </div>
@@ -219,7 +173,7 @@ export function PhotoCapture({
             <p className="text-[#5F6773]">Toca para tomar o cargar una foto</p>
             {compress && (
               <p className="text-xs text-[#5F6773] mt-2 px-4 text-center">
-                💡 La imagen se optimizará. Pulsa Guardar al terminar la sección.
+                La imagen se optimizará y se conservará con el borrador.
               </p>
             )}
           </button>

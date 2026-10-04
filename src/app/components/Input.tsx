@@ -79,6 +79,7 @@ export function NumericInput({ onValueChange, onChange, ...props }: NumericInput
   return (
     <Input
       type="number"
+      inputMode="decimal"
       step="any"
       min={props.min !== undefined ? props.min : 0}
       onChange={handleChange}

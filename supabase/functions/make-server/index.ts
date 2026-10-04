@@ -13,6 +13,8 @@ import {
 
 import { INVENTORY_SECTIONS, InventoryError, requireInventoryWriter, prepareInventoryRows, summarizeInventorySection } from './inventory_guard.ts';
 
+import { preparePendingInventoryPhoto, pendingInventoryPhotoPath } from './inventory_photo.ts';
+
 const app = new Hono();
 function inventoryErrorResponse(c: any, error: any) {
   const status = error instanceof InventoryError ? error.status : error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : ['40001', '23505'].includes(error.code) ? 409 : ['22023', '23514'].includes(error.code) ? 400 : 500;
@@ -3347,7 +3349,7 @@ app.use('/make-server/photos/*', requireAuth);
 app.post('/make-server/photos/upload', async (c) => {
   try {
     const supabase = db.getSupabaseClient();
-    const { base64, filename, plant_id } = await c.req.json();
+    const { base64, filename, plant_id, photo_id, inventory_month_id, section } = await c.req.json();
     const user = c.get('user');
     requireInventoryWriter(user);
     if (!plant_id) throw new InventoryError('La planta es obligatoria.');
@@ -3357,18 +3359,29 @@ app.post('/make-server/photos/upload', async (c) => {
     if (plantError) throw plantError;
     if (!plant) throw new InventoryError('Planta no disponible.');
 
+    let photoMonth: any = null;
+    if (photo_id !== undefined) {
+      if (!INVENTORY_SECTIONS.includes(section)) throw new InventoryError('Sección de fotografía inválida.');
+      const loaded = await loadAuthorizedInventoryMonth(c, user, inventory_month_id, ['status', 'year_month']);
+      if (loaded.response) return loaded.response;
+      photoMonth = loaded.inventoryMonth;
+      if (photoMonth.plant_id !== plant_id) throw new InventoryError('La fotografía no corresponde a la planta del inventario.');
+      if (photoMonth.status !== 'IN_PROGRESS') throw new InventoryError('El inventario ya no permite fotografías nuevas.', 409, 'INVENTORY_LOCKED');
+      if (typeof base64 !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(base64)) throw new InventoryError('Formato de fotografía no permitido.');
+    }
+
     // Validate input
     if (!base64 || !base64.startsWith('data:image/')) {
       return c.json({ success: false, error: 'Datos de imagen inválidos' }, 400);
     }
 
-    // Decode base64 → Uint8Array
+    const pendingPhoto = photo_id === undefined ? null : await preparePendingInventoryPhoto(base64, photo_id, plant_id, user.id);
     const [header, raw] = base64.split(',');
-    const contentType = header.replace('data:', '').replace(';base64', '');
-    const binaryStr = atob(raw);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
+    const contentType = pendingPhoto?.contentType || header.replace('data:', '').replace(';base64', '');
+    let bytes = pendingPhoto?.bytes;
+    if (!bytes) {
+      const binaryStr = atob(raw);
+      bytes = Uint8Array.from(binaryStr, character => character.charCodeAt(0));
     }
 
     // Guard: reject oversized payloads (max 3 MB after client-side compression)
@@ -3380,11 +3393,11 @@ app.post('/make-server/photos/upload', async (c) => {
     const ext = contentType.includes('png') ? 'png' : 'jpg';
     const safeName = (filename || 'foto').replace(/[^a-z0-9]/gi, '_').slice(0, 40);
     const folder = (plant_id || 'general').replace(/[^a-z0-9_]/gi, '_');
-    const storagePath = `${folder}/${Date.now()}-${safeName}.${ext}`;
+    const storagePath = pendingPhoto?.path || `${folder}/${Date.now()}-${safeName}.${ext}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('inventory-photos')
-      .upload(storagePath, bytes, { contentType, upsert: false });
+      .upload(storagePath, bytes, { contentType, upsert: !!photo_id });
 
     if (uploadError) {
       console.error('[photos/upload] Storage error:', uploadError.message);
@@ -3394,6 +3407,14 @@ app.post('/make-server/photos/upload', async (c) => {
     const { data: urlData } = supabase.storage
       .from('inventory-photos')
       .getPublicUrl(uploadData.path);
+
+    if (photoMonth) {
+      // A confirmation is recorded per request, including retries with the same
+      // photo_id. Only SECTION_SAVED establishes the durable inventory link.
+      await createAuditEntry(supabase, { user_id:user.id, user_email:user.email, user_name:user.name,
+        action:'INVENTORY_PHOTO_UPLOAD_CONFIRMED', plant_id, inventory_month_id:photoMonth.id,
+        details:{ section, year_month:photoMonth.year_month, photo_id, storage_path:storagePath, origin:'server' } });
+    }
 
     return c.json({ success: true, url: urlData.publicUrl });
   } catch (err: any) {
@@ -3454,7 +3475,17 @@ for (const section of INVENTORY_SECTIONS) {
       const previousPeriod = db.previousInventoryPeriod(m.year_month);
       const previous = await db.getInventoryMonthByPlantAndDate(m.plant_id, previousPeriod);
       const rows = prepareInventoryRows(section, rawInputs, pack, previous || {});
-      const summary = summarizeInventorySection(section, rows);
+      for (const row of rows) {
+        if (typeof row.photo_url !== 'string' || !row.photo_url.includes('/inventory-photos/phase2/')) continue;
+        const root = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/inventory-photos/`;
+        const relative = pendingInventoryPhotoPath(row.photo_url, root, m.plant_id);
+        const split = relative.lastIndexOf('/');
+        const { data: photos, error: photoError } = await db.getSupabaseClient().storage.from('inventory-photos').list(relative.slice(0, split), { search: relative.slice(split + 1) });
+        if (photoError) throw photoError;
+        if (!photos?.some(photo => photo.name === relative.slice(split + 1))) throw new InventoryError('La fotografía aún no está confirmada en almacenamiento.');
+      }
+      const summary = { ...summarizeInventorySection(section, rows), photos_linked: rows.filter(row => !!row.photo_url).length,
+        confirmed_photo_urls: rows.map(row => row.photo_url).filter(url => typeof url === 'string' && url.includes('/inventory-photos/phase2/')) };
       const receipt = await db.saveInventorySectionGuarded(m.id, section, rows, user.id, expected_revision, operation_id, requestHash, summary);
       return c.json({ success: true, ...receipt });
     } catch (error) {
