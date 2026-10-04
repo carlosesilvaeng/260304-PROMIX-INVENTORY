@@ -22,7 +22,10 @@
     "check:make-server": "supabase functions list --project-ref jnlsahsxqiufusfamccz -o json",
     "test:inventory-sync": "node --experimental-strip-types scripts/test-inventory-sync.mjs",
     "test:inventory-browser": "node scripts/test-inventory-browser.mjs",
-    "test:inventory-photo": "node --experimental-strip-types scripts/test-inventory-photo.mjs"
+    "test:inventory-photo": "node --experimental-strip-types scripts/test-inventory-photo.mjs",
+    "test:inventory-report": "node --experimental-strip-types scripts/test-inventory-report.mjs",
+    "test:inventory-report-db": "python3 scripts/test-inventory-report-db.py",
+    "test:inventory-report-browser": "node --experimental-strip-types scripts/test-inventory-report-browser.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

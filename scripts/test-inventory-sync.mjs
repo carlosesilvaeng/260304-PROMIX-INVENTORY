@@ -27,7 +27,7 @@ test('a lost response reuses the durable operation across restart',async t=>{
  let operation;const x=setup(t,{send:async(d,op)=>{operation=structuredClone(op);throw new Error('lost response');}});
  await x.engine.restore('m','products',row(null),0,'IN_PROGRESS');x.engine.change('products',row(2));await x.engine.flush('products');x.engine.stop();
  const restored=setup(t,{store:x.store});await restored.engine.restore('m','products',row(2),1,'IN_PROGRESS');await restored.engine.flush('products');
- assert.equal(restored.sent[0].id,operation.id);assert.deepEqual(restored.sent[0].rows,operation.rows);assert.equal(restored.sent[0].expected,0);
+ assert.equal(restored.sent[0].id,operation.id);assert.deepEqual(restored.sent[0].rows,operation.rows);assert.equal(restored.sent[0].expected,0);assert.equal(restored.sent[0].occurredAt,operation.occurredAt);
 });
 test('edits during a request are sent in a second serialized operation',async t=>{
  let release,started;const waiting=new Promise(resolve=>started=resolve);const first=new Promise(resolve=>release=resolve);const sent=[];
@@ -88,4 +88,13 @@ test('canonical acknowledgement preserves display metadata and clears temporary 
  const x=setup(t,{send:async()=>({success:true,revision:1,data:[{id:'persisted',product_config_id:'p',quantity:0,notes:null}]})});
  await x.engine.restore('m','products',[{id:'temp_p',_isNew:true,product_config_id:'p',quantity:null,unit_label:'unidad',notes:'old'}],0,'IN_PROGRESS');x.engine.change('products',[{id:'temp_p',_isNew:true,product_config_id:'p',quantity:0,unit_label:'unidad',notes:'old'}]);await x.engine.flush('products');
  const saved=x.engine.drafts.get('products').rows[0];assert.equal(saved.id,'persisted');assert.equal(saved._isNew,false);assert.equal(saved.unit_label,'unidad');assert.equal(saved.notes,null);
+});
+
+test('device occurrence time survives offline recovery and a blank manual save is not capture',async t=>{
+ const x=setup(t,{now:()=>Date.parse('2026-10-04T12:00:00Z')});await x.engine.restore('m','products',row(null),0,'IN_PROGRESS');
+ x.engine.change('products',row(null),false);assert.equal(x.engine.drafts.get('products').captureStartedAt,undefined);
+ x.offline();x.engine.change('products',row(0));await x.engine.flush('products');
+ assert.equal(x.engine.drafts.get('products').captureStartedAt,'2026-10-04T12:00:00.000Z');
+ const restored=setup(t,{store:x.store});await restored.engine.restore('m','products',row(null),0,'IN_PROGRESS');await restored.engine.flush('products');
+ assert.equal(restored.sent[0].occurredAt,'2026-10-04T12:00:00.000Z');assert.equal(restored.engine.drafts.get('products').captureStartedAt,'2026-10-04T12:00:00.000Z');
 });

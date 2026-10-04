@@ -1,3 +1,4 @@
+import { getAllReportRows } from './reportTransport';
 import { InventoryWriteProtocol } from './inventoryWriteProtocol';
 import { withTimeout } from './withTimeout';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -544,11 +545,10 @@ export async function getReports(params?: {
   plantId?: string;
   yearMonth?: string;
 }): Promise<ApiResponse<ReportSummary[]>> {
-  const searchParams = new URLSearchParams();
-  if (params?.plantId) searchParams.set('plant_id', params.plantId);
-  if (params?.yearMonth) searchParams.set('year_month', params.yearMonth);
-  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
-  return apiRequest(`/reports${suffix}`);
+  try {
+    const { rows } = await getAllReportRows(API_BASE_URL,localStorage.getItem('promix_access_token')||publicAnonKey, {plant_id:params?.plantId,year_month:params?.yearMonth});
+    return {success:true,data:rows};
+  } catch(error:any){return {success:false,error:error.message};}
 }
 
 // ============================================================================
@@ -1640,14 +1640,14 @@ export function acceptInventorySnapshot(snapshot: InventoryMonthData) {
   inventoryWriteProtocol.observe(snapshot.month.id, revisions);
 }
 
-export async function syncInventorySection(monthId: string, section: string, rows: any[], operationId: string, revision: number) {
+export async function syncInventorySection(monthId: string, section: string, rows: any[], operationId: string, revision: number, activity: {client_occurred_at?:string;client_capture_started_at?:string} = {}) {
   const entries = rows.map(row => {
     const { _isNew, ...entry } = row;
     if (_isNew || String(entry.id || '').startsWith('temp_')) delete entry.id;
     return entry;
   });
   return apiRequest(`/inventory/${section}`, 'POST', {
-    inventory_month_id: monthId, operation_id: operationId, expected_revision: revision,
+    inventory_month_id: monthId, operation_id: operationId, expected_revision: revision, ...activity,
     ...(['diesel','petty-cash'].includes(section) ? { entry: entries[0] } : { entries }),
   });
 }

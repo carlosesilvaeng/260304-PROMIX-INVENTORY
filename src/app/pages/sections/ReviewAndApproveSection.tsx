@@ -442,6 +442,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
       <SavedInventoryEvidence
         key={inventoryMonth.id}
         plantId={inventoryMonth.plant_id}
+        monthId={inventoryMonth.id}
         yearMonth={inventoryMonth.year_month}
       />
 

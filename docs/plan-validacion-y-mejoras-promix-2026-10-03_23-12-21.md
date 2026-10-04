@@ -10,6 +10,8 @@
 
 **Actualización — 4 de octubre de 2026, 06:16:52, America/Bogota:** la Fase 1 quedó implementada en el repositorio y verificada con pruebas unitarias, del cliente y de transacciones en PostgreSQL local aislado. Continúan pendientes la aceptación autenticada en el clon y la publicación; producción no fue modificada. Véase el [registro de implementación y pruebas](fase-1-implementacion-2026-10-04_06-16-52.md). Se conserva el plan original como referencia; las demás fases no fueron ejecutadas.
 
+**Actualización — 4 de octubre de 2026, 13:58:23, America/Bogota:** las Fases 1 y 2 quedaron registradas en los commits `0ab4ab8` y `e360927`. El usuario autorizó posteriormente la Fase 3, que está implementada y validada localmente, sin commit ni despliegue. Véase el [registro de implementación de la Fase 3](fase-3-implementacion-2026-10-04_13-58-23.md). La aceptación en el clon y la publicación siguen pendientes; las Fases 4 y 5 permanecen como referencia futura. El alcance de Fase 1 indicado a continuación refleja la autorización al momento de guardar el plan original.
+
 > **Alcance autorizado posteriormente por el usuario: Fase 1 solamente — corregir guardado, autorización y trazabilidad, incluyendo sus pruebas.** Las demás fases se conservan como referencia futura y no forman parte de esta intervención. No se incluyen autoguardado móvil, mejoras de reportes ni exportación de configuraciones. Las pruebas de escritura requieren el clon aislado acordado; su disponibilidad debe comprobarse antes de ejecutarlas.
 
 Este archivo conserva el contenido del plan entregado en el chat, adaptando los metadatos de entrega y los enlaces para su consulta desde el repositorio. Los hallazgos describen el estado revisado en esa sesión y deben distinguirse de avances posteriores.
@@ -197,7 +199,7 @@ Si el almacenamiento local falla o se llena, mostrarlo claramente y no afirmar q
 
 ### Fase 3 — Evidencia de avance y reportes confiables
 
-**Referencia futura; fuera de la intervención autorizada.**
+**Autorizada posteriormente, implementada y validada localmente.** Véase el [registro de pruebas y pendientes](fase-3-implementacion-2026-10-04_13-58-23.md). Pendiente aceptación en clon y publicación.
 
 **Seguimiento de inventarios**
 

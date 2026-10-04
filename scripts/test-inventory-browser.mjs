@@ -71,7 +71,7 @@ try{
   else if(path.endsWith('/auth/verify'))reply={success:true,user};
   else if(path.endsWith('/modules/config'))reply={success:true,data:{modules:{products:{enabled:true},review_approve:{enabled:true}}}};
   else if(path.endsWith('/plants'))reply={success:true,data:[plant]};
-  else if(path.endsWith('/reports'))reply={success:true,data:[{id:'m',plant_id:'TEST_A',plant_name:plant.name,year_month:'2026-10',status:'IN_PROGRESS'}]};
+  else if(path.endsWith('/reports'))reply={success:true,reporting_version:3,data:[{id:'m',plant_id:'TEST_A',plant_name:plant.name,year_month:'2026-10',status:'IN_PROGRESS'}],pagination:{total:1,offset:0,limit:50,has_more:false},totals:{total:1,in_progress:1,submitted:0,approved:0},snapshot_id:'same',as_of:new Date().toISOString()};
   else if(path.endsWith('/plants/TEST_A/config'))reply={success:true,data:{plant_id:'TEST_A',aggregates:[],cajones:[],silos:[],additives:[],diesel:null,utilities_meters:[],petty_cash:null,products:[{id:'p',product_name:'Producto de prueba',unit:'unit',uom:'unit',measure_mode:'COUNT',requires_photo:true}],units:[],measurement_configs:[],material_conversion_factors:[],calibration_curves:{}}};
   else if(path.includes('/inventory/month/TEST_A/'))reply=path.endsWith('/2026-10')?{success:true,data:{month:{id:'m',plant_id:'TEST_A',year_month:'2026-10',status:'IN_PROGRESS'},sync_protocol:protocol,section_revisions:{products:revision},productos:rows,silos:[],agregados:[],aditivos:[],utilities:[],diesel:null,pettyCash:null}}:{success:false,error:'Month not found'};
   else if(path.endsWith('/photos/upload')){

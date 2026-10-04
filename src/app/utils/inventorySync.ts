@@ -1,10 +1,10 @@
 import { DraftCollision, type DraftStore } from './inventoryDraftStore.ts';
 class LocalPersistenceError extends Error {}
 export type SaveState = 'saving-local' | 'local' | 'pending' | 'syncing' | 'server' | 'attention';
-export interface PendingWrite { id: string; expected: number; rows: any[]; generation: number; prepared?: boolean }
+export interface PendingWrite { id: string; expected: number; rows: any[]; generation: number; prepared?: boolean; occurredAt?: string }
 export interface InventoryDraft {
   monthId: string; section: string; rows: any[]; generation: number; acknowledged: number;
-  revision: number; operation?: PendingWrite; version: number;
+  captureStartedAt?: string; changedAt?: string; revision: number; operation?: PendingWrite; version: number;
 }
 export interface SyncState { state: SaveState; message?: string; localSaved: boolean; revision?: number }
 export interface SyncReply { success: boolean; error?: string; status?: number; code?: string; revision?: number; data?: any; summary?: any }
@@ -65,10 +65,12 @@ export class InventorySync {
     else this.signal(section, 'server');
     return structuredClone(pending || (!fresh && saved) ? draft.rows : rows);
   }
-  change(section: string, rows: any[]) {
+  change(section: string, rows: any[], recordActivity = true) {
     const draft = this.drafts.get(section);
     if (!draft || this.stopped) return;
     draft.rows = structuredClone(rows); draft.generation++;
+    draft.changedAt = new Date(this.dependencies.now?.() ?? Date.now()).toISOString();
+    if (recordActivity) draft.captureStartedAt ||= draft.changedAt;
     this.signal(section, 'saving-local');
     const prior = this.writes.get(section) || Promise.resolve();
     const write = prior.then(async () => {
@@ -119,7 +121,7 @@ export class InventorySync {
         this.signal(section, 'syncing');
         if (!draft.operation) {
           draft.operation = { id: this.dependencies.uuid?.() ?? crypto.randomUUID(), expected: draft.revision,
-            rows: structuredClone(draft.rows), generation: draft.generation };
+            rows: structuredClone(draft.rows), generation: draft.generation, occurredAt: draft.changedAt };
           await this.persist(section); // Durable operation exists before any network write.
         }
         const operation = draft.operation;

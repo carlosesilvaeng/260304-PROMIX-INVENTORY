@@ -108,7 +108,7 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
         const rule = effectiveRule(pack, section); const capture = rule?.capture_unit_id || 'ft';
         const display = rule?.display_unit_id || rule?.calculation_unit_id || 'ft3';
         const row: any = { ...base, aggregate_config_id: c.id, ...select(c, ['aggregate_name', 'material_type', 'location_area', 'measurement_method']),
-          unit: display, box_width_ft: optionalNumber(c.box_width_ft), box_height_ft: n('box_height_ft'), box_length_ft: n('box_length_ft'),
+          unit: display, capture_unit_id: capture, box_width_ft: optionalNumber(c.box_width_ft), box_height_ft: n('box_height_ft'), box_length_ft: n('box_length_ft'),
           ...Object.fromEntries(coneFields.map(key => [key, n(key)])), calculated_volume_cy: null };
         let volume: number | null = null;
         if (c.measurement_method === 'BOX') {

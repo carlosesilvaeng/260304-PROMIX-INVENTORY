@@ -131,7 +131,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       },
       online: () => navigator.onLine,
       preparePhotos: (rows, draft) => uploadPendingInventoryPhotos(rows, month.plant_id, month.id, draft.section),
-      send: (draft, operation) => syncInventorySection(draft.monthId, draft.section, operation.rows, operation.id, operation.expected),
+      send: (draft, operation) => syncInventorySection(draft.monthId, draft.section, operation.rows, operation.id, operation.expected, {client_occurred_at:operation.occurredAt,client_capture_started_at:draft.captureStartedAt}),
       notify: (section, state, rows) => {
         if (syncRef.current !== engine || currentUserRef.current !== user.id) return;
         setSyncStates(previous => ({ ...previous, [section]: state }));
@@ -1174,7 +1174,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
     if (!engine || prefillRef.current.inventoryMonth?.status !== 'IN_PROGRESS') return { success:false, error:'Este inventario no permite guardar. Vuelve a cargarlo.' };
     if (!engine.drafts.has(server)) return { success:false, error:'No se pudo conservar el borrador en este dispositivo. Exporta tus cambios.' };
     const draft = engine.drafts.get(server)!;
-    if (draft.generation === draft.acknowledged && !draft.operation) engine.change(server, rowsFor(prefillRef.current,server));
+    if (draft.generation === draft.acknowledged && !draft.operation) engine.change(server, rowsFor(prefillRef.current,server), false);
     return engine.flush(server);
   }, []);
   const flushDrafts = useCallback(async () => {

@@ -11,9 +11,12 @@ import {
   normalizeAdditiveMeasurementMethod,
 } from "./additive_measurement.ts";
 
-import { INVENTORY_SECTIONS, InventoryError, requireInventoryWriter, prepareInventoryRows, summarizeInventorySection } from './inventory_guard.ts';
+import { INVENTORY_SECTIONS, InventoryError, requireInventoryWriter, prepareInventoryRows, summarizeInventorySection, configuredRows } from './inventory_guard.ts';
 
 import { preparePendingInventoryPhoto, pendingInventoryPhotoPath } from './inventory_photo.ts';
+
+import { buildInventoryReport, reportingMetadata } from './report_model.ts';
+import { parseReportingQuery } from './report_query.ts';
 
 const app = new Hono();
 function inventoryErrorResponse(c: any, error: any) {
@@ -605,6 +608,7 @@ app.use('/make-server/plants', requireAuth);
 
 // Reports endpoint requires a valid login
 app.use('/make-server/reports', requireAuth);
+app.use('/make-server/reports/*', requireAuth);
 
 // Catalog endpoints (materiales, procedencias) require admin role
 app.use('/make-server/catalogs/*', requireAdmin);
@@ -704,17 +708,22 @@ async function deleteInventoryMonthCascade(
         .map((url: string) => url.split('/inventory-photos/')[1])
         .filter(Boolean)
     ));
+    // Phase 2 photos are content-addressed and may be reused by other months.
+    // Keep their objects until reference-aware retention is implemented.
+    const retained = storagePaths.filter(path => path.startsWith('phase2/'));
+    if (retained.length) warnings.push(`${retained.length} fotografías reutilizables conservadas para proteger otros inventarios.`);
+    const exclusivePaths = storagePaths.filter(path => !path.startsWith('phase2/'));
 
-    if (storagePaths.length > 0) {
+    if (exclusivePaths.length > 0) {
       const { error: storageError } = await supabase.storage
         .from('inventory-photos')
-        .remove(storagePaths);
+        .remove(exclusivePaths);
 
       if (storageError) {
         warnings.push(`No se pudieron eliminar algunas fotos del bucket: ${storageError.message}`);
         console.warn('[DELETE INVENTORY] Storage removal warning:', storageError.message);
       } else {
-        deletedPhotos = storagePaths.length;
+        deletedPhotos = exclusivePaths.length;
       }
     }
   }
@@ -3484,7 +3493,9 @@ for (const section of INVENTORY_SECTIONS) {
         if (photoError) throw photoError;
         if (!photos?.some(photo => photo.name === relative.slice(split + 1))) throw new InventoryError('La fotografía aún no está confirmada en almacenamiento.');
       }
-      const summary = { ...summarizeInventorySection(section, rows), photos_linked: rows.filter(row => !!row.photo_url).length,
+      const counts = summarizeInventorySection(section, rows);
+      const summary = { ...counts, pending_count: Math.max(configuredRows(pack,section).length - counts.complete_count,0), configured_count: configuredRows(pack,section).length, configured_sections:Object.fromEntries(INVENTORY_SECTIONS.map(code=>[code,configuredRows(pack,code).length])), reporting_metadata: reportingMetadata(rows),
+        ...Object.fromEntries(['client_occurred_at','client_capture_started_at'].filter(key=>typeof body[key]==='string' && Number.isFinite(Date.parse(body[key]))).map(key=>[key,new Date(body[key]).toISOString()])), photos_linked: rows.filter(row => !!row.photo_url).length,
         confirmed_photo_urls: rows.map(row => row.photo_url).filter(url => typeof url === 'string' && url.includes('/inventory-photos/phase2/')) };
       const receipt = await db.saveInventorySectionGuarded(m.id, section, rows, user.id, expected_revision, operation_id, requestHash, summary);
       return c.json({ success: true, ...receipt });
@@ -3662,132 +3673,27 @@ app.post("/make-server/modules/config", async (c) => {
 // AUDIT ENDPOINTS
 // ============================================================================
 
-// Inventory workflow flow — derived from existing inventory_month table
-app.get("/make-server/audit/flow", async (c) => {
+async function reportingPage(c: any, audit = false) {
   try {
     const user = c.get('user');
-    const supabase = db.getSupabaseClient();
-    const plantIdFilter = c.req.query('plant_id');
-
-    let query = supabase
-      .from('inventory_month')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (user.role === 'plant_manager') {
-      query = query.in('plant_id', user.assigned_plants as string[]);
-    } else if (plantIdFilter) {
-      query = query.eq('plant_id', plantIdFilter);
-    }
-
-    const { data, error } = await query;
+    const { filters, offset, limit } = parseReportingQuery(c.req.query(), audit);
+    filters.as_of ||= new Date().toISOString();
+    const { data, error } = await db.getSupabaseClient().rpc(audit ? 'inventory_audit_page' : 'inventory_reports_page', {
+      p_actor_id: user.id, p_filters: filters, p_offset: offset, p_limit: limit,
+    });
     if (error) throw error;
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error('[AUDIT] Error fetching flow:', error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// Detailed event log from audit_logs table
-app.get("/make-server/audit/logs", async (c) => {
+    return c.json({ success:true, ...data, as_of:filters.as_of });
+  } catch(error) { return inventoryErrorResponse(c,error); }
+}
+app.get('/make-server/audit/flow', c => reportingPage(c));
+app.get('/make-server/audit/logs', c => reportingPage(c,true));
+app.get('/make-server/reports', c => reportingPage(c));
+app.get('/make-server/reports/:id', async c => {
   try {
-    const user = c.get('user');
-    const supabase = db.getSupabaseClient();
-    const plantIdFilter = c.req.query('plant_id');
-    const userIdFilter = c.req.query('user_id');
-    const limit = Math.min(parseInt(c.req.query('limit') || '100'), 500);
-
-    let query = supabase
-      .from('audit_logs')
-      .select('*')
-      .order('timestamp', { ascending: false })
-      .limit(limit);
-
-    if (user.role === 'plant_manager') {
-      // Plant managers see their own plant events + their own logins
-      query = query.or(
-        `plant_id.in.(${(user.assigned_plants as string[]).join(',')}),and(action.eq.USER_LOGIN,user_id.eq.${user.id})`
-      );
-    } else {
-      if (plantIdFilter) {
-        query = query.eq('plant_id', plantIdFilter);
-      }
-      if (userIdFilter) {
-        query = query.eq('user_id', userIdFilter);
-      }
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Security rule: admins cannot see super_admin events in event logs
-    let filtered = data ?? [];
-    if (user.role === 'admin') {
-      const { data: superAdmins, error: superAdminError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('role', 'super_admin');
-      if (superAdminError) throw superAdminError;
-
-      const superAdminIds = new Set((superAdmins ?? []).map((u: any) => u.id));
-      filtered = filtered.filter((log: any) => !superAdminIds.has(log.user_id));
-    }
-
-    return c.json({ success: true, data: filtered });
-  } catch (error) {
-    console.error('[AUDIT] Error fetching logs:', error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
-});
-
-// ============================================================================
-// REPORTS ENDPOINT
-// ============================================================================
-
-app.get("/make-server/reports", async (c) => {
-  try {
-    const user = c.get('user');
-    const supabase = db.getSupabaseClient();
-    const { year_month, plant_id } = c.req.query();
-
-    let query = supabase
-      .from('inventory_month')
-      .select(`
-        id, plant_id, year_month, status,
-        created_by, created_at, updated_at,
-        approved_by, approved_at, notes
-      `)
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    // Role-based filter. A plant manager can only query assigned plants, and
-    // an explicitly selected plant narrows the result to that single plant.
-    if (user.role === 'plant_manager') {
-      const assignedPlants = (user.assigned_plants ?? []) as string[];
-      if (plant_id) {
-        if (!assignedPlants.includes(plant_id)) {
-          return c.json({ success: false, error: 'No tiene acceso a la planta seleccionada' }, 403);
-        }
-        query = query.eq('plant_id', plant_id);
-      } else {
-        query = query.in('plant_id', assignedPlants);
-      }
-    } else if (plant_id) {
-      query = query.eq('plant_id', plant_id);
-    }
-
-    // Optional month filter (format: "2025-02")
-    if (year_month) query = query.eq('year_month', year_month);
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return c.json({ success: true, data });
-  } catch (error) {
-    console.error('[REPORTS] Error fetching reports:', error);
-    return c.json({ success: false, error: error.message }, 500);
-  }
+    const { data, error } = await db.getSupabaseClient().rpc('inventory_report_snapshot', {p_actor_id:c.get('user').id,p_month_id:c.req.param('id')});
+    if(error)throw error;
+    return c.json({success:true,reporting_version:3,data:buildInventoryReport(data)});
+  } catch(error){return inventoryErrorResponse(c,error);}
 });
 
 // DELETE /reports/:id — admin/super_admin only

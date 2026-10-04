@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { getAllReportRows } from '../../utils/reportTransport';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -113,13 +114,13 @@ function formatMonthLabel(yearMonth: string): string {
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('es-PR', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    timeZone:'America/Puerto_Rico', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 }
 
 function formatExactDateTime(iso: string): string {
   return new Date(iso).toLocaleString('es-PR', {
-    year: 'numeric',
+    timeZone:'America/Puerto_Rico', year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -144,7 +145,7 @@ function timeAgo(iso: string): string {
 // ============================================================================
 
 export function AuditPanel() {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, allPlants } = useAuth();
   const [flows, setFlows] = useState<InventoryFlow[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<AuditUser[]>([]);
@@ -152,22 +153,12 @@ export function AuditPanel() {
   const [error, setError] = useState<string | null>(null);
   const [plantFilter, setPlantFilter] = useState<string>('');
   const [userFilter, setUserFilter] = useState<string>('');
+  const [periodFilter, setPeriodFilter] = useState('');
   const [exportingExcel, setExportingExcel] = useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  const callAPI = useCallback(async (endpoint: string) => {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken || publicAnonKey}`,
-      },
-    });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'Error en la solicitud');
-    return json.data;
-  }, [accessToken]);
-
+  const dataController = useRef<AbortController | null>(null);
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
 
@@ -190,37 +181,29 @@ export function AuditPanel() {
   }, [accessToken, isAdmin, user?.role]);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    dataController.current?.abort();const controller=new AbortController();dataController.current=controller;const signal=controller.signal;
+    setLoading(true); setError(null); setFlows([]); setLogs([]);
     try {
-      const flowQuery = plantFilter ? `?plant_id=${encodeURIComponent(plantFilter)}` : '';
-      const logParams = new URLSearchParams();
-      if (plantFilter) logParams.set('plant_id', plantFilter);
-      if (userFilter) logParams.set('user_id', userFilter);
-      const logsQuery = logParams.toString() ? `?${logParams.toString()}` : '';
-      const [flowData, logData] = await Promise.all([
-        callAPI(`/audit/flow${flowQuery}`),
-        callAPI(`/audit/logs${logsQuery}`),
+      const filters = {plant_id:plantFilter||undefined,year_month:periodFilter||undefined};
+      const [flowData,logData] = await Promise.all([
+        getAllReportRows(API_BASE_URL,accessToken||'',filters,{signal},'/audit/flow'),
+        getAllReportRows(API_BASE_URL,accessToken||'',{...filters,user_id:userFilter||undefined},{signal},'/audit/logs'),
       ]);
-      setFlows(flowData || []);
-      setLogs(logData || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [callAPI, plantFilter, userFilter]);
+      if(signal?.aborted)return;
+      setFlows(flowData.rows);setLogs(logData.rows);
+    }catch(error:any){if(!signal?.aborted)setError(error.message);}finally{if(!signal?.aborted)setLoading(false);}
+  },[accessToken,plantFilter,periodFilter,userFilter]);
 
   useEffect(() => {
     fetchUsers().catch((err: any) => setError(err.message));
   }, [fetchUsers]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();return()=>dataController.current?.abort();
   }, [fetchData]);
 
   // Unique plant IDs from flows for the filter dropdown
-  const availablePlants = Array.from(new Set(flows.map(f => f.plant_id))).sort();
+  const availablePlants = allPlants.filter(plant=>user?.role!=='plant_manager'||user.assigned_plants.includes(plant.id)).map(plant=>plant.id).sort();
   const userOptions = users.length > 0
     ? users.map((u) => ({
         id: u.id,
@@ -251,8 +234,9 @@ export function AuditPanel() {
   const formatDetails = (details?: AuditLog['details']) => {
     if (!details) return '-';
     return Object.entries(details)
+      .filter(([key]) => !['reporting_metadata','configured_sections','confirmed_photo_urls'].includes(key))
       .filter(([, value]) => value !== null && value !== undefined && value !== '')
-      .map(([key, value]) => `${key}: ${value}`)
+      .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
       .join(' | ') || '-';
   };
 
@@ -260,10 +244,13 @@ export function AuditPanel() {
     setExportingExcel(true);
     setError(null);
     try {
+      const filters={plant_id:plantFilter||undefined,year_month:periodFilter||undefined};
+      const [flowResult,logResult]=await Promise.all([getAllReportRows(API_BASE_URL,accessToken||'',filters,{},'/audit/flow'),getAllReportRows(API_BASE_URL,accessToken||'',{...filters,user_id:userFilter||undefined},{},'/audit/logs')]);
       const selectedUserLabel = userOptions.find((option) => option.id === userFilter)?.label;
       const filterSummary = [
         plantFilter ? `Planta: ${plantFilter}` : 'Todas las plantas',
-        selectedUserLabel ? `Usuario: ${selectedUserLabel}` : 'Todos los usuarios',
+        periodFilter ? `Período: ${periodFilter}` : 'Todos los períodos',
+        selectedUserLabel ? `Usuario de eventos: ${selectedUserLabel}` : 'Todos los usuarios',
       ].join(' | ');
 
       await exportSettingsWorkbook(
@@ -286,7 +273,7 @@ export function AuditPanel() {
               'Rechazado',
               'Notas rechazo',
             ],
-            rows: flows.map((flow) => [
+            rows: flowResult.rows.map((flow) => [
               flow.plant_id,
               formatMonthLabel(flow.year_month),
               STATUS_CONFIG[flow.status]?.label || flow.status,
@@ -305,7 +292,7 @@ export function AuditPanel() {
           {
             name: 'Eventos',
             headers: ['Fecha', 'Accion', 'Usuario', 'Correo', 'Planta', 'Inventario', 'Detalles'],
-            rows: logs.map((log) => [
+            rows: logResult.rows.map((log) => [
               formatExactDateTime(log.timestamp),
               getActionLabel(log),
               log.user_name || '-',
@@ -339,6 +326,7 @@ export function AuditPanel() {
           <p className="text-sm text-[#5F6773]">Flujo de inventarios y registro de actividad</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm">Período <input type="month" value={periodFilter} onChange={event=>setPeriodFilter(event.target.value)} className="min-h-11 rounded border px-2"/></label>
           {isAdmin && availablePlants.length > 0 && (
             <select
               value={plantFilter}
@@ -369,7 +357,7 @@ export function AuditPanel() {
             </select>
           )}
           <button
-            onClick={fetchData}
+            onClick={()=>fetchData()}
             className="text-sm px-3 py-1.5 border border-[#9D9B9A] rounded text-[#5F6773] hover:text-[#3B3A36] hover:bg-[#F2F3F5] transition-colors"
           >
             ↻ Actualizar
