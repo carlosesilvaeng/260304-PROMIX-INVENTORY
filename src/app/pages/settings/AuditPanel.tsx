@@ -65,6 +65,8 @@ interface AuditUser {
 // ============================================================================
 
 const ACTION_LABELS: Record<string, string> = {
+  CONFIGURATION_IMPORT_PREVIEWED: 'Configuración: vista previa revisada',
+  CONFIGURATION_IMPORTED: 'Configuración importada',
   INVENTORY_STARTED: 'Inventario iniciado',
   INVENTORY_SUBMITTED: 'Inventario enviado para aprobación',
   INVENTORY_APPROVED: 'Inventario aprobado',

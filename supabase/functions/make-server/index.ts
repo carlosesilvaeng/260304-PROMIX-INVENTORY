@@ -17,10 +17,11 @@ import { preparePendingInventoryPhoto, pendingInventoryPhotoPath } from './inven
 
 import { buildInventoryReport, reportingMetadata } from './report_model.ts';
 import { parseReportingQuery } from './report_query.ts';
+import { createConfigurationPackage, validateConfigurationPackage, ConfigurationError } from './configuration_package.ts';
 
 const app = new Hono();
 function inventoryErrorResponse(c: any, error: any) {
-  const status = error instanceof InventoryError ? error.status : error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : ['40001', '23505'].includes(error.code) ? 409 : ['22023', '23514'].includes(error.code) ? 400 : 500;
+  const status = error instanceof InventoryError || error instanceof ConfigurationError ? error.status : error.code === '42501' ? 403 : error.code === 'P0002' ? 404 : ['40001', '23505'].includes(error.code) ? 409 : ['22023', '23514'].includes(error.code) ? 400 : 500;
   return c.json({ success: false, error: error.message || 'No se pudo guardar el inventario.', code: error.code || 'INVENTORY_ERROR' }, status);
 }
 
@@ -1561,6 +1562,39 @@ app.get("/make-server/plants/config-counts", async (c) => {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
+
+// Versioned configuration packages are separate from active inventory prefill.
+app.get('/make-server/plants/:plantId/configuration-package', requireAdmin, async c => {
+  try {
+    const {data,error}=await db.getSupabaseClient().rpc('configuration_export',{p_actor_id:c.get('user').id,p_plant_id:c.req.param('plantId')});
+    if(error)throw error;
+    const file=await createConfigurationPackage(data,Deno.env.get('SUPABASE_URL')||'unknown');
+    await validateConfigurationPackage(file);
+    return c.json({success:true,configuration_version:1,data:file});
+  }catch(error){return inventoryErrorResponse(c,error);}
+});
+for(const mode of ['preview','execute']) {
+  app.post(`/make-server/plants/:plantId/configuration-package/${mode}`,requireAdmin,async c=>{
+    try {
+      const raw=await c.req.text();
+      if(new TextEncoder().encode(raw).length>11*1024*1024)throw new ConfigurationError('La solicitud supera el límite permitido.');
+      let body;try{body=JSON.parse(raw);}catch{throw new ConfigurationError('El archivo no contiene JSON válido.');}
+      if(!body||typeof body!=='object'||Array.isArray(body))throw new ConfigurationError('Solicitud inválida.');
+      const file=await validateConfigurationPackage(body.package);
+      const options=body.options||{};
+      if(typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['create_dependencies','deactivate_extras'].includes(key))||Object.values(options).some(value=>typeof value!=='boolean'))throw new ConfigurationError('Opciones de importación inválidas.');
+      if(mode==='execute'&&(typeof body.preview_token!=='string'||!/^[0-9a-f-]{36}$/i.test(body.preview_token)))throw new ConfigurationError('Genera una vista previa válida antes de aplicar.');
+      const target=c.req.param('plantId');
+      const {data,error}=await db.getSupabaseClient().rpc('configuration_import',{
+        p_actor_id:c.get('user').id,p_target:target,p_payload:file.payload,p_digest:file.integrity.digest,
+        p_options:{create_dependencies:options.create_dependencies===true,deactivate_extras:options.deactivate_extras===true,restore_ids:!!Deno.env.get('SUPABASE_URL')&&file.origin.environment===Deno.env.get('SUPABASE_URL')&&file.origin.plant_id===target},
+        p_preview_id:mode==='execute'?body.preview_token:null,
+      });
+      if(error)throw error;
+      return c.json({success:true,configuration_version:1,data});
+    }catch(error){return inventoryErrorResponse(c,error);}
+  });
+}
 
 app.get("/make-server/plants/:plantId/config", async (c) => {
   try {

@@ -12,6 +12,10 @@
 
 **Actualización — 4 de octubre de 2026, 13:58:23, America/Bogota:** las Fases 1 y 2 quedaron registradas en los commits `0ab4ab8` y `e360927`. El usuario autorizó posteriormente la Fase 3, que está implementada y validada localmente, sin commit ni despliegue. Véase el [registro de implementación de la Fase 3](fase-3-implementacion-2026-10-04_13-58-23.md). La aceptación en el clon y la publicación siguen pendientes; las Fases 4 y 5 permanecen como referencia futura. El alcance de Fase 1 indicado a continuación refleja la autorización al momento de guardar el plan original.
 
+**Actualización — 4 de octubre de 2026, 15:24:09, America/Bogota:** la Fase 3 quedó registrada en el commit `9b07cb6`. El usuario autorizó la Fase 4, implementada y validada localmente, sin commit ni despliegue. Véase el [registro de implementación y pruebas](fase-4-implementacion-2026-10-04_15-24-09.md). La aceptación integrada en el clon y la publicación siguen pendientes; la Fase 5 permanece como referencia futura. Las actualizaciones anteriores se conservan como historial.
+
+El siguiente bloque conserva la primera autorización; las fases posteriores fueron autorizadas según las actualizaciones anteriores.
+
 > **Alcance autorizado posteriormente por el usuario: Fase 1 solamente — corregir guardado, autorización y trazabilidad, incluyendo sus pruebas.** Las demás fases se conservan como referencia futura y no forman parte de esta intervención. No se incluyen autoguardado móvil, mejoras de reportes ni exportación de configuraciones. Las pruebas de escritura requieren el clon aislado acordado; su disponibilidad debe comprobarse antes de ejecutarlas.
 
 Este archivo conserva el contenido del plan entregado en el chat, adaptando los metadatos de entrega y los enlaces para su consulta desde el repositorio. Los hallazgos describen el estado revisado en esa sesión y deben distinguirse de avances posteriores.
@@ -238,7 +242,7 @@ Cuando el móvil esté desconectado, el administrador verá únicamente la últi
 
 ### Fase 4 — Exportar y reutilizar configuraciones
 
-**Referencia futura; fuera de la intervención autorizada.**
+**Autorizada posteriormente, implementada y validada localmente.** Véase el [registro de implementación de la Fase 4](fase-4-implementacion-2026-10-04_15-24-09.md). Pendientes aceptación integrada en el clon, commit y publicación.
 
 Entregar dos productos separados:
 

@@ -25,7 +25,10 @@
     "test:inventory-photo": "node --experimental-strip-types scripts/test-inventory-photo.mjs",
     "test:inventory-report": "node --experimental-strip-types scripts/test-inventory-report.mjs",
     "test:inventory-report-db": "python3 scripts/test-inventory-report-db.py",
-    "test:inventory-report-browser": "node --experimental-strip-types scripts/test-inventory-report-browser.mjs"
+    "test:inventory-report-browser": "node --experimental-strip-types scripts/test-inventory-report-browser.mjs",
+    "test:configuration-package": "node --experimental-strip-types scripts/test-configuration-package.mjs",
+    "test:configuration-package-db": "python3 scripts/test-configuration-package-db.py",
+    "test:configuration-package-browser": "node --experimental-strip-types scripts/test-configuration-package-browser.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

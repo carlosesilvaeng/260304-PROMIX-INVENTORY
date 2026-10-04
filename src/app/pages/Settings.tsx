@@ -1,4 +1,4 @@
-import { AlertTriangle, FileImage, FileSpreadsheet, Maximize2, Trash2 } from 'lucide-react';
+import { AlertTriangle, FileImage, Maximize2, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +20,7 @@ import { AdditivesConfigModal } from '../components/AdditivesConfigModal';
 import { DieselConfigModal } from '../components/DieselConfigModal';
 import { ProductsConfigModal } from '../components/ProductsConfigModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
-import { exportPlantConfigurations } from '../utils/exportPlantConfigurations';
+import { ConfigurationTransferPanel } from './settings/ConfigurationTransferPanel';
 import type { Plant } from '../contexts/AuthContext';
 import { canAccessAudit, canManageModules, canManagePlantConfiguration, canManagePlantManagers } from '../utils/permissions';
 
@@ -49,8 +49,6 @@ const EMPTY_MODULE_COUNTS: PlantModuleCounts = {
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [plantsExportMessage, setPlantsExportMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [exportingPlantsConfig, setExportingPlantsConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'data-control' | 'account'>('plants');
   const [editingAggregates, setEditingAggregates] = useState<Plant | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
@@ -232,27 +230,6 @@ export function Settings() {
     handleSave();
   };
 
-  const handleExportPlantsConfiguration = async () => {
-    setExportingPlantsConfig(true);
-    setPlantsExportMessage(null);
-
-    try {
-      await exportPlantConfigurations(allPlants);
-      setPlantsExportMessage({
-        type: 'success',
-        message: 'Configuración activa exportada exitosamente a Excel.',
-      });
-    } catch (error: any) {
-      console.error('❌ Error exportando configuración de plantas:', error);
-      setPlantsExportMessage({
-        type: 'error',
-        message: error?.message || 'No se pudo exportar la configuración activa de plantas.',
-      });
-    } finally {
-      setExportingPlantsConfig(false);
-    }
-  };
-
   const openPettyCashModal = (plant: Plant) => {
     setEditingPettyCash(plant);
     setPettyCashAmount(Number(plant.pettyCashEstablished || 0).toFixed(2));
@@ -386,18 +363,9 @@ export function Settings() {
         />
       )}
 
-      {plantsExportMessage && (
-        <Alert
-          type={plantsExportMessage.type}
-          message={plantsExportMessage.message}
-          onClose={() => setPlantsExportMessage(null)}
-          autoClose={plantsExportMessage.type === 'success'}
-        />
-      )}
-
       {/* Tabs */}
       <div className="border-b border-[#9D9B9A]">
-        <div className="flex gap-4">
+        <div className="flex gap-4 overflow-x-auto">
           {canManagePlants && (
             <>
               <button
@@ -506,19 +474,10 @@ export function Settings() {
       {/* Plants Tab */}
       {canManagePlants && activeTab === 'plants' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
             <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
             <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={handleExportPlantsConfiguration}
-                loading={exportingPlantsConfig}
-                disabled={allPlants.length === 0}
-                className="min-w-[250px] border-[#1D6F42] bg-[#EAF7EF] text-[#1D6F42] hover:bg-[#D9F1E2]"
-              >
-                <FileSpreadsheet size={18} aria-hidden="true" />
-                <span>Exportar configuración activa</span>
-              </Button>
+
               {(user?.role === 'super_admin' || user?.role === 'admin') && (
                 <Button variant="outline" onClick={() => setShowCreatePlantModal(true)}>
                   + Agregar Planta
@@ -527,6 +486,7 @@ export function Settings() {
             </div>
           </div>
 
+          <ConfigurationTransferPanel />
           <Card noPadding>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px]">
