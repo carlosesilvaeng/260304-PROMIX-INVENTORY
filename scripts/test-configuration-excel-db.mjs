@@ -1,0 +1,38 @@
+// Called only inside the disposable database created by test-configuration-package-db.py.
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {createRequire} from 'node:module';
+import {build} from 'esbuild';
+import {createConfigurationPackage} from '../supabase/functions/make-server/configuration_package.ts';
+
+const database=process.env.PROMIX_CONFIGURATION_TEST_DB;
+const host=process.env.PGHOST||'/private/tmp';
+if(!/^promix_phase4_test_[a-f0-9]+$/.test(database||'')||!['/private/tmp','/tmp','localhost','127.0.0.1'].includes(host))throw Error('Only an explicitly named disposable localhost database is allowed.');
+const psql=process.env.PROMIX_TEST_PSQL||'/Library/PostgreSQL/18/bin/psql';
+const sql=query=>execFileSync(psql,['-X','-t','-A','-v','ON_ERROR_STOP=1','-h',host,'-p',process.env.PGPORT||'55443','-d',database,'-c',query],{encoding:'utf8'}).trim();
+const literal=value=>"'"+String(value).replaceAll("'","''")+"'";
+const bundled=await build({stdin:{contents:"export * from './src/app/utils/configurationWorkbook.ts';export * from './src/app/utils/configurationWorkbookImport.ts';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'cjs',packages:'external',write:false,logLevel:'silent'});
+const compiled={exports:{}};new Function('require','module','exports',bundled.outputFiles[0].text)(createRequire(import.meta.url),compiled,compiled.exports);
+const {createConfigurationWorkbook,readConfigurationWorkbook}=compiled.exports;
+sql(`INSERT INTO users(id,email,name,role,is_active) VALUES('excel_admin','excel@example.invalid','Excel admin','admin',true);
+INSERT INTO plants(id,name,code) VALUES('EXCEL_SOURCE','Excel source','EXCEL_SOURCE'),('EXCEL_TARGET','Excel target','EXCEL_TARGET');
+INSERT INTO plant_products_config(id,plant_id,product_name,unit,measure_mode,unit_volume) VALUES('excel_old','EXCEL_SOURCE','Original','unit','DRUM',55);
+INSERT INTO plant_products_config(id,plant_id,product_name,unit) VALUES('excel_retained','EXCEL_TARGET','Conservar','unit');`);
+const baseline=await createConfigurationPackage(JSON.parse(sql("SELECT configuration_export('excel_admin','EXCEL_SOURCE')")),'https://synthetic.supabase.co');
+const workbook=await createConfigurationWorkbook([baseline]);
+const [untouched]=await readConfigurationWorkbook(await workbook.xlsx.writeBuffer());assert.equal(untouched.modified,false);assert.deepEqual(untouched.configuration,baseline);
+const products=workbook.getWorksheet('Aceites y productos');
+const cell=(header,line=4)=>products.getCell(line,products.getRow(3).values.findIndex(value=>value===header));
+cell('Producto').value='Editado en Excel';cell('Volumen por envase').value=75;cell('Activo').value='No';
+products.getCell(5,1).value=products.getCell(4,1).value;cell('Producto',5).value='Nuevo desde Excel';cell('Unidad',5).value='unit';cell('Modo de medición',5).value='COUNT';
+const [edited]=await readConfigurationWorkbook(await workbook.xlsx.writeBuffer());assert.equal(edited.modified,true);
+const payload=literal(JSON.stringify(edited.configuration.payload))+'::jsonb',digest=literal(edited.configuration.integrity.digest);
+const call=token=>`SELECT configuration_import('excel_admin','EXCEL_TARGET',${payload},${digest},'{}'::jsonb${token?','+literal(token)+'::uuid':''})`;
+const preview=JSON.parse(sql(call()));assert.deepEqual(preview.errors,[]);assert.ok(preview.preview_token);
+assert.equal(sql("SELECT count(*) FROM plant_products_config WHERE plant_id='EXCEL_TARGET'"),'1','Preview must not write equipment');
+JSON.parse(sql(call(preview.preview_token)));
+const destination=JSON.parse(sql("SELECT configuration_snapshot('EXCEL_TARGET')")),rows=destination.tables.plant_products_config;
+assert.equal(rows.length,3);assert.equal(Number(rows.find(row=>row.product_name==='Editado en Excel').unit_volume),75);assert.equal(rows.find(row=>row.product_name==='Editado en Excel').is_active,false);
+assert.ok(rows.some(row=>row.product_name==='Nuevo desde Excel'));assert.ok(rows.some(row=>row.id==='excel_retained'&&row.is_active));
+assert.equal(sql("SELECT count(*) FROM audit_logs WHERE action='CONFIGURATION_IMPORTED' AND plant_id='EXCEL_TARGET'"),'1');
+console.log('Excel/database integration passed: actual schema roundtrip, cell edits, generated equipment, dry preview, destination retention, and audit.');

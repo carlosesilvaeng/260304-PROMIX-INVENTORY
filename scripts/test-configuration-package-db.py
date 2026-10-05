@@ -29,6 +29,9 @@ try:
  for migration in migrations:run(file=migration)
  print(f'{len(migrations)} actual migrations applied to a disposable database.')
  run(file=root/'scripts/test-configuration-package.sql')
+ # Feed a real edited workbook through the actual preview/application RPCs.
+ excel_env=env.copy();excel_env.update(PROMIX_CONFIGURATION_TEST_DB=name,PGHOST=args.host,PGPORT=args.port,PROMIX_TEST_PSQL=psql)
+ subprocess.run(['node','--experimental-strip-types',str(root/'scripts/test-configuration-excel-db.mjs')],cwd=root,env=excel_env,check=True)
  # Competing legacy writer commits while execute waits on the configuration lock.
  run("INSERT INTO users(id,email,name,role,is_active) VALUES('c4_race_admin','race@example.invalid','Race','admin',true); INSERT INTO plants(id,name,code) VALUES('C4_RACE','Race target','C4_RACE'); SELECT configuration_import('c4_race_admin','C4_RACE',configuration_export('c4_race_admin','C4_RACE'),'race-digest','{}');")
  writer_env=env.copy();writer_env['PGAPPNAME']='promix_c4_writer'
