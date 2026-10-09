@@ -20,7 +20,7 @@ interface ReportsProps {onNavigate?:(view:string,sectionId?:string,context?:{pla
 export function Reports({onNavigate}:ReportsProps){
  const {user,currentPlant,allPlants,accessToken}=useAuth();
  const [selectedPlant,setSelectedPlant]=useState(''),[year,setYear]=useState(''),[month,setMonth]=useState(''),[status,setStatus]=useState('');
- const [activityOrder,setActivityOrder]=useState<'asc'|'desc'|''>('');
+ const [activityOrder,setActivityOrder]=useState<'asc'|'desc'>('desc');
  const [page,setPage]=useState<ReportPage|null>(null),[offset,setOffset]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
  const [detail,setDetail]=useState<InventoryReport|null>(null),[detailLoading,setDetailLoading]=useState(false),[detailError,setDetailError]=useState(''),[detailOpen,setDetailOpen]=useState(false);
  const [timeline,setTimeline]=useState<any[]>([]),[timelineTotal,setTimelineTotal]=useState(0),[timelineError,setTimelineError]=useState(''),[timelineLoading,setTimelineLoading]=useState(false);

@@ -50,6 +50,7 @@ try{
  });
  const page=await app.newPage();page.setDefaultTimeout(15000);const errors=[],downloads=[];page.on('pageerror',e=>errors.push(e.message));page.on('download',d=>downloads.push(d));
  await page.goto(origin);await page.getByRole('button',{name:/Reportes/,exact:false}).first().click();await page.getByText(/Mostrando 1–50 de 251/).waitFor();
+ assert.equal(reportQueries[0].activity_order,'desc');assert.equal(await page.locator('th[aria-sort="descending"]').count(),1);assert.equal(await page.locator('tbody tr').first().locator('td').first().innerText(),'Planta B\n\n2026-10');
  await page.getByRole('button',{name:'Siguiente',exact:true}).click();await page.getByText(/Mostrando 51–100 de 251/).waitFor();
  await page.locator('select').nth(1).selectOption('2026');await page.getByText(/Mostrando 1–2 de 2/).waitFor();assert.ok(reportQueries.some(q=>q.year==='2026'));
  for(const width of [360,390,430]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`report page overflow at ${width}`);}
@@ -62,9 +63,10 @@ try{
  const before=downloads.length;failDetail=true;await page.getByRole('button',{name:'Excel · todos los resultados',exact:true}).click();await page.getByRole('alert').filter({hasText:/No se generó el archivo/}).waitFor();assert.match(await page.getByRole('alert').innerText(),/B \/ 2026-10/);assert.equal(downloads.length,before);failDetail=false;
  slow=true;await page.getByRole('button',{name:'Excel · todos los resultados',exact:true}).click();await page.getByRole('button',{name:'Cancelar exportación',exact:true}).click();await page.getByRole('alert').filter({hasText:'Exportación cancelada'}).waitFor();assert.equal(downloads.length,before);slow=false;
  await page.setViewportSize({width:1280,height:900});
- await page.getByRole('button',{name:'Ordenar por actividad recibida',exact:true}).click();await page.waitForFunction(()=>document.querySelector('th[aria-sort="descending"]'));await page.waitForTimeout(150);
  assert.equal(await page.locator('tbody tr').first().locator('td').first().innerText(),'Planta B\n\n2026-10');
  await page.getByRole('button',{name:'Ordenar por actividad recibida',exact:true}).click();await page.waitForTimeout(150);assert.equal(await page.locator('tbody tr').first().locator('td').first().innerText(),'Planta A\n\n2026-10');
+ await page.getByRole('button',{name:'Ordenar por actividad recibida',exact:true}).click();await page.waitForTimeout(150);assert.equal(await page.locator('tbody tr').first().locator('td').first().innerText(),'Planta B\n\n2026-10');
+ await page.getByRole('button',{name:'Ordenar por actividad recibida',exact:true}).click();await page.waitForTimeout(150);
  assert.ok(reportQueries.some(q=>q.activity_order==='desc'));assert.ok(reportQueries.some(q=>q.activity_order==='asc'));
  await page.getByRole('button',{name:'Eliminar',exact:true}).first().click();await page.getByRole('button',{name:'Cancelar',exact:true}).click();assert.equal(deleteRequests.length,0);
  await page.getByRole('button',{name:'Eliminar',exact:true}).first().click();await page.getByRole('button',{name:'Eliminar inventario',exact:true}).click();await page.waitForTimeout(200);assert.equal(deleteRequests.length,1);assert.deepEqual(deleteRequests[0],{confirm:true,plant_id:'A',year_month:'2026-10',write_revision:1});
