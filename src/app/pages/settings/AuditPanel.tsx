@@ -326,8 +326,8 @@ export function AuditPanel() {
       {/* Header + Filter */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-[#3B3A36]">Auditoría</h3>
-          <p className="text-sm text-[#5F6773]">Flujo de inventarios y registro de actividad</p>
+          <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Auditoría</h3>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Flujo de inventarios y registro de actividad</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm">Período <input type="month" value={periodFilter} onChange={event=>setPeriodFilter(event.target.value)} className="min-h-11 rounded border px-2"/></label>
@@ -335,7 +335,7 @@ export function AuditPanel() {
             <select
               value={plantFilter}
               onChange={e => setPlantFilter(e.target.value)}
-              className="text-sm border border-[#9D9B9A] rounded px-3 py-1.5 text-[#3B3A36] bg-white"
+              className="text-sm border border-[var(--ui-border-9d9b9a)] rounded px-3 py-1.5 text-[color:var(--ui-text-3b3a36)] bg-[var(--ui-surface)]"
             >
               <option value="">Todas las plantas</option>
               {availablePlants.map(p => (
@@ -348,7 +348,7 @@ export function AuditPanel() {
               value={userFilter}
               onChange={e => setUserFilter(e.target.value)}
               disabled={userOptions.length === 0}
-              className="text-sm border border-[#9D9B9A] rounded px-3 py-1.5 text-[#3B3A36] bg-white"
+              className="text-sm border border-[var(--ui-border-9d9b9a)] rounded px-3 py-1.5 text-[color:var(--ui-text-3b3a36)] bg-[var(--ui-surface)]"
             >
               <option value="">
                 {userOptions.length === 0 ? 'Sin usuarios disponibles' : 'Todos los usuarios'}
@@ -362,7 +362,7 @@ export function AuditPanel() {
           )}
           <button
             onClick={()=>fetchData()}
-            className="text-sm px-3 py-1.5 border border-[#9D9B9A] rounded text-[#5F6773] hover:text-[#3B3A36] hover:bg-[#F2F3F5] transition-colors"
+            className="text-sm px-3 py-1.5 border border-[var(--ui-border-9d9b9a)] rounded text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)] hover:bg-[var(--ui-background-f2f3f5)] transition-colors"
           >
             ↻ Actualizar
           </button>
@@ -386,18 +386,18 @@ export function AuditPanel() {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-[#5F6773]">Cargando auditoría...</div>
+        <div className="text-center py-12 text-[color:var(--ui-text-muted-5f6773)]">Cargando auditoría...</div>
       ) : (
         <>
           {/* ── FLUJO DE INVENTARIOS ──────────────────────────────────── */}
           <div>
-            <h4 className="text-sm font-semibold text-[#5F6773] uppercase tracking-wide mb-3">
+            <h4 className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] uppercase tracking-wide mb-3">
               Flujo de Inventarios
             </h4>
 
             {flows.length === 0 ? (
               <Card>
-                <p className="text-center text-[#5F6773] text-sm py-4">
+                <p className="text-center text-[color:var(--ui-text-muted-5f6773)] text-sm py-4">
                   No hay inventarios registrados aún.
                 </p>
               </Card>
@@ -412,9 +412,9 @@ export function AuditPanel() {
                       {/* Card header */}
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <span className="font-semibold text-[#3B3A36]">{flow.plant_id}</span>
-                          <span className="text-[#5F6773] ml-2">·</span>
-                          <span className="text-[#5F6773] ml-2 capitalize">
+                          <span className="font-semibold text-[color:var(--ui-text-3b3a36)]">{flow.plant_id}</span>
+                          <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2">·</span>
+                          <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 capitalize">
                             {formatMonthLabel(flow.year_month)}
                           </span>
                         </div>
@@ -430,12 +430,12 @@ export function AuditPanel() {
                         <div className="flex items-start gap-3 text-sm">
                           <span className="mt-0.5">✅</span>
                           <div className="flex-1">
-                            <span className="text-[#3B3A36]">Inventario iniciado</span>
+                            <span className="text-[color:var(--ui-text-3b3a36)]">Inventario iniciado</span>
                             {flow.created_by && (
-                              <span className="text-[#5F6773] ml-1">por {flow.created_by}</span>
+                              <span className="text-[color:var(--ui-text-muted-5f6773)] ml-1">por {flow.created_by}</span>
                             )}
                           </div>
-                          <span className="text-xs text-[#5F6773] whitespace-nowrap">
+                          <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] whitespace-nowrap">
                             {formatDateTime(flow.created_at)}
                           </span>
                         </div>
@@ -445,19 +445,19 @@ export function AuditPanel() {
                           <div className="flex items-start gap-3 text-sm">
                             <span className="mt-0.5">📤</span>
                             <div className="flex-1">
-                              <span className="text-[#3B3A36]">Enviado para aprobación</span>
+                              <span className="text-[color:var(--ui-text-3b3a36)]">Enviado para aprobación</span>
                               {flow.submitted_by && (
-                                <span className="text-[#5F6773] ml-1">por {flow.submitted_by}</span>
+                                <span className="text-[color:var(--ui-text-muted-5f6773)] ml-1">por {flow.submitted_by}</span>
                               )}
                             </div>
-                            <span className="text-xs text-[#5F6773] whitespace-nowrap">
+                            <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] whitespace-nowrap">
                               {formatDateTime(flow.submitted_at)}
                             </span>
                           </div>
                         ) : (
                           <div className="flex items-start gap-3 text-sm">
                             <span className="mt-0.5 opacity-30">⏳</span>
-                            <span className="text-[#9D9B9A] italic">Pendiente de envío...</span>
+                            <span className="text-[color:var(--ui-border-9d9b9a)] italic">Pendiente de envío...</span>
                           </div>
                         )}
 
@@ -468,13 +468,13 @@ export function AuditPanel() {
                             <div className="flex-1">
                               <span className="text-red-600">Rechazado</span>
                               {flow.rejected_by && (
-                                <span className="text-[#5F6773] ml-1">por {flow.rejected_by}</span>
+                                <span className="text-[color:var(--ui-text-muted-5f6773)] ml-1">por {flow.rejected_by}</span>
                               )}
                               {flow.rejection_notes && (
-                                <p className="text-xs text-[#5F6773] mt-0.5">"{flow.rejection_notes}"</p>
+                                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-0.5">"{flow.rejection_notes}"</p>
                               )}
                             </div>
-                            <span className="text-xs text-[#5F6773] whitespace-nowrap">
+                            <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] whitespace-nowrap">
                               {formatDateTime(flow.rejected_at!)}
                             </span>
                           </div>
@@ -487,13 +487,13 @@ export function AuditPanel() {
                             <div className="flex-1">
                               <span className="text-green-700 font-medium">Aprobado</span>
                               {flow.approved_by && (
-                                <span className="text-[#5F6773] ml-1">por {flow.approved_by}</span>
+                                <span className="text-[color:var(--ui-text-muted-5f6773)] ml-1">por {flow.approved_by}</span>
                               )}
                               {flow.approval_notes && (
-                                <p className="text-xs text-[#5F6773] mt-0.5">"{flow.approval_notes}"</p>
+                                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-0.5">"{flow.approval_notes}"</p>
                               )}
                             </div>
-                            <span className="text-xs text-[#5F6773] whitespace-nowrap">
+                            <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] whitespace-nowrap">
                               {formatDateTime(flow.approved_at)}
                             </span>
                           </div>
@@ -509,19 +509,19 @@ export function AuditPanel() {
 
           {/* ── REGISTRO DE EVENTOS ───────────────────────────────────── */}
           <div>
-            <h4 className="text-sm font-semibold text-[#5F6773] uppercase tracking-wide mb-3">
+            <h4 className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] uppercase tracking-wide mb-3">
               Registro de Eventos
             </h4>
 
             {logs.length === 0 ? (
               <Card>
-                <p className="text-center text-[#5F6773] text-sm py-4">
+                <p className="text-center text-[color:var(--ui-text-muted-5f6773)] text-sm py-4">
                   No hay eventos registrados aún. Los eventos se irán registrando con el uso del sistema.
                 </p>
               </Card>
             ) : (
               <Card noPadding>
-                <div className="divide-y divide-[#F2F3F5]">
+                <div className="divide-y divide-[var(--ui-background-f2f3f5)]">
                   {logs.map(log => {
                     const icon = ACTION_ICONS[log.action] || '📋';
                     const label = getActionLabel(log);
@@ -530,8 +530,8 @@ export function AuditPanel() {
                       <div key={log.id} className="flex items-center gap-3 px-4 py-3">
                         <span className="text-lg flex-shrink-0">{icon}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[#3B3A36]">{label}</p>
-                          <p className="text-xs text-[#5F6773] truncate">
+                          <p className="text-sm text-[color:var(--ui-text-3b3a36)]">{label}</p>
+                          <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] truncate">
                             {log.user_name || log.user_email}
                             {log.plant_id && ` · ${log.plant_id}`}
                           </p>
@@ -540,8 +540,8 @@ export function AuditPanel() {
                           className="flex-shrink-0 text-right"
                           title={formatExactDateTime(log.timestamp)}
                         >
-                          <p className="text-xs text-[#9D9B9A]">{timeAgo(log.timestamp)}</p>
-                          <p className="text-[11px] text-[#5F6773] whitespace-nowrap mt-0.5">
+                          <p className="text-xs text-[color:var(--ui-border-9d9b9a)]">{timeAgo(log.timestamp)}</p>
+                          <p className="text-[11px] text-[color:var(--ui-text-muted-5f6773)] whitespace-nowrap mt-0.5">
                             {formatExactDateTime(log.timestamp)}
                           </p>
                         </div>

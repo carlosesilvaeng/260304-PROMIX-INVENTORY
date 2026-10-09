@@ -214,8 +214,8 @@ export function PhotosReport() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-[#3B3A36]">🖼️ Reporte de Fotos</h2>
-          <p className="text-[#5F6773] mt-1">
+          <h2 className="text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">🖼️ Reporte de Fotos</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)] mt-1">
             Todas las fotografías capturadas durante el inventario
           </p>
         </div>
@@ -231,7 +231,7 @@ export function PhotosReport() {
 
       {/* Filters */}
       <Card>
-        <h3 className="text-base font-semibold text-[#3B3A36] mb-4">Filtros</h3>
+        <h3 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)] mb-4">Filtros</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <Select
             label="Planta"
@@ -244,12 +244,12 @@ export function PhotosReport() {
           />
           <Select label="Sección" aria-label="Sección" value={filterSection} onChange={e => setFilterSection(e.target.value)} options={[{value:'all',label:'Todas las secciones'},...sections.map(section=>({value:section,label:section}))]}/>
           <div>
-            <label className="block text-[#3B3A36] mb-1.5">Período</label>
+            <label className="block text-[color:var(--ui-text-3b3a36)] mb-1.5">Período</label>
             <input
               type="month"
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#F2F3F5] border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded text-[color:var(--ui-text-3b3a36)] focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent transition-all"
             />
           </div>
           <div className="flex gap-2">
@@ -266,16 +266,16 @@ export function PhotosReport() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <p className="text-sm text-[#5F6773] mb-1">Total Fotos</p>
-          <p className="text-3xl font-bold text-[#2475C7]">{loading ? '—' : visiblePhotos.length}</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Total Fotos</p>
+          <p className="text-3xl font-bold text-[color:var(--ui-primary-2475c7)]">{loading ? '—' : visiblePhotos.length}</p>
         </Card>
         <Card>
-          <p className="text-sm text-[#5F6773] mb-1">Plantas</p>
-          <p className="text-3xl font-bold text-[#2475C7]">{loading ? '—' : uniquePlants}</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Plantas</p>
+          <p className="text-3xl font-bold text-[color:var(--ui-primary-2475c7)]">{loading ? '—' : uniquePlants}</p>
         </Card>
         <Card>
-          <p className="text-sm text-[#5F6773] mb-1">Secciones</p>
-          <p className="text-3xl font-bold text-[#2475C7]">{loading ? '—' : uniqueSections}</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Secciones</p>
+          <p className="text-3xl font-bold text-[color:var(--ui-primary-2475c7)]">{loading ? '—' : uniqueSections}</p>
         </Card>
       </div>
 
@@ -283,7 +283,7 @@ export function PhotosReport() {
       <Card noPadding>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-[#3B3A36] text-white">
+            <thead className="bg-[var(--ui-text-3b3a36)] text-white">
               <tr>
                 {sortHeader('plant_name', 'Planta')}
                 {sortHeader('section', 'Sección')}
@@ -298,16 +298,16 @@ export function PhotosReport() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-[#5F6773]">
+                  <td colSpan={8} className="px-6 py-12 text-center text-[color:var(--ui-text-muted-5f6773)]">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[#2475C7]" />
+                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--ui-primary-2475c7)]" />
                       <span>Cargando fotos...</span>
                     </div>
                   </td>
                 </tr>
               ) : visiblePhotos.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-[#5F6773]">
+                  <td colSpan={8} className="px-6 py-12 text-center text-[color:var(--ui-text-muted-5f6773)]">
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-4xl">📷</span>
                       <p className="font-medium">No hay fotos con los filtros seleccionados</p>
@@ -319,11 +319,11 @@ export function PhotosReport() {
                 visiblePhotos.map(photo => (
                   <tr
                     key={photo.id}
-                    className="border-b border-[#9D9B9A] hover:bg-[#F2F3F5] transition-colors"
+                    className="border-b border-[var(--ui-border-9d9b9a)] hover:bg-[var(--ui-background-f2f3f5)] transition-colors"
                   >
                     {/* Planta */}
                     <td className="px-4 py-3">
-                      <p className="text-[#3B3A36] font-medium text-sm">{photo.plant_name}</p>
+                      <p className="text-[color:var(--ui-text-3b3a36)] font-medium text-sm">{photo.plant_name}</p>
                     </td>
 
                     {/* Sección */}
@@ -334,28 +334,28 @@ export function PhotosReport() {
                     </td>
 
                     {/* Ítem */}
-                    <td className="px-4 py-3 text-[#3B3A36] text-sm">
+                    <td className="px-4 py-3 text-[color:var(--ui-text-3b3a36)] text-sm">
                       {photo.item_name}
                     </td>
 
                     {/* Período */}
-                    <td className="px-4 py-3 text-[#3B3A36] text-sm whitespace-nowrap">
+                    <td className="px-4 py-3 text-[color:var(--ui-text-3b3a36)] text-sm whitespace-nowrap">
                       {formatPeriod(photo.year_month)}
                     </td>
 
                     {/* Fecha / Hora */}
-                    <td className="px-4 py-3 text-[#5F6773] text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 text-[color:var(--ui-text-muted-5f6773)] text-xs whitespace-nowrap">
                       {formatDateTime(photo.created_at)}
                     </td>
 
                     {/* Notas */}
                     <td className="px-4 py-3 max-w-[160px]">
                       {photo.notes ? (
-                        <p className="text-[#5F6773] text-xs truncate" title={photo.notes}>
+                        <p className="text-[color:var(--ui-text-muted-5f6773)] text-xs truncate" title={photo.notes}>
                           {photo.notes}
                         </p>
                       ) : (
-                        <span className="text-[#9D9B9A] text-xs italic">Sin notas</span>
+                        <span className="text-[color:var(--ui-border-9d9b9a)] text-xs italic">Sin notas</span>
                       )}
                     </td>
 
@@ -363,14 +363,14 @@ export function PhotosReport() {
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => setSelectedPhoto(photo)}
-                        className="inline-block rounded overflow-hidden hover:ring-2 hover:ring-[#2475C7] hover:ring-offset-1 transition-all focus:outline-none focus:ring-2 focus:ring-[#2475C7]"
+                        className="inline-block rounded overflow-hidden hover:ring-2 hover:ring-[var(--ui-primary-2475c7)] hover:ring-offset-1 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]"
                         title="Toca para ver la foto completa"
                         aria-label={`Ver foto: ${photo.section} - ${photo.item_name}`}
                       >
                         <img
                           src={photo.photo_url}
                           alt={`${photo.section} - ${photo.item_name}`}
-                          className="w-12 h-12 object-contain bg-[#F2F3F5]"
+                          className="w-12 h-12 object-contain bg-[var(--ui-background-f2f3f5)]"
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = PLACEHOLDER_SVG;
@@ -381,8 +381,8 @@ export function PhotosReport() {
 
                     {/* Tipo / Tamaño */}
                     <td className="px-4 py-3">
-                      <p className="text-xs text-[#5F6773]">{getPhotoType(photo.photo_url)}</p>
-                      <p className="text-xs text-[#9D9B9A] mt-0.5">{getPhotoSize(photo)}</p>
+                      <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">{getPhotoType(photo.photo_url)}</p>
+                      <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mt-0.5">{getPhotoSize(photo)}</p>
                     </td>
                   </tr>
                 ))
@@ -393,8 +393,8 @@ export function PhotosReport() {
 
         {/* Table footer with count */}
         {!loading && visiblePhotos.length > 0 && (
-          <div className="px-4 py-3 border-t border-[#9D9B9A] bg-[#F2F3F5]">
-            <p className="text-xs text-[#5F6773]">
+          <div className="px-4 py-3 border-t border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)]">
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
               Mostrando {visiblePhotos.length} foto{visiblePhotos.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -411,7 +411,7 @@ export function PhotosReport() {
         {selectedPhoto && (
           <div className="flex flex-col items-center gap-5">
             {/* Full-size image */}
-            <div className="w-full flex justify-center bg-[#F2F3F5] rounded-lg p-2">
+            <div className="w-full flex justify-center bg-[var(--ui-background-f2f3f5)] rounded-lg p-2">
               <img
                 src={selectedPhoto.photo_url}
                 alt={`${selectedPhoto.section} - ${selectedPhoto.item_name}`}
@@ -425,30 +425,30 @@ export function PhotosReport() {
             {/* Metadata */}
             <div className="w-full space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-[#F2F3F5] rounded p-3">
-                  <p className="text-xs text-[#9D9B9A] mb-1">Planta</p>
-                  <p className="text-sm font-semibold text-[#3B3A36]">{selectedPhoto.plant_name}</p>
+                <div className="bg-[var(--ui-background-f2f3f5)] rounded p-3">
+                  <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mb-1">Planta</p>
+                  <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">{selectedPhoto.plant_name}</p>
                 </div>
-                <div className="bg-[#F2F3F5] rounded p-3">
-                  <p className="text-xs text-[#9D9B9A] mb-1">Sección</p>
+                <div className="bg-[var(--ui-background-f2f3f5)] rounded p-3">
+                  <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mb-1">Sección</p>
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${SECTION_COLORS[selectedPhoto.section] || 'bg-gray-100 text-gray-700'}`}>
                     {selectedPhoto.section}
                   </span>
                 </div>
-                <div className="bg-[#F2F3F5] rounded p-3">
-                  <p className="text-xs text-[#9D9B9A] mb-1">Período</p>
-                  <p className="text-sm font-semibold text-[#3B3A36]">{formatPeriod(selectedPhoto.year_month)}</p>
+                <div className="bg-[var(--ui-background-f2f3f5)] rounded p-3">
+                  <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mb-1">Período</p>
+                  <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">{formatPeriod(selectedPhoto.year_month)}</p>
                 </div>
-                <div className="bg-[#F2F3F5] rounded p-3">
-                  <p className="text-xs text-[#9D9B9A] mb-1">Fecha</p>
-                  <p className="text-xs text-[#3B3A36]">{formatDateTime(selectedPhoto.created_at)}</p>
+                <div className="bg-[var(--ui-background-f2f3f5)] rounded p-3">
+                  <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mb-1">Fecha</p>
+                  <p className="text-xs text-[color:var(--ui-text-3b3a36)]">{formatDateTime(selectedPhoto.created_at)}</p>
                 </div>
               </div>
 
               {selectedPhoto.notes && (
                 <div className="bg-[#fffbeb] border border-[#f59e0b] rounded p-3">
                   <p className="text-xs font-semibold text-[#b45309] mb-1">📝 Notas</p>
-                  <p className="text-sm text-[#3B3A36]">{selectedPhoto.notes}</p>
+                  <p className="text-sm text-[color:var(--ui-text-3b3a36)]">{selectedPhoto.notes}</p>
                 </div>
               )}
 
@@ -459,7 +459,7 @@ export function PhotosReport() {
                     href={selectedPhoto.photo_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#2475C7] hover:underline flex items-center gap-1"
+                    className="text-xs text-[color:var(--ui-primary-2475c7)] hover:underline flex items-center gap-1"
                   >
                     Abrir foto original ↗
                   </a>

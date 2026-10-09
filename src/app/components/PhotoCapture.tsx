@@ -87,7 +87,7 @@ export function PhotoCapture({
 
   return (
     <div className="w-full">
-      <label htmlFor={inputId} className="block text-[#3B3A36] mb-2">
+      <label htmlFor={inputId} className="block text-[color:var(--ui-text-3b3a36)] mb-2">
         {label}
         {required && <span className="text-[#C94A4A] ml-1">*</span>}
       </label>
@@ -96,8 +96,8 @@ export function PhotoCapture({
       {compressing && (
         <div className="mb-3 bg-blue-50 border border-blue-300 rounded p-3">
           <div className="flex items-center gap-2">
-            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-[#2475C7]"></div>
-            <p className="text-sm text-[#2475C7] font-semibold">
+            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--ui-primary-2475c7)]"></div>
+            <p className="text-sm text-[color:var(--ui-primary-2475c7)] font-semibold">
               🖼️ Optimizando imagen... Por favor espera
             </p>
           </div>
@@ -110,7 +110,7 @@ export function PhotoCapture({
             <img
               src={preview}
               alt="Captura"
-              className={`w-full h-48 ${imageFitClass} rounded border-2 border-[#9D9B9A]`}
+              className={`w-full h-48 ${imageFitClass} rounded border-2 border-[var(--ui-border-9d9b9a)]`}
             />
             <button
               type="button"
@@ -132,7 +132,7 @@ export function PhotoCapture({
               disabled={busy}
               title="Ampliar foto"
               aria-label="Ampliar foto"
-              className={`absolute bottom-2 right-2 min-h-11 min-w-11 bg-[#2475C7] text-white p-2 rounded-full shadow hover:bg-[#1d5fa1] transition-colors ${
+              className={`absolute bottom-2 right-2 min-h-11 min-w-11 bg-[var(--ui-primary-2475c7)] text-white p-2 rounded-full shadow hover:bg-[var(--ui-primary-hover-1d5fa1)] transition-colors ${
                 busy ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
@@ -142,10 +142,10 @@ export function PhotoCapture({
             </button>
             {compressing && (
               <div className="absolute inset-0 bg-black/20 rounded flex items-center justify-center">
-                <div className="bg-white rounded-lg p-4 shadow-lg">
+                <div className="bg-[var(--ui-surface)] rounded-lg p-4 shadow-lg">
                   <div className="flex items-center gap-2">
-                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-[#2475C7]"></div>
-                    <p className="text-sm text-[#2475C7] font-semibold">Optimizando...</p>
+                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-[var(--ui-primary-2475c7)]"></div>
+                    <p className="text-sm text-[color:var(--ui-primary-2475c7)] font-semibold">Optimizando...</p>
                   </div>
                 </div>
               </div>
@@ -163,16 +163,16 @@ export function PhotoCapture({
               flex flex-col items-center justify-center
               transition-all
               ${busy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
-              ${error ? 'border-[#C94A4A] bg-[#fee]' : 'border-[#9D9B9A] bg-[#F2F3F5] hover:bg-[#e5e7eb]'}
+              ${error ? 'border-[#C94A4A] bg-[#fee]' : 'border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] hover:bg-[var(--ui-hover-e5e7eb)]'}
             `}
           >
-            <svg className="w-12 h-12 text-[#5F6773] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-12 h-12 text-[color:var(--ui-text-muted-5f6773)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <p className="text-[#5F6773]">Toca para tomar o cargar una foto</p>
+            <p className="text-[color:var(--ui-text-muted-5f6773)]">Toca para tomar o cargar una foto</p>
             {compress && (
-              <p className="text-xs text-[#5F6773] mt-2 px-4 text-center">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-2 px-4 text-center">
                 La imagen se optimizará y se conservará con el borrador.
               </p>
             )}
@@ -208,7 +208,7 @@ export function PhotoCapture({
             <img
               src={preview}
               alt="Captura ampliada"
-              className="max-h-[92vh] max-w-full rounded bg-white object-contain"
+              className="max-h-[92vh] max-w-full rounded bg-[var(--ui-surface)] object-contain"
             />
             <button
               type="button"

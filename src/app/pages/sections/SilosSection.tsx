@@ -171,23 +171,23 @@ function SiloLevelIndicator({
   resultLabel?: string;
 }) {
   const safePercentage = clampPercentage(percentage);
-  const fillColor = hasMeasurement ? getSiloLevelColor(safePercentage) : '#9D9B9A';
+  const fillColor = hasMeasurement ? getSiloLevelColor(safePercentage) : 'var(--ui-border-9d9b9a)';
 
   return (
-    <div className="h-full min-h-[192px] rounded border border-[#9D9B9A] bg-white p-4">
+    <div className="h-full min-h-[192px] rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] p-4">
       <div className="flex h-full items-center gap-4">
-        <div className="relative h-44 w-24 shrink-0 overflow-hidden rounded-md border-2 border-[#3B3A36] bg-[#F2F3F5]">
+        <div className="relative h-44 w-24 shrink-0 overflow-hidden rounded-md border-2 border-[var(--ui-text-3b3a36)] bg-[var(--ui-background-f2f3f5)]">
           <div
             className="absolute bottom-0 left-0 right-0 transition-all"
             style={{ height: `${safePercentage}%`, backgroundColor: fillColor }}
           />
-          <div className="absolute left-0 right-0 top-1/4 border-t border-[#9D9B9A]" />
-          <div className="absolute left-0 right-0 top-1/2 border-t border-[#9D9B9A]" />
-          <div className="absolute left-0 right-0 top-3/4 border-t border-[#9D9B9A]" />
+          <div className="absolute left-0 right-0 top-1/4 border-t border-[var(--ui-border-9d9b9a)]" />
+          <div className="absolute left-0 right-0 top-1/2 border-t border-[var(--ui-border-9d9b9a)]" />
+          <div className="absolute left-0 right-0 top-3/4 border-t border-[var(--ui-border-9d9b9a)]" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#3B3A36]">Nivel del silo</p>
-          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">
+          <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">Nivel del silo</p>
+          <p className="mt-1 text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">
             {!hasMeasurement ? 'Pendiente' : percentage === null || percentage === undefined ? '-' : `${formatNumber(safePercentage)}%`}
           </p>
           <p className="mt-2 text-sm font-semibold" style={{ color: fillColor }}>
@@ -250,8 +250,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de silos...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de silos...</p>
             </div>
           </div>
         </Card>
@@ -274,7 +274,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 <p className="text-red-800 mb-4">
                   {prefillData.error}
                 </p>
-                <div className="bg-white rounded p-4 mb-4 text-sm text-[#3B3A36]">
+                <div className="bg-[var(--ui-surface)] rounded p-4 mb-4 text-sm text-[color:var(--ui-text-3b3a36)]">
                   <p className="font-semibold mb-2">Posibles soluciones:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Verifica que la base de datos esté configurada (Herramientas → Base de Datos)</li>
@@ -383,12 +383,12 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
   if (prefillData.silosEntries.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] p-6">
+      <div className="min-h-screen bg-[var(--ui-background-f5f7fa)] p-6">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-[#1A1D1F] mb-2">
+          <h2 className="text-xl font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2">
             Sin Silos Configurados
           </h2>
-          <p className="text-[#6F767E]">
+          <p className="text-[color:var(--ui-text-muted-6f767e)]">
             No hay silos configurados para esta planta. 
             Contacta al administrador para configurar los silos.
           </p>
@@ -402,18 +402,18 @@ export function SilosSection({ onBack }: SilosSectionProps) {
   // ============================================================================
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
+    <div className="min-h-screen bg-[var(--ui-background-f5f7fa)] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#1A1D1F] mb-2">
+          <h1 className="text-3xl font-bold text-[color:var(--ui-text-1a1d1f)] mb-2">
             Inventario de Silos
           </h1>
-          <p className="text-[#6F767E]">
+          <p className="text-[color:var(--ui-text-muted-6f767e)]">
             {currentPlant?.name} - {formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}
           </p>
           <div className="flex items-center gap-4 mt-2">
-            <span className="text-sm text-[#9D9B9A]">
+            <span className="text-sm text-[color:var(--ui-border-9d9b9a)]">
               Progreso: {completedCount}/{totalCount} silos completos
             </span>
             {prefillData.previousMonth && (
@@ -466,22 +466,22 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               {/* Header */}
               <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-semibold text-[#1A1D1F]">
+                  <h3 className="text-lg font-semibold text-[color:var(--ui-text-1a1d1f)]">
                     {entry.silo_name}
                   </h3>
-                  <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
+                  <div className="flex gap-3 text-sm text-[color:var(--ui-text-muted-6f767e)] mt-1">
                     <span>📏 {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'Geometría cilindro + cono' : 'Curva de calibración'}</span>
                     {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' && Number(entry.capacity_fraction ?? 1) < 1 && (
                       <span>Compartimiento: {formatNumber(Number(entry.capacity_fraction) * 100)}%</span>
                     )}
-                    <span className="font-medium text-[#2B7DE9]">
+                    <span className="font-medium text-[color:var(--ui-primary-2b7de9)]">
                       Lectura: {siloUnits.captureLabel || entry.reading_uom || 'nivel'} 🔒
                     </span>
                   </div>
                 </div>
                 <div className="flex w-full max-w-[520px] shrink-0 flex-col items-end gap-2 self-center lg:self-start">
                   <div className="flex flex-wrap justify-end gap-2">
-                    <span className="text-sm font-medium text-[#6F767E] bg-gray-100 px-3 py-1 rounded">
+                    <span className="text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] bg-gray-100 px-3 py-1 rounded">
                       Silo #{index + 1}
                     </span>
                     {isEntryComplete(entry) && (
@@ -507,12 +507,12 @@ export function SilosSection({ onBack }: SilosSectionProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-4">
                 {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' && (
                   <div>
-                    <label className="block text-sm font-medium text-[#1A1D1F] mb-2">Producto almacenado *</label>
+                    <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">Producto almacenado *</label>
                     <select
                       aria-label={`Producto almacenado en ${entry.silo_name}`}
                       value={entry.product_name || ''}
                       onChange={(event) => handleFieldChange(entry.id, 'product_name', event.target.value)}
-                      className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2.5"
+                      className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2.5"
                     >
                       <option value="">-- Selecciona --</option>
                       {(entry.allowed_products || []).map((product: string) => (
@@ -523,7 +523,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 )}
                 {/* Reading - EDITABLE */}
                 <div>
-                  <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">
                     Lectura ({entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'in' : (siloUnits.captureLabel || entry.reading_uom || 'nivel')}) *
                   </label>
                   <NumericInput
@@ -532,7 +532,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     placeholder="0.00"
                     className="w-full"
                   />
-                  <p className="text-xs text-[#6F767E] mt-1">
+                  <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">
                     {entry.reading_reference === 'EMPTY_HEIGHT_INCHES' ? 'Altura vacía desde la parte superior' :
                       entry.reading_reference === 'FILLED_HEIGHT_INCHES' ? 'Altura ocupada por material' : 'Ingresa la lectura del medidor'}
                   </p>
@@ -540,24 +540,24 @@ export function SilosSection({ onBack }: SilosSectionProps) {
 
                 {/* Feet - AUTO CONVERTED */}
                 <div>
-                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                     Pies
                   </label>
-                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
-                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                  <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-3 py-2.5">
+                    <span className="text-[color:var(--ui-text-1a1d1f)] font-semibold text-lg">
                       {hasMeasurement ? `${formatNumber(getReadingFeet(entry))} ft` : 'Pendiente'}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6F767E] mt-1">Lectura ÷ 12</p>
+                  <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">Lectura ÷ 12</p>
                 </div>
 
                 {/* Result - AUTO CALCULATED */}
                 <div>
-                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                     {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' ? 'Volumen disponible (vista previa)' : 'Resultado disponible'} 📊
                   </label>
                   <div className="bg-green-50 border border-green-300 rounded px-3 py-2.5">
-                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                    <span className="text-[color:var(--ui-text-1a1d1f)] font-semibold text-lg">
                       {hasMeasurement
                         ? siloMetrics.sacks === null
                           ? 'Falta configurar factor del producto'
@@ -565,49 +565,49 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                         : 'Pendiente de captura'}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6F767E] mt-1">Cálculo automático</p>
+                  <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">Cálculo automático</p>
                   {hasMeasurement && siloMetrics.error && (
                     <p className="mt-1 text-xs font-medium text-amber-700">{siloMetrics.error}</p>
                   )}
                 </div>
                 {siloMetrics.lbs !== null && <div>
-                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                     Libras (lbs)
                   </label>
-                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
-                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                  <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-3 py-2.5">
+                    <span className="text-[color:var(--ui-text-1a1d1f)] font-semibold text-lg">
                       {formatNumber(siloMetrics.lbs)} lbs
                     </span>
                   </div>
-                  <p className="text-xs text-[#6F767E] mt-1">Sacos × 94</p>
+                  <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">Sacos × 94</p>
                 </div>}
                 {siloMetrics.metricTons !== null && <div>
-                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                     Toneladas métricas
                   </label>
-                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
-                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                  <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-3 py-2.5">
+                    <span className="text-[color:var(--ui-text-1a1d1f)] font-semibold text-lg">
                       {formatNumber(siloMetrics.metricTons)} t
                     </span>
                   </div>
-                  <p className="text-xs text-[#6F767E] mt-1">Lbs ÷ 2204.62</p>
+                  <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">Lbs ÷ 2204.62</p>
                 </div>}
                 <div>
-                  <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                     Estado
                   </label>
-                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-3 py-2.5">
-                    <span className="text-[#1A1D1F] font-semibold text-lg">
+                  <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-3 py-2.5">
+                    <span className="text-[color:var(--ui-text-1a1d1f)] font-semibold text-lg">
                       {hasMeasurement ? (siloMetrics.status || 'Calculado') : 'Pendiente de captura'}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6F767E] mt-1">Según curva</p>
+                  <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">Según curva</p>
                 </div>
               </div>
 
               {/* Notes */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
+                <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">
                   Notas / Observaciones
                 </label>
                 <textarea
@@ -616,7 +616,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                   placeholder="Observaciones opcionales..."
                   rows={2}
-                  className="w-full px-3 py-2 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2B7DE9]"
+                  className="w-full px-3 py-2 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2b7de9)]"
                 />
               </div>
 
@@ -652,8 +652,8 @@ export function SilosSection({ onBack }: SilosSectionProps) {
         </div>
 
         {/* Actions */}
-        <div className="sticky bottom-0 mt-6 flex flex-col items-stretch gap-3 rounded-t border-t border-[#9D9B9A] bg-white p-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-4">
-          <div className="text-sm text-[#6F767E] sm:flex-1">
+        <div className="sticky bottom-0 mt-6 flex flex-col items-stretch gap-3 rounded-t border-t border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] p-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="text-sm text-[color:var(--ui-text-muted-6f767e)] sm:flex-1">
             {completedCount}/{totalCount} silos completos • 
             {totalCount - completedCount > 0 && ` ${totalCount - completedCount} pendientes`}
           </div>

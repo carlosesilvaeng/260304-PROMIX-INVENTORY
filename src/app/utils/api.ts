@@ -1,3 +1,4 @@
+import type { AppearanceConfig, PaletteId } from '../config/appearance';
 import { getAllReportRows } from './reportTransport';
 import { InventoryWriteProtocol } from './inventoryWriteProtocol';
 import { withTimeout } from './withTimeout';
@@ -1665,4 +1666,12 @@ export async function uploadPendingInventoryPhotos(rows: any[], plantId: string,
     row.photo_url = response.url;
   }
   return uploaded;
+}
+
+// Global appearance is independent from operational configuration.
+export function getAppearanceConfig(): Promise<ApiResponse<AppearanceConfig>> {
+  return apiRequest('/appearance/config');
+}
+export function updateAppearanceConfig(palette: PaletteId): Promise<ApiResponse<AppearanceConfig>> {
+  return apiRequest('/appearance/config', 'POST', { palette });
 }

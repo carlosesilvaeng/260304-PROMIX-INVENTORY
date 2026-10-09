@@ -159,7 +159,7 @@ function UnitSelect({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+      className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm"
     >
       {visibleUnits.map((unit) => (
         <option key={unit.id} value={unit.id}>
@@ -373,7 +373,7 @@ export function UnitsPanel() {
                   ? 'border-[#f59e0b]/30 bg-[#f59e0b]/10 text-[#7a4a05]'
                   : row.tone === 'success'
                     ? 'border-[#2ecc71]/30 bg-[#2ecc71]/10 text-[#17693a]'
-                    : 'border-[#D8DADF] bg-[#F8F9FA] text-[#3B3A36]'
+                    : 'border-[var(--ui-border-d8dadf)] bg-[#F8F9FA] text-[color:var(--ui-text-3b3a36)]'
             }`}
           >
             <p className="text-xs font-semibold uppercase tracking-wide">{row.label}</p>
@@ -635,8 +635,8 @@ export function UnitsPanel() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-lg text-[#3B3A36]">Unidades por Contexto</h3>
-          <p className="mt-1 text-sm text-[#5F6773]">
+          <h3 className="text-lg text-[color:var(--ui-text-3b3a36)]">Unidades por Contexto</h3>
+          <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Define unidades por planta y seccion. Los defaults globales solo se usan cuando una planta no tiene configuracion especifica.
           </p>
         </div>
@@ -644,7 +644,7 @@ export function UnitsPanel() {
           <select
             value={selectedPlantId}
             onChange={(event) => setSelectedPlantId(event.target.value)}
-            className="rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+            className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm"
           >
             {allPlants.map((plant) => (
               <option key={plant.id} value={plant.id}>{plant.name}</option>
@@ -672,7 +672,7 @@ export function UnitsPanel() {
         </div>
       )}
 
-      <div className="flex gap-2 border-b border-[#D8DADF]">
+      <div className="flex gap-2 border-b border-[var(--ui-border-d8dadf)]">
         {[
           { id: 'sections' as const, label: 'Por seccion' },
           { id: 'catalog' as const, label: 'Catalogo y conversiones' },
@@ -683,8 +683,8 @@ export function UnitsPanel() {
             onClick={() => setActiveSubtab(tab.id)}
             className={`px-4 py-2 text-sm font-medium ${
               activeSubtab === tab.id
-                ? 'border-b-2 border-[#2475C7] text-[#2475C7]'
-                : 'text-[#5F6773] hover:text-[#2475C7]'
+                ? 'border-b-2 border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                : 'text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-primary-2475c7)]'
             }`}
           >
             {tab.label}
@@ -701,9 +701,9 @@ export function UnitsPanel() {
               ['Visible', 'Resultado que ve el usuario.'],
               ['Inventario', 'Unidad final para control contable.'],
             ].map(([title, body]) => (
-              <div key={title} className="rounded border border-[#D8DADF] bg-white px-4 py-3">
-                <p className="text-sm font-semibold text-[#3B3A36]">{title}</p>
-                <p className="mt-1 text-xs text-[#5F6773]">{body}</p>
+              <div key={title} className="rounded border border-[var(--ui-border-d8dadf)] bg-[var(--ui-surface)] px-4 py-3">
+                <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">{title}</p>
+                <p className="mt-1 text-xs text-[color:var(--ui-text-muted-5f6773)]">{body}</p>
               </div>
             ))}
           </div>
@@ -723,7 +723,7 @@ export function UnitsPanel() {
                   <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="text-base font-semibold text-[#3B3A36]">{sectionLabel}</h4>
+                        <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">{sectionLabel}</h4>
                         <span className={`rounded px-2 py-1 text-xs font-semibold ${
                           ruleState.tone === 'error'
                             ? 'bg-red-100 text-red-700'
@@ -734,7 +734,7 @@ export function UnitsPanel() {
                           {ruleState.label}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-[#5F6773]">
+                      <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                         {getUnit(units, config.capture_unit_id)?.symbol || config.capture_unit_id}
                         {' -> '}
                         {getUnit(units, config.calculation_unit_id)?.symbol || config.calculation_unit_id}
@@ -751,12 +751,12 @@ export function UnitsPanel() {
 
                   <div className="grid gap-3 md:grid-cols-5">
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Seccion</label>
+                      <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Seccion</label>
                       <select
                         value={config.section_code || ''}
                         onChange={(event) => updateConfig(index, { section_code: event.target.value })}
                         disabled={!canEdit}
-                        className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+                        className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm"
                       >
                         {SECTION_OPTIONS.map((section) => (
                           <option key={section.value} value={section.value}>{section.label}</option>
@@ -764,19 +764,19 @@ export function UnitsPanel() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Captura</label>
+                      <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Captura</label>
                       <UnitSelect units={units} value={config.capture_unit_id} onChange={(value) => updateConfig(index, { capture_unit_id: value })} />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Calculo</label>
+                      <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Calculo</label>
                       <UnitSelect units={units} value={config.calculation_unit_id} onChange={(value) => updateConfig(index, { calculation_unit_id: value })} />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Visible</label>
+                      <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Visible</label>
                       <UnitSelect units={units} value={config.display_unit_id} onChange={(value) => updateConfig(index, { display_unit_id: value })} categoryId={calculationCategory} />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Inventario</label>
+                      <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Inventario</label>
                       <UnitSelect units={units} value={config.inventory_unit_id} onChange={(value) => updateConfig(index, { inventory_unit_id: value })} />
                     </div>
                   </div>
@@ -785,11 +785,11 @@ export function UnitsPanel() {
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       {needsCurve && (
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Curva de calibracion</label>
+                          <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Curva de calibracion</label>
                           <select
                             value={config.calibration_curve_id || ''}
                             onChange={(event) => updateConfig(index, { calibration_curve_id: event.target.value || null })}
-                            className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+                            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm"
                           >
                             <option value="">Selecciona curva requerida</option>
                             {curves.map((curve: any) => (
@@ -800,11 +800,11 @@ export function UnitsPanel() {
                       )}
                       {needsFactor && (
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Factor por material</label>
+                          <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Factor por material</label>
                           <select
                             value={config.material_conversion_factor_id || ''}
                             onChange={(event) => updateConfig(index, { material_conversion_factor_id: event.target.value || null })}
-                            className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+                            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm"
                           >
                             <option value="">Selecciona factor requerido</option>
                             {factors.map((factor) => (
@@ -824,14 +824,14 @@ export function UnitsPanel() {
             })}
 
             {configs.length === 0 && (
-              <Card className="p-8 text-center text-sm text-[#5F6773]">
+              <Card className="p-8 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 Esta planta no tiene configuraciones especificas. Se usaran defaults globales hasta que agregues una tarjeta.
               </Card>
             )}
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="text-xs text-[#5F6773]">
+            <div className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
               Categorias disponibles: {unitsByCategory.map((category) => `${category.name_es} (${category.units.length})`).join(', ')}
             </div>
             <div className="flex gap-3">
@@ -846,18 +846,18 @@ export function UnitsPanel() {
         <div className="space-y-6">
           <Card className="p-5">
             <div className="mb-4">
-              <h4 className="text-base font-semibold text-[#3B3A36]">Crear o editar unidad estandar</h4>
-              <p className="mt-1 text-sm text-[#5F6773]">
+              <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">Crear o editar unidad estandar</h4>
+              <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 Las unidades estandar convierten solo dentro de su categoria usando factor contra la unidad base.
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Categoria</label>
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Categoria</label>
                 <select
                   value={unitForm.category_id}
                   onChange={(event) => setUnitForm((prev) => ({ ...prev, category_id: event.target.value }))}
-                  className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm"
+                  className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm"
                 >
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>{category.name_es}</option>
@@ -865,39 +865,39 @@ export function UnitsPanel() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Codigo</label>
-                <input value={unitForm.code} onChange={(event) => setUnitForm((prev) => ({ ...prev, code: event.target.value, id: editingUnitId ? prev.id : event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="yd" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Codigo</label>
+                <input value={unitForm.code} onChange={(event) => setUnitForm((prev) => ({ ...prev, code: event.target.value, id: editingUnitId ? prev.id : event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="yd" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Nombre ES</label>
-                <input value={unitForm.name_es} onChange={(event) => setUnitForm((prev) => ({ ...prev, name_es: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="yarda" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Nombre ES</label>
+                <input value={unitForm.name_es} onChange={(event) => setUnitForm((prev) => ({ ...prev, name_es: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="yarda" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Nombre EN</label>
-                <input value={unitForm.name_en} onChange={(event) => setUnitForm((prev) => ({ ...prev, name_en: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="yard" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Nombre EN</label>
+                <input value={unitForm.name_en} onChange={(event) => setUnitForm((prev) => ({ ...prev, name_en: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="yard" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Simbolo</label>
-                <input value={unitForm.symbol} onChange={(event) => setUnitForm((prev) => ({ ...prev, symbol: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="yd" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Simbolo</label>
+                <input value={unitForm.symbol} onChange={(event) => setUnitForm((prev) => ({ ...prev, symbol: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="yd" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Sistema</label>
-                <select value={unitForm.measurement_system} onChange={(event) => setUnitForm((prev) => ({ ...prev, measurement_system: event.target.value as UnitDefinition['measurement_system'] }))} className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm">
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Sistema</label>
+                <select value={unitForm.measurement_system} onChange={(event) => setUnitForm((prev) => ({ ...prev, measurement_system: event.target.value as UnitDefinition['measurement_system'] }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm">
                   {MEASUREMENT_SYSTEM_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Factor contra base</label>
-                <input type="number" step="any" value={unitForm.factor_to_base} onChange={(event) => setUnitForm((prev) => ({ ...prev, factor_to_base: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="0.9144" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Factor contra base</label>
+                <input type="number" step="any" value={unitForm.factor_to_base} onChange={(event) => setUnitForm((prev) => ({ ...prev, factor_to_base: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="0.9144" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Precision</label>
-                <input type="number" min="0" max="10" value={unitForm.decimal_precision} onChange={(event) => setUnitForm((prev) => ({ ...prev, decimal_precision: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Precision</label>
+                <input type="number" min="0" max="10" value={unitForm.decimal_precision} onChange={(event) => setUnitForm((prev) => ({ ...prev, decimal_precision: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" />
               </div>
             </div>
-            <div className="mt-4 rounded border border-[#2475C7]/25 bg-[#2475C7]/5 px-4 py-3 text-sm text-[#3B3A36]">
+            <div className="mt-4 rounded border border-[var(--ui-primary-2475c7)]/25 bg-[var(--ui-primary-2475c7)]/5 px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">
               <span className="font-semibold">Formula:</span> {unitFormulaPreview}
             </div>
             <div className="mt-4 flex gap-3">
@@ -909,7 +909,7 @@ export function UnitsPanel() {
           </Card>
 
           <Card noPadding>
-            <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_180px] gap-3 bg-[#3B3A36] px-4 py-3 text-sm font-medium text-white">
+            <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_180px] gap-3 bg-[var(--ui-text-3b3a36)] px-4 py-3 text-sm font-medium text-white">
               <span>Unidad</span>
               <span>Categoria</span>
               <span>Base</span>
@@ -917,12 +917,12 @@ export function UnitsPanel() {
               <span>Formula</span>
               <span></span>
             </div>
-            <div className="divide-y divide-[#F2F3F5]">
+            <div className="divide-y divide-[var(--ui-background-f2f3f5)]">
               {units.map((unit) => {
                 const baseUnit = getBaseUnitForCategory(categories, units, unit.category_id);
                 return (
                   <div key={unit.id} className="grid grid-cols-[1.2fr_1fr_1fr_1fr_1.4fr_180px] items-center gap-3 px-4 py-3 text-sm">
-                    <span className="font-medium text-[#3B3A36]">{unit.symbol} - {unit.name_es}</span>
+                    <span className="font-medium text-[color:var(--ui-text-3b3a36)]">{unit.symbol} - {unit.name_es}</span>
                     <span>{getCategoryLabel(categories, unit.category_id)}</span>
                     <span>{baseUnit?.symbol || '-'}</span>
                     <span>{formatFactor(Number(unit.factor_to_base))}</span>
@@ -939,48 +939,48 @@ export function UnitsPanel() {
 
           <Card className="p-5">
             <div className="mb-4">
-              <h4 className="text-base font-semibold text-[#3B3A36]">Factor por material o planta</h4>
-              <p className="mt-1 text-sm text-[#5F6773]">
+              <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">Factor por material o planta</h4>
+              <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 Usa factores para conversiones de negocio entre categorias, por ejemplo volumen a peso.
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Material opcional</label>
-                <select value={factorForm.material_id} onChange={(event) => setFactorForm((prev) => ({ ...prev, material_id: event.target.value }))} className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm">
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Material opcional</label>
+                <select value={factorForm.material_id} onChange={(event) => setFactorForm((prev) => ({ ...prev, material_id: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm">
                   <option value="">Cualquier material</option>
                   {materials.map((material) => <option key={material.id} value={material.id}>{material.nombre}</option>)}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Planta opcional</label>
-                <select value={factorForm.plant_id} onChange={(event) => setFactorForm((prev) => ({ ...prev, plant_id: event.target.value }))} className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm">
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Planta opcional</label>
+                <select value={factorForm.plant_id} onChange={(event) => setFactorForm((prev) => ({ ...prev, plant_id: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm">
                   <option value="">Todas las plantas</option>
                   {allPlants.map((plant) => <option key={plant.id} value={plant.id}>{plant.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Unidad origen</label>
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Unidad origen</label>
                 <UnitSelect units={units} value={factorForm.from_unit_id} onChange={(value) => setFactorForm((prev) => ({ ...prev, from_unit_id: value }))} />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Unidad destino</label>
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Unidad destino</label>
                 <UnitSelect units={units} value={factorForm.to_unit_id} onChange={(value) => setFactorForm((prev) => ({ ...prev, to_unit_id: value }))} />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Factor</label>
-                <input type="number" step="any" value={factorForm.factor} onChange={(event) => setFactorForm((prev) => ({ ...prev, factor: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="3200" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Factor</label>
+                <input type="number" step="any" value={factorForm.factor} onChange={(event) => setFactorForm((prev) => ({ ...prev, factor: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="3200" />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Fuente del factor</label>
-                <input value={factorForm.factor_source} onChange={(event) => setFactorForm((prev) => ({ ...prev, factor_source: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" placeholder="Ensayo laboratorio, contabilidad, proveedor..." />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Fuente del factor</label>
+                <input value={factorForm.factor_source} onChange={(event) => setFactorForm((prev) => ({ ...prev, factor_source: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" placeholder="Ensayo laboratorio, contabilidad, proveedor..." />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-[#5F6773]">Vigente desde</label>
-                <input type="date" value={factorForm.effective_from} onChange={(event) => setFactorForm((prev) => ({ ...prev, effective_from: event.target.value }))} className="w-full rounded border border-[#9D9B9A] px-3 py-2 text-sm" />
+                <label className="mb-1 block text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)]">Vigente desde</label>
+                <input type="date" value={factorForm.effective_from} onChange={(event) => setFactorForm((prev) => ({ ...prev, effective_from: event.target.value }))} className="w-full rounded border border-[var(--ui-border-9d9b9a)] px-3 py-2 text-sm" />
               </div>
             </div>
-            <div className="mt-4 rounded border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-4 py-3 text-sm text-[#3B3A36]">
+            <div className="mt-4 rounded border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">
               <span className="font-semibold">Formula:</span> {factorFormulaPreview}
             </div>
             <div className="mt-4 flex gap-3">
@@ -992,7 +992,7 @@ export function UnitsPanel() {
           </Card>
 
           <Card noPadding>
-            <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_180px] gap-3 bg-[#3B3A36] px-4 py-3 text-sm font-medium text-white">
+            <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_180px] gap-3 bg-[var(--ui-text-3b3a36)] px-4 py-3 text-sm font-medium text-white">
               <span>Origen</span>
               <span>Destino</span>
               <span>Material</span>
@@ -1000,7 +1000,7 @@ export function UnitsPanel() {
               <span>Formula / fuente</span>
               <span></span>
             </div>
-            <div className="divide-y divide-[#F2F3F5]">
+            <div className="divide-y divide-[var(--ui-background-f2f3f5)]">
               {factors.map((factor: any) => (
                 <div key={factor.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_1.5fr_180px] items-center gap-3 px-4 py-3 text-sm">
                   <span>{getUnit(units, factor.from_unit_id)?.symbol || factor.from_unit_id}</span>
@@ -1018,7 +1018,7 @@ export function UnitsPanel() {
                 </div>
               ))}
               {factors.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-[#5F6773]">
+                <div className="px-4 py-8 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
                   No hay factores por material configurados.
                 </div>
               )}

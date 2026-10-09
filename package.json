@@ -28,7 +28,9 @@
     "test:inventory-report-browser": "node --experimental-strip-types scripts/test-inventory-report-browser.mjs",
     "test:configuration-package": "node --experimental-strip-types scripts/test-configuration-package.mjs",
     "test:configuration-package-db": "python3 scripts/test-configuration-package-db.py",
-    "test:configuration-package-browser": "node --experimental-strip-types scripts/test-configuration-package-browser.mjs"
+    "test:configuration-package-browser": "node --experimental-strip-types scripts/test-configuration-package-browser.mjs",
+    "test:appearance": "node --experimental-strip-types scripts/test-appearance.mjs",
+    "test:appearance-browser": "node scripts/test-appearance-browser.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

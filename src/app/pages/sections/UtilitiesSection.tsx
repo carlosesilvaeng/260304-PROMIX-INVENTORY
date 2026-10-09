@@ -49,8 +49,8 @@ export function UtilitiesSection() {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de utilidades...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de utilidades...</p>
             </div>
           </div>
         </Card>
@@ -98,8 +98,8 @@ export function UtilitiesSection() {
     return (
       <div className="p-6">
         <Card className="text-center py-12">
-          <p className="text-[#5F6773] mb-2">No hay medidores configurados para esta planta</p>
-          <p className="text-sm text-[#5F6773]">
+          <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay medidores configurados para esta planta</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Contacta al administrador para configurar los medidores de utilidades
           </p>
         </Card>
@@ -258,14 +258,14 @@ export function UtilitiesSection() {
                 <span className="text-4xl">{getUtilityTypeIcon(utility.utility_type)}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold text-[#3B3A36]">
+                    <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">
                       {utility.meter_name}
                     </h3>
                     {isComplete && (
                       <span className="text-green-600 text-xl">✓</span>
                     )}
                   </div>
-                  <p className="text-sm text-[#5F6773]">
+                  <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                     Medidor: <span className="font-mono font-semibold">{utility.meter_number}</span>
                     {' • '}
                     Proveedor: {utility.provider}
@@ -284,25 +284,25 @@ export function UtilitiesSection() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* PREVIOUS READING - READ-ONLY */}
             <div>
-              <label className="flex min-h-5 items-center text-sm font-semibold text-[#3B3A36] mb-1.5 leading-5">
+              <label className="flex min-h-5 items-center text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5 leading-5">
                 Lectura Anterior
               </label>
-              <div className="bg-[#F2F3F5] border-2 border-[#9D9B9A] rounded px-4 py-3 h-[50px] flex items-center">
-                <span className="text-[#5F6773] font-bold text-xl">
+              <div className="bg-[var(--ui-background-f2f3f5)] border-2 border-[var(--ui-border-9d9b9a)] rounded px-4 py-3 h-[50px] flex items-center">
+                <span className="text-[color:var(--ui-text-muted-5f6773)] font-bold text-xl">
                   {hasPreviousReading ? formatNumber(utility.previous_reading) : 'Sin lectura previa'}
                 </span>
                 {hasPreviousReading && (
-                  <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
+                  <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">{utilityUnitLabel}</span>
                 )}
               </div>
-              <p className="text-xs text-[#5F6773] mt-1">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                 {hasPreviousReading ? 'Del registro anterior' : 'La lectura actual será la base'}
               </p>
             </div>
 
             {/* CURRENT READING - HIGHLIGHTED FOCUS */}
             <div className="relative">
-              <label className="flex min-h-5 items-center gap-2 text-sm font-bold text-[#2475C7] mb-1.5 leading-5">
+              <label className="flex min-h-5 items-center gap-2 text-sm font-bold text-[color:var(--ui-primary-2475c7)] mb-1.5 leading-5">
                 <span>Lectura Actual</span>
                 <span className="text-base leading-5">👈</span>
               </label>
@@ -313,20 +313,20 @@ export function UtilitiesSection() {
                   onValueChange={(val) => handleFieldChange(utility, 'current_reading', val)}
                   placeholder="Ingresa lectura..."
                   required
-                  className="h-[50px] border-4 border-[#2475C7] bg-white pr-24 text-xl font-bold focus:border-[#2475C7] focus:ring-4 focus:ring-[#2475C7]/30"
+                  className="h-[50px] border-4 border-[var(--ui-primary-2475c7)] bg-[var(--ui-surface)] pr-24 text-xl font-bold focus:border-[var(--ui-primary-2475c7)] focus:ring-4 focus:ring-[var(--ui-primary-2475c7)]/30"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <span className="text-sm text-[#5F6773] font-semibold">{utilityUnitLabel}</span>
+                  <span className="text-sm text-[color:var(--ui-text-muted-5f6773)] font-semibold">{utilityUnitLabel}</span>
                 </div>
               </div>
-              <p className="text-xs font-semibold text-[#2475C7] mt-1">
+              <p className="text-xs font-semibold text-[color:var(--ui-primary-2475c7)] mt-1">
                 ⚠️ Este es el único campo que debes llenar
               </p>
             </div>
 
             {/* CONSUMPTION - CALCULATED */}
             <div>
-              <label className="flex min-h-5 items-center text-sm font-semibold text-[#3B3A36] mb-1.5 leading-5">
+              <label className="flex min-h-5 items-center text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5 leading-5">
                 Consumo Calculado
               </label>
               <div className={`border-2 rounded px-4 py-3 h-[50px] flex items-center ${
@@ -340,10 +340,10 @@ export function UtilitiesSection() {
                   {hasCalculatedConsumption ? formatNumber(utility.consumption) : 'N/A'}
                 </span>
                 {hasCalculatedConsumption && (
-                  <span className="text-[#5F6773] ml-2 text-sm">{utilityUnitLabel}</span>
+                  <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">{utilityUnitLabel}</span>
                 )}
               </div>
-              <p className="text-xs text-[#5F6773] mt-1">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                 {hasPreviousReading
                   ? '= Actual - Anterior'
                   : 'Primera lectura: se utilizará como base'}
@@ -353,20 +353,20 @@ export function UtilitiesSection() {
 
           {/* CONSUMPTION VISUAL BAR */}
           {hasConsumption && (
-            <div className="bg-gradient-to-r from-[#2475C7]/10 to-green-100 border border-[#2475C7]/30 rounded-lg p-4">
+            <div className="bg-gradient-to-r from-[var(--ui-primary-2475c7)]/10 to-green-100 border border-[var(--ui-primary-2475c7)]/30 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="text-3xl">📊</div>
                   <div>
-                    <p className="text-sm font-semibold text-[#5F6773]">Consumo del Mes</p>
-                    <p className="text-3xl font-bold text-[#2475C7]">
+                    <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Consumo del Mes</p>
+                    <p className="text-3xl font-bold text-[color:var(--ui-primary-2475c7)]">
                       {formatNumber(utility.consumption)} {utilityUnitLabel}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-[#5F6773]">Rango</p>
-                  <p className="text-sm font-mono text-[#3B3A36]">
+                  <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Rango</p>
+                  <p className="text-sm font-mono text-[color:var(--ui-text-3b3a36)]">
                     {formatNumber(utility.previous_reading)} → {formatNumber(utility.current_reading)}
                   </p>
                 </div>
@@ -386,7 +386,7 @@ export function UtilitiesSection() {
 
           {/* NOTES */}
           <div>
-            <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+            <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
               Notas (Opcional)
             </label>
             <textarea
@@ -394,7 +394,7 @@ export function UtilitiesSection() {
               value={utility.notes || ''}
               onChange={(e) => handleFieldChange(utility, 'notes', e.target.value)}
               placeholder="Observaciones adicionales..."
-              className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+              className="w-full px-4 py-2.5 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
               rows={2}
             />
           </div>
@@ -412,10 +412,10 @@ export function UtilitiesSection() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Utilidades</h2>
-          <p className="text-[#5F6773]">Agua y Electricidad - Lecturas de Medidores</p>
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Utilidades</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">Agua y Electricidad - Lecturas de Medidores</p>
         </div>
-        <div className="text-sm text-[#5F6773]">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
@@ -455,21 +455,21 @@ export function UtilitiesSection() {
       </Card>
 
       {/* SUMMARY */}
-      <Card className="bg-[#F2F3F5] border-[#2475C7]/30">
+      <Card className="bg-[var(--ui-background-f2f3f5)] border-[var(--ui-primary-2475c7)]/30">
         <div className="p-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Total Medidores</p>
-              <p className="text-2xl font-bold text-[#2475C7]">{utilities.length}</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Total Medidores</p>
+              <p className="text-2xl font-bold text-[color:var(--ui-primary-2475c7)]">{utilities.length}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Completados</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Completados</p>
               <p className="text-2xl font-bold text-green-600">
                 {utilities.filter(isUtilityComplete).length}
               </p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Pendientes</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Pendientes</p>
               <p className="text-2xl font-bold text-orange-600">
                 {utilities.filter(u => !isUtilityComplete(u)).length}
               </p>
@@ -483,7 +483,7 @@ export function UtilitiesSection() {
         <div key={type} className="space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl">{getUtilityTypeIcon(type as any)}</span>
-            <h3 className="text-lg font-bold text-[#3B3A36]">
+            <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
               {getUtilityTypeLabel(type as any)}
             </h3>
             <span className={`text-xs px-2 py-0.5 rounded border ${getUtilityTypeColor(type as any)}`}>
@@ -512,8 +512,8 @@ export function UtilitiesSection() {
       )}
 
       {/* SAVE BUTTON */}
-      <div className="flex flex-col items-stretch gap-3 border-t border-[#D4D2CF] pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-[#5F6773] sm:flex-1">
+      <div className="flex flex-col items-stretch gap-3 border-t border-[var(--ui-border-d4d2cf)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] sm:flex-1">
           {!allComplete && someStarted && (
             <span className="text-orange-600">
               Pendiente: {utilities.filter((utility: any) => !isUtilityComplete(utility)).map((utility: any) => {

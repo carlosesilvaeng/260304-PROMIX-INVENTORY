@@ -128,22 +128,22 @@ function CalibrationCurveViewModal({
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
-            <p className="text-xs text-[#5F6773]">Tipo</p>
-            <p className="mt-1 text-sm font-medium text-[#3B3A36]">{curve?.measurement_type || '-'}</p>
+          <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-3">
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Tipo</p>
+            <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{curve?.measurement_type || '-'}</p>
           </div>
-          <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
-            <p className="text-xs text-[#5F6773]">Unidad de lectura</p>
-            <p className="mt-1 text-sm font-medium text-[#3B3A36]">{curve?.reading_uom || '-'}</p>
+          <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-3">
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Unidad de lectura</p>
+            <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{curve?.reading_uom || '-'}</p>
           </div>
-          <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
-            <p className="text-xs text-[#5F6773]">Puntos</p>
-            <p className="mt-1 text-sm font-medium text-[#3B3A36]">{rows.length}</p>
+          <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-3">
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Puntos</p>
+            <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{rows.length}</p>
           </div>
         </div>
-        <div className="max-h-[420px] overflow-auto rounded border border-[#D7D9DE] bg-white">
+        <div className="max-h-[420px] overflow-auto rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-surface)]">
           <table className="w-full min-w-[680px] text-sm">
-            <thead className="bg-[#F2F3F5] text-[#5F6773]">
+            <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-muted-5f6773)]">
               <tr>
                 <th className="px-3 py-2 text-left">Nivel</th>
                 <th className="px-3 py-2 text-left">Galones disponibles</th>
@@ -154,17 +154,17 @@ function CalibrationCurveViewModal({
             </thead>
             <tbody>
               {rows.map((point, pointIndex) => (
-                <tr key={`${point.point_key}-${pointIndex}`} className="border-t border-[#E4E4E4]">
-                  <td className="px-3 py-2 text-[#3B3A36]">{point.point_key}</td>
-                  <td className="px-3 py-2 text-[#3B3A36]">{point.available_gallons ?? point.point_value}</td>
-                  <td className="px-3 py-2 text-[#5F6773]">{point.consumed_gallons ?? '-'}</td>
-                  <td className="px-3 py-2 text-[#5F6773]">{point.percentage ?? '-'}</td>
-                  <td className="px-3 py-2 text-[#5F6773]">{point.status || '-'}</td>
+                <tr key={`${point.point_key}-${pointIndex}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                  <td className="px-3 py-2 text-[color:var(--ui-text-3b3a36)]">{point.point_key}</td>
+                  <td className="px-3 py-2 text-[color:var(--ui-text-3b3a36)]">{point.available_gallons ?? point.point_value}</td>
+                  <td className="px-3 py-2 text-[color:var(--ui-text-muted-5f6773)]">{point.consumed_gallons ?? '-'}</td>
+                  <td className="px-3 py-2 text-[color:var(--ui-text-muted-5f6773)]">{point.percentage ?? '-'}</td>
+                  <td className="px-3 py-2 text-[color:var(--ui-text-muted-5f6773)]">{point.status || '-'}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-[#5F6773]" colSpan={5}>
+                  <td className="px-3 py-4 text-[color:var(--ui-text-muted-5f6773)]" colSpan={5}>
                     Esta curva no tiene puntos para visualizar.
                   </td>
                 </tr>
@@ -506,14 +506,14 @@ export function ProductsConfigModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white">
-          <div className="border-b border-[#9D9B9A] p-6">
+        <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-[var(--ui-surface)]">
+          <div className="border-b border-[var(--ui-border-9d9b9a)] p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h3 className="text-xl font-medium text-[#3B3A36]">
+                <h3 className="text-xl font-medium text-[color:var(--ui-text-3b3a36)]">
                   Configuración de Aceites y Productos — {plant.name}
                 </h3>
-                <p className="mt-1 text-sm text-[#5F6773]">
+                <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                   Administra productos y consumibles directamente desde la tabla de configuración.
                 </p>
               </div>
@@ -524,7 +524,7 @@ export function ProductsConfigModal({
                   onClick={handleDownloadBlankTemplate}
                   loading={exportingTemplate}
                   disabled={loading}
-                  className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
+                  className="border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-soft-eef4fb)] text-[color:var(--ui-primary-2475c7)] hover:bg-[var(--ui-primary-soft-hover-dcebfa)]"
                 >
                   <FileSpreadsheet size={16} aria-hidden="true" />
                   Generar plantilla
@@ -568,7 +568,7 @@ export function ProductsConfigModal({
             )}
 
             {loading ? (
-              <div className="py-8 text-center text-[#5F6773]">Cargando productos...</div>
+              <div className="py-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando productos...</div>
             ) : (
               <div className="space-y-4">
                 {curveItems.length === 0 && (
@@ -578,17 +578,17 @@ export function ProductsConfigModal({
                   />
                 )}
                 {rows.length === 0 ? (
-                  <div className="rounded-lg bg-[#F2F3F5] py-8 text-center">
-                    <p className="mb-2 text-[#5F6773]">No hay productos configurados</p>
-                    <p className="text-sm text-[#5F6773]">Agrega la primera fila para esta planta</p>
+                  <div className="rounded-lg bg-[var(--ui-background-f2f3f5)] py-8 text-center">
+                    <p className="mb-2 text-[color:var(--ui-text-muted-5f6773)]">No hay productos configurados</p>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Agrega la primera fila para esta planta</p>
                   </div>
                 ) : (
                   rows.map((row, index) => (
-                    <div key={row.id || `new-${index}`} className="rounded-lg border border-[#9D9B9A] p-4">
+                    <div key={row.id || `new-${index}`} className="rounded-lg border border-[var(--ui-border-9d9b9a)] p-4">
                       <div className="mb-4 flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-[#3B3A36]">Producto #{index + 1}</h4>
+                        <h4 className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Producto #{index + 1}</h4>
                         <div className="flex items-center gap-3">
-                          <label className="flex items-center gap-2 text-sm text-[#5F6773]">
+                          <label className="flex items-center gap-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                             Activo
                             <input
                               type="checkbox"
@@ -641,7 +641,7 @@ export function ProductsConfigModal({
                       </div>
 
                       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
+                        <label className="flex items-center gap-2 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">
                           <input
                             type="checkbox"
                             checked={row.requires_photo}
@@ -668,7 +668,7 @@ export function ProductsConfigModal({
                       </div>
 
                       {row.measure_mode === 'TANK_READING' && (
-                        <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                        <div className="mt-4 space-y-4 rounded-lg border border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f9fafb)] p-4">
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
                             <div className="flex items-end gap-2">
                               <div className="min-w-0 flex-1">
@@ -685,7 +685,7 @@ export function ProductsConfigModal({
                                 type="button"
                                 onClick={() => setVisualizingCurve(curveItems.find((curve) => curve.curve_name === row.calibration_curve_name) || null)}
                                 disabled={!row.calibration_curve_name}
-                                className="mb-[22px] inline-flex h-10 w-10 flex-none items-center justify-center rounded border border-[#2475C7] text-[#2475C7] transition-colors hover:bg-[#EEF4FB] disabled:cursor-not-allowed disabled:border-[#D7D9DE] disabled:text-[#A5ACB8]"
+                                className="mb-[22px] inline-flex h-10 w-10 flex-none items-center justify-center rounded border border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)] transition-colors hover:bg-[var(--ui-primary-soft-eef4fb)] disabled:cursor-not-allowed disabled:border-[var(--ui-border-d7d9de)] disabled:text-[color:var(--ui-text-disabled-a5acb8)]"
                                 title="Visualizar curva"
                                 aria-label="Visualizar curva de calibración"
                               >
@@ -707,7 +707,7 @@ export function ProductsConfigModal({
                               placeholder="500"
                             />
                           </div>
-                          <p className="text-xs text-[#5F6773]">
+                          <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
                             Usa el icono de ojo para revisar la tabla. Para cambiar puntos, actualiza Catálogos &gt; Curvas de conversión.
                           </p>
                         </div>
@@ -723,7 +723,7 @@ export function ProductsConfigModal({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
+          <div className="flex items-center justify-end gap-3 border-t border-[var(--ui-border-9d9b9a)] p-6">
             <Button variant="dangerOutline" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
             </Button>
@@ -755,28 +755,28 @@ export function ProductsConfigModal({
         }
       >
         {!importPreview ? (
-          <p className="text-sm text-[#5F6773]">Preparando previsualización...</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Preparando previsualización...</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Archivo</p>
-                <p className="mt-1 text-sm font-medium text-[#3B3A36]">{selectedImportFileName || 'Plantilla'}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Archivo</p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{selectedImportFileName || 'Plantilla'}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Filas</p>
-                <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{importPreview.summary.total_rows}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Filas</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">{importPreview.summary.total_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Válidas</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Válidas</p>
                 <p className="mt-1 text-2xl font-semibold text-[#1D6F42]">{importPreview.summary.valid_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Crear</p>
-                <p className="mt-1 text-2xl font-semibold text-[#2475C7]">{importPreview.summary.creates}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Crear</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-primary-2475c7)]">{importPreview.summary.creates}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Actualizar</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Actualizar</p>
                 <p className="mt-1 text-2xl font-semibold text-[#9A5A12]">{importPreview.summary.updates}</p>
               </div>
             </div>
@@ -795,9 +795,9 @@ export function ProductsConfigModal({
                   type="error"
                   message={`Se encontraron ${importPreview.errors.length} errores. Corrige el archivo y vuelve a importarlo.`}
                 />
-                <div className="max-h-[320px] overflow-auto rounded border border-[#E4E4E4]">
+                <div className="max-h-[320px] overflow-auto rounded border border-[var(--ui-border-e4e4e4)]">
                   <table className="w-full min-w-[720px]">
-                    <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                    <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)]">
                       <tr>
                         <th className="px-4 py-3 text-left">Fila</th>
                         <th className="px-4 py-3 text-left">Columna</th>
@@ -806,9 +806,9 @@ export function ProductsConfigModal({
                     </thead>
                     <tbody>
                       {importPreview.errors.map((item, index) => (
-                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[#E4E4E4]">
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.row}</td>
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.column}</td>
+                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.row}</td>
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.column}</td>
                           <td className="px-4 py-3 text-sm text-[#C94A4A]">{item.message}</td>
                         </tr>
                       ))}
@@ -824,13 +824,13 @@ export function ProductsConfigModal({
             )}
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#3B3A36]">
+              <label className="mb-2 block text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
                 Motivo de la importación
               </label>
               <textarea
                 value={importReason}
                 onChange={(event) => setImportReason(event.target.value)}
-                className="min-h-[110px] w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="min-h-[110px] w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
                 placeholder="Ej: actualización masiva de aceites y consumibles desde plantilla oficial."
               />
             </div>

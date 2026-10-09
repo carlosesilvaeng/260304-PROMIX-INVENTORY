@@ -34,22 +34,22 @@ export function PlantSelection() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F3F5]">
+    <div className="min-h-screen bg-[var(--ui-background-f2f3f5)]">
       {/* Header */}
-      <div className="bg-[#3B3A36] px-3 py-3 text-white shadow-md sm:p-4">
+      <div className="bg-[var(--ui-text-3b3a36)] px-3 py-3 text-white shadow-md sm:p-4">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <h1 className="shrink-0 text-xl font-bold text-[#2475C7] sm:text-2xl">{t('login.title')}</h1>
+            <h1 className="shrink-0 text-xl font-bold text-[color:var(--ui-primary-2475c7)] sm:text-2xl">{t('login.title')}</h1>
             <span className="truncate text-xs opacity-80 sm:text-sm">{t('login.subtitle')}</span>
           </div>
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-end sm:gap-4">
             {/* Language Selector */}
-            <div className="flex items-center gap-2 bg-white/10 rounded-lg p-1">
+            <div className="flex items-center gap-2 bg-[var(--ui-surface)]/10 rounded-lg p-1">
               <button
                 onClick={() => setLanguage('es')}
                 className={`min-h-11 min-w-11 rounded px-2 py-1 text-sm font-medium transition-all sm:px-3 ${
                   language === 'es'
-                    ? 'bg-[#2475C7] text-white'
+                    ? 'bg-[var(--ui-primary-2475c7)] text-white'
                     : 'text-white/70 hover:text-white'
                 }`}
               >
@@ -59,7 +59,7 @@ export function PlantSelection() {
                 onClick={() => setLanguage('en')}
                 className={`min-h-11 min-w-11 rounded px-2 py-1 text-sm font-medium transition-all sm:px-3 ${
                   language === 'en'
-                    ? 'bg-[#2475C7] text-white'
+                    ? 'bg-[var(--ui-primary-2475c7)] text-white'
                     : 'text-white/70 hover:text-white'
                 }`}
               >
@@ -88,21 +88,21 @@ export function PlantSelection() {
         </div>
         
         <div className="mb-6 sm:mb-8">
-          <h2 className="text-2xl text-[#3B3A36] mb-2">{t('plantSelection.title')}</h2>
-          <p className="text-[#5F6773]">{t('plantSelection.description')}</p>
+          <h2 className="text-2xl text-[color:var(--ui-text-3b3a36)] mb-2">{t('plantSelection.title')}</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">{t('plantSelection.description')}</p>
         </div>
 
         {availablePlants.length === 0 ? (
           <Card className="text-center py-12">
             <div className="space-y-4">
               <div className="flex justify-center">
-                <svg className="w-16 h-16 text-[#9D9B9A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-16 h-16 text-[color:var(--ui-border-9d9b9a)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-xl text-[#3B3A36] mb-2">No tienes plantas asignadas</h3>
-                <p className="text-[#5F6773] max-w-md mx-auto">
+                <h3 className="text-xl text-[color:var(--ui-text-3b3a36)] mb-2">No tienes plantas asignadas</h3>
+                <p className="text-[color:var(--ui-text-muted-5f6773)] max-w-md mx-auto">
                   Contacta con tu administrador para que te asigne acceso a una o más plantas del sistema PROMIX.
                 </p>
               </div>
@@ -120,37 +120,37 @@ export function PlantSelection() {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-xl text-[#3B3A36] group-hover:text-[#2475C7] transition-colors">
+                      <h3 className="text-xl text-[color:var(--ui-text-3b3a36)] group-hover:text-[color:var(--ui-primary-2475c7)] transition-colors">
                         {plant.name}
                       </h3>
-                      <p className="text-sm text-[#5F6773]">{plant.code}</p>
+                      <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{plant.code}</p>
                     </div>
-                    <div className="bg-[#2475C7] text-white px-3 py-1 rounded text-sm">
+                    <div className="bg-[var(--ui-primary-2475c7)] text-white px-3 py-1 rounded text-sm">
                       {t('settings.active')}
                     </div>
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-[#5F6773]">
+                    <div className="flex items-center gap-2 text-[color:var(--ui-text-muted-5f6773)]">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       <span>{plant.location}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[#5F6773]">
+                    <div className="flex items-center gap-2 text-[color:var(--ui-text-muted-5f6773)]">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                       <span>{plant.silos.length} {t('settings.silos')}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[#5F6773]">
+                    <div className="flex items-center gap-2 text-[color:var(--ui-text-muted-5f6773)]">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M6 7v10h12V7M9 11h6M9 14h6" />
                       </svg>
                       <span>Agregados configurados por planta</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[#5F6773]">
+                    <div className="flex items-center gap-2 text-[color:var(--ui-text-muted-5f6773)]">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l8 18H4L12 3z" />
                       </svg>

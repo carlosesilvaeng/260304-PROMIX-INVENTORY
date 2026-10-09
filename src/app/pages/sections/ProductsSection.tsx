@@ -76,8 +76,8 @@ export function ProductsSection() {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de productos...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de productos...</p>
             </div>
           </div>
         </Card>
@@ -125,8 +125,8 @@ export function ProductsSection() {
     return (
       <div className="p-6">
         <Card className="text-center py-12">
-          <p className="text-[#5F6773] mb-2">No hay productos configurados para esta planta</p>
-          <p className="text-sm text-[#5F6773]">
+          <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay productos configurados para esta planta</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Contacta al administrador para configurar los productos
           </p>
         </Card>
@@ -302,7 +302,7 @@ export function ProductsSection() {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg font-bold text-[#3B3A36]">
+                <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
                   {producto.product_name}
                 </h3>
                 {isComplete && (
@@ -313,7 +313,7 @@ export function ProductsSection() {
                 <span className={`text-xs px-2 py-0.5 rounded border ${CATEGORY_COLORS[producto.category] || CATEGORY_COLORS.OTHER}`}>
                   {CATEGORY_LABELS[producto.category] || 'Otro'}
                 </span>
-                <span className="text-sm text-[#5F6773]">
+                <span className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                   {getProductModeLabel(producto)}
                 </span>
               </div>
@@ -335,16 +335,16 @@ export function ProductsSection() {
                   helpText="Lectura del medidor del tanque"
                 />
                 <div>
-                  <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                  <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                     {getProductCalculatedLabel(producto.measure_mode, productOutputUnit)}
                   </label>
-                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                    <span className="text-[#2475C7] font-bold text-lg">
+                  <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                    <span className="text-[color:var(--ui-primary-2475c7)] font-bold text-lg">
                       {formatNumber(producto.calculated_quantity || 0)}
                     </span>
-                    <span className="text-[#5F6773] ml-2 text-sm">{productOutputUnit}</span>
+                    <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">{productOutputUnit}</span>
                   </div>
-                  <p className="text-xs text-[#5F6773] mt-1">
+                  <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                     Calculado automáticamente según tabla de calibración
                   </p>
                 </div>
@@ -362,16 +362,16 @@ export function ProductsSection() {
                   helpText={`Número de ${producto.measure_mode === 'DRUM' ? 'tambores' : 'pailas'}`}
                 />
                 <div>
-                  <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                  <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                     Volumen Total ({productOutputUnit})
                   </label>
-                  <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                    <span className="text-[#2475C7] font-bold text-lg">
+                  <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                    <span className="text-[color:var(--ui-primary-2475c7)] font-bold text-lg">
                       {formatNumber(producto.total_volume || 0)}
                     </span>
-                    <span className="text-[#5F6773] ml-2 text-sm">{productOutputUnit}</span>
+                    <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">{productOutputUnit}</span>
                   </div>
-                  <p className="text-xs text-[#5F6773] mt-1">
+                  <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                     = {producto.unit_count || 0} × {producto.unit_volume || 0} {productOutputUnit}/unidad
                   </p>
                 </div>
@@ -402,7 +402,7 @@ export function ProductsSection() {
 
           {/* NOTES */}
           <div>
-            <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+            <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
               Notas (Opcional)
             </label>
             <textarea
@@ -410,7 +410,7 @@ export function ProductsSection() {
               value={producto.notes || ''}
               onChange={(e) => handleFieldChange(producto, 'notes', e.target.value)}
               placeholder="Observaciones adicionales..."
-              className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+              className="w-full px-4 py-2.5 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
               rows={2}
             />
           </div>
@@ -428,10 +428,10 @@ export function ProductsSection() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Aceites y Productos</h2>
-          <p className="text-[#5F6773]">Aceites, Lubricantes, Consumibles y Equipos</p>
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Aceites y Productos</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">Aceites, Lubricantes, Consumibles y Equipos</p>
         </div>
-        <div className="text-sm text-[#5F6773]">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
@@ -439,21 +439,21 @@ export function ProductsSection() {
       </div>
 
       {/* SUMMARY */}
-      <Card className="bg-[#F2F3F5] border-[#2475C7]/30">
+      <Card className="bg-[var(--ui-background-f2f3f5)] border-[var(--ui-primary-2475c7)]/30">
         <div className="p-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Total Aceites y Productos</p>
-              <p className="text-2xl font-bold text-[#2475C7]">{productos.length}</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Total Aceites y Productos</p>
+              <p className="text-2xl font-bold text-[color:var(--ui-primary-2475c7)]">{productos.length}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Completados</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Completados</p>
               <p className="text-2xl font-bold text-green-600">
                 {productos.filter(isProductComplete).length}
               </p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#5F6773]">Pendientes</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Pendientes</p>
               <p className="text-2xl font-bold text-orange-600">
                 {productos.filter(p => !isProductComplete(p)).length}
               </p>
@@ -466,7 +466,7 @@ export function ProductsSection() {
       {Object.entries(groupedProducts).map(([category, categoryProducts]: [string, any]) => (
         <div key={category} className="space-y-4">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-[#3B3A36]">
+            <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
               {CATEGORY_LABELS[category] || 'Otros'}
             </h3>
             <span className={`text-xs px-2 py-0.5 rounded border ${CATEGORY_COLORS[category] || CATEGORY_COLORS.OTHER}`}>
@@ -495,8 +495,8 @@ export function ProductsSection() {
       )}
 
       {/* SAVE BUTTON */}
-      <div className="flex flex-col items-stretch gap-3 border-t border-[#D4D2CF] pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-[#5F6773] sm:flex-1">
+      <div className="flex flex-col items-stretch gap-3 border-t border-[var(--ui-border-d4d2cf)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] sm:flex-1">
           {!allComplete && someStarted && (
             <span className="text-orange-600">
               ⚠️ Algunos productos están incompletos - Completa todos los campos requeridos

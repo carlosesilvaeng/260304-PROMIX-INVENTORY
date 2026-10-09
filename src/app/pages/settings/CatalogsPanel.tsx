@@ -114,7 +114,7 @@ function TableActionButton({
   return (
     <button
       type="button"
-      className={`inline-flex h-8 w-8 items-center justify-center rounded border bg-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${toneStyles[tone]} ${className}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded border bg-[var(--ui-surface)] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${toneStyles[tone]} ${className}`}
       {...props}
     >
       {children}
@@ -182,7 +182,7 @@ function ImportActions({
         size="sm"
         onClick={onDownloadBlankTemplate}
         loading={exportingTemplate}
-        className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
+        className="border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-soft-eef4fb)] text-[color:var(--ui-primary-2475c7)] hover:bg-[var(--ui-primary-soft-hover-dcebfa)]"
       >
         <FileSpreadsheet size={16} aria-hidden="true" />
         Descargar plantilla
@@ -265,28 +265,28 @@ function CatalogImportPreviewModal({
       }
     >
       {!preview ? (
-        <p className="text-sm text-[#5F6773]">Preparando previsualización...</p>
+        <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Preparando previsualización...</p>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-              <p className="text-xs text-[#5F6773]">Archivo</p>
-              <p className="mt-1 text-sm font-medium text-[#3B3A36]">{fileName || 'Plantilla'}</p>
+            <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Archivo</p>
+              <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{fileName || 'Plantilla'}</p>
             </div>
-            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-              <p className="text-xs text-[#5F6773]">Filas</p>
-              <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{preview.summary.total_rows}</p>
+            <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Filas</p>
+              <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">{preview.summary.total_rows}</p>
             </div>
-            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-              <p className="text-xs text-[#5F6773]">Válidas</p>
+            <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Válidas</p>
               <p className="mt-1 text-2xl font-semibold text-[#1D6F42]">{preview.summary.valid_rows}</p>
             </div>
-            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-              <p className="text-xs text-[#5F6773]">Crear</p>
-              <p className="mt-1 text-2xl font-semibold text-[#2475C7]">{preview.summary.creates}</p>
+            <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Crear</p>
+              <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-primary-2475c7)]">{preview.summary.creates}</p>
             </div>
-            <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-              <p className="text-xs text-[#5F6773]">Actualizar</p>
+            <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Actualizar</p>
               <p className="mt-1 text-2xl font-semibold text-[#9A5A12]">{preview.summary.updates}</p>
             </div>
           </div>
@@ -309,9 +309,9 @@ function CatalogImportPreviewModal({
               <div className="rounded border border-[#C94A4A]/30 bg-[#C94A4A]/10 px-4 py-3 text-sm text-[#C94A4A]">
                 Se encontraron {preview.errors.length} errores. Corrige el archivo y vuelve a importarlo.
               </div>
-              <div className="max-h-[320px] overflow-auto rounded border border-[#E4E4E4]">
+              <div className="max-h-[320px] overflow-auto rounded border border-[var(--ui-border-e4e4e4)]">
                 <table className="w-full min-w-[680px]">
-                  <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                  <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)]">
                     <tr>
                       <th className="px-4 py-3 text-left">Fila</th>
                       <th className="px-4 py-3 text-left">Columna</th>
@@ -320,9 +320,9 @@ function CatalogImportPreviewModal({
                   </thead>
                   <tbody>
                     {preview.errors.map((item, index) => (
-                      <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[#E4E4E4]">
-                        <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.row}</td>
-                        <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.column}</td>
+                      <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                        <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.row}</td>
+                        <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.column}</td>
                         <td className="px-4 py-3 text-sm text-[#C94A4A]">{item.message}</td>
                       </tr>
                     ))}
@@ -337,13 +337,13 @@ function CatalogImportPreviewModal({
           )}
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-[#3B3A36]">
+            <label className="mb-2 block text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
               Motivo de la importación
             </label>
             <textarea
               value={reason}
               onChange={(event) => onReasonChange(event.target.value)}
-              className="min-h-[110px] w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+              className="min-h-[110px] w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
               placeholder={`Ej: actualización masiva del catálogo de ${label.toLowerCase()}.`}
             />
           </div>
@@ -434,43 +434,43 @@ function CatalogTable({
 
   return (
     <Card noPadding>
-      <div className="border-b border-[#9D9B9A] p-4">
+      <div className="border-b border-[var(--ui-border-9d9b9a)] p-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <h4 className="text-base font-medium text-[#3B3A36]">{title}</h4>
+          <h4 className="text-base font-medium text-[color:var(--ui-text-3b3a36)]">{title}</h4>
           {!loading && (
-            <span className="inline-flex w-fit rounded-full bg-[#EEF4FB] px-3 py-1 text-xs font-medium text-[#2475C7]">
+            <span className="inline-flex w-fit rounded-full bg-[var(--ui-primary-soft-eef4fb)] px-3 py-1 text-xs font-medium text-[color:var(--ui-primary-2475c7)]">
               {itemCountLabel || `${items.length} items`}
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-[#5F6773]">{description}</p>
+        <p className="mt-0.5 text-sm text-[color:var(--ui-text-muted-5f6773)]">{description}</p>
         {importControls && <ImportActions {...importControls} />}
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-[#5F6773]">Cargando...</div>
+        <div className="p-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando...</div>
       ) : (
         <>
           <table className="w-full">
-            <thead className="bg-[#F2F3F5]">
+            <thead className="bg-[var(--ui-background-f2f3f5)]">
               <tr>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Nombre</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Nombre</th>
                 {hasClase && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Clase</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Clase</th>
                 )}
-                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[#5F6773]">Acciones</th>
+                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={hasClase ? 3 : 2} className="px-4 py-6 text-center text-sm text-[#5F6773]">
+                  <td colSpan={hasClase ? 3 : 2} className="px-4 py-6 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
                     No hay entradas. Agrega la primera abajo.
                   </td>
                 </tr>
               ) : (
                 items.map((item) => (
-                  <tr key={item.id} className="border-t border-[#F2F3F5]">
+                  <tr key={item.id} className="border-t border-[var(--ui-background-f2f3f5)]">
                     <td className="px-4 py-2">
                       {editingId === item.id ? (
                         <input
@@ -481,11 +481,11 @@ function CatalogTable({
                             if (e.key === 'Enter') handleSaveEdit();
                             if (e.key === 'Escape') cancelEdit();
                           }}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                           autoFocus
                         />
                       ) : (
-                        <span className="text-sm text-[#3B3A36]">{item.nombre}</span>
+                        <span className="text-sm text-[color:var(--ui-text-3b3a36)]">{item.nombre}</span>
                       )}
                     </td>
                     {hasClase && (
@@ -500,10 +500,10 @@ function CatalogTable({
                               if (e.key === 'Escape') cancelEdit();
                             }}
                             placeholder="Clase..."
-                            className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                            className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                           />
                         ) : (
-                          <span className="text-sm text-[#5F6773]">{item.clase ?? '—'}</span>
+                          <span className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{item.clase ?? '—'}</span>
                         )}
                       </td>
                     )}
@@ -548,7 +548,7 @@ function CatalogTable({
             </tbody>
           </table>
 
-          <div className="flex gap-2 border-t border-[#9D9B9A] bg-[#F2F3F5] p-3">
+          <div className="flex gap-2 border-t border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] p-3">
             <input
               type="text"
               value={newValue}
@@ -557,7 +557,7 @@ function CatalogTable({
                 if (e.key === 'Enter') handleAdd();
               }}
               placeholder="Nombre..."
-              className="flex-1 rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+              className="flex-1 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             />
             {hasClase && (
               <input
@@ -568,7 +568,7 @@ function CatalogTable({
                   if (e.key === 'Enter') handleAdd();
                 }}
                 placeholder="Clase..."
-                className="w-32 rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="w-32 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
               />
             )}
             <Button variant="secondary" size="sm" onClick={handleAdd} disabled={saving || !newValue.trim()}>
@@ -659,55 +659,55 @@ function AdditiveCatalogTable({
 
   return (
     <Card noPadding>
-      <div className="border-b border-[#9D9B9A] p-4">
+      <div className="border-b border-[var(--ui-border-9d9b9a)] p-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <h4 className="text-base font-medium text-[#3B3A36]">Aditivos</h4>
+          <h4 className="text-base font-medium text-[color:var(--ui-text-3b3a36)]">Aditivos</h4>
           {!loading && (
-            <span className="inline-flex w-fit rounded-full bg-[#EEF4FB] px-3 py-1 text-xs font-medium text-[#2475C7]">
+            <span className="inline-flex w-fit rounded-full bg-[var(--ui-primary-soft-eef4fb)] px-3 py-1 text-xs font-medium text-[color:var(--ui-primary-2475c7)]">
               {itemCountLabel || `${items.length} items`}
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-[#5F6773]">
+        <p className="mt-0.5 text-sm text-[color:var(--ui-text-muted-5f6773)]">
           Catálogo maestro para nombre, marca y unidad. La configuración de aditivos por planta selecciona desde aquí.
         </p>
         {importControls && <ImportActions {...importControls} />}
       </div>
 
       {loading ? (
-        <div className="p-8 text-center text-[#5F6773]">Cargando...</div>
+        <div className="p-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando...</div>
       ) : (
         <>
           <table className="w-full">
-            <thead className="bg-[#F2F3F5]">
+            <thead className="bg-[var(--ui-background-f2f3f5)]">
               <tr>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Nombre</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Marca</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Unidad</th>
-                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[#5F6773]">Acciones</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Nombre</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Marca</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Unidad</th>
+                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-[#5F6773]">
+                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
                     No hay aditivos en catálogo todavía.
                   </td>
                 </tr>
               ) : (
                 items.map((item) => (
-                  <tr key={item.id} className="border-t border-[#F2F3F5]">
+                  <tr key={item.id} className="border-t border-[var(--ui-background-f2f3f5)]">
                     <td className="px-4 py-2">
                       {editingId === item.id ? (
                         <input
                           type="text"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                           autoFocus
                         />
                       ) : (
-                        <span className="text-sm text-[#3B3A36]">{item.nombre}</span>
+                        <span className="text-sm text-[color:var(--ui-text-3b3a36)]">{item.nombre}</span>
                       )}
                     </td>
                     <td className="px-4 py-2">
@@ -716,10 +716,10 @@ function AdditiveCatalogTable({
                           type="text"
                           value={editBrand}
                           onChange={(e) => setEditBrand(e.target.value)}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                         />
                       ) : (
-                        <span className="text-sm text-[#5F6773]">{item.marca || '—'}</span>
+                        <span className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{item.marca || '—'}</span>
                       )}
                     </td>
                     <td className="px-4 py-2">
@@ -728,10 +728,10 @@ function AdditiveCatalogTable({
                           type="text"
                           value={editUom}
                           onChange={(e) => setEditUom(e.target.value)}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                         />
                       ) : (
-                        <span className="text-sm text-[#3B3A36]">{item.uom}</span>
+                        <span className="text-sm text-[color:var(--ui-text-3b3a36)]">{item.uom}</span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-center">
@@ -775,27 +775,27 @@ function AdditiveCatalogTable({
             </tbody>
           </table>
 
-          <div className="grid grid-cols-1 gap-2 border-t border-[#9D9B9A] bg-[#F2F3F5] p-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto]">
+          <div className="grid grid-cols-1 gap-2 border-t border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] p-3 md:grid-cols-[1.4fr_1fr_0.8fr_auto]">
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Nombre..."
-              className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+              className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             />
             <input
               type="text"
               value={newBrand}
               onChange={(e) => setNewBrand(e.target.value)}
               placeholder="Marca..."
-              className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+              className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             />
             <input
               type="text"
               value={newUom}
               onChange={(e) => setNewUom(e.target.value)}
               placeholder="Unidad..."
-              className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+              className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             />
             <Button variant="secondary" size="sm" onClick={handleAdd} disabled={saving || !newName.trim() || !newUom.trim()}>
               + Agregar
@@ -1047,42 +1047,42 @@ function CalibrationCurveVisualizationModal({
       size="2xl"
     >
       {!curve || chartPoints.length === 0 ? (
-        <div className="rounded-lg border border-[#D4D8DD] bg-[#F8FAFC] p-8 text-center text-sm text-[#5F6773]">
+        <div className="rounded-lg border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f8fafc)] p-8 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
           Esta curva no tiene puntos suficientes para visualizar.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-[#D4D8DD] bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-surface)] shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <aside className="space-y-6 bg-[#0F172A] p-6 text-[#F8FAFC]">
+            <aside className="space-y-6 bg-[var(--ui-text-0f172a)] p-6 text-[color:var(--ui-background-f8fafc)]">
               <div>
-                <h3 className="text-xl font-semibold leading-tight text-[#38BDF8]">{curve.curve_name}</h3>
-                <p className="mt-1 text-sm text-[#94A3B8]">Auditoría e índices operativos</p>
+                <h3 className="text-xl font-semibold leading-tight text-[color:var(--ui-primary-38bdf8)]">{curve.curve_name}</h3>
+                <p className="mt-1 text-sm text-[color:var(--ui-text-disabled-94a3b8)]">Auditoría e índices operativos</p>
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-lg border-l-4 border-[#38BDF8] bg-[#1E293B] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Rango de nivel</p>
+                <div className="rounded-lg border-l-4 border-[var(--ui-primary-38bdf8)] bg-[var(--ui-text-1e293b)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-text-disabled-94a3b8)]">Rango de nivel</p>
                   <div className="mt-3 space-y-2">
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-sm text-[#CBD5E1]">Nivel máximo</span>
+                      <span className="text-sm text-[color:var(--ui-border-cbd5e1)]">Nivel máximo</span>
                       <span className="text-2xl font-semibold text-white">{formatChartNumber(maxLevel)}</span>
                     </div>
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-sm text-[#CBD5E1]">Nivel mínimo</span>
+                      <span className="text-sm text-[color:var(--ui-border-cbd5e1)]">Nivel mínimo</span>
                       <span className="text-2xl font-semibold text-white">{formatChartNumber(minLevel)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-lg border-l-4 border-[#10B981] bg-[#1E293B] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Capacidad de volumen</p>
+                <div className="rounded-lg border-l-4 border-[#10B981] bg-[var(--ui-text-1e293b)] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-text-disabled-94a3b8)]">Capacidad de volumen</p>
                   <div className="mt-3 space-y-2">
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-sm text-[#CBD5E1]">Vol. máximo detectado</span>
+                      <span className="text-sm text-[color:var(--ui-border-cbd5e1)]">Vol. máximo detectado</span>
                       <span className="text-2xl font-semibold text-white">{formatChartNumber(maxVolume)} Gal</span>
                     </div>
                     <div className="flex items-baseline justify-between gap-4">
-                      <span className="text-sm text-[#CBD5E1]">Vol. mínimo detectado</span>
+                      <span className="text-sm text-[color:var(--ui-border-cbd5e1)]">Vol. mínimo detectado</span>
                       <span className="text-2xl font-semibold text-white">{formatChartNumber(minVolume)} Gal</span>
                     </div>
                   </div>
@@ -1090,7 +1090,7 @@ function CalibrationCurveVisualizationModal({
               </div>
 
               <div>
-                <p className="border-b border-[#334155] pb-2 text-sm font-semibold text-[#E2E8F0]">
+                <p className="border-b border-[var(--ui-text-334155)] pb-2 text-sm font-semibold text-[color:var(--ui-border-e2e8f0)]">
                   Secuencia de status detectada
                 </p>
                 <div className="mt-4 space-y-4">
@@ -1101,11 +1101,11 @@ function CalibrationCurveVisualizationModal({
                         style={{ backgroundColor: interval.color }}
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#F1F5F9]">{interval.status}</p>
-                        <p className="text-xs text-[#94A3B8]">
+                        <p className="text-sm font-semibold text-[color:var(--ui-background-f1f5f9)]">{interval.status}</p>
+                        <p className="text-xs text-[color:var(--ui-text-disabled-94a3b8)]">
                           Nivel: {formatChartNumber(interval.displayMin)} → {formatChartNumber(interval.displayMax)}
                         </p>
-                        <p className="text-xs text-[#94A3B8]">
+                        <p className="text-xs text-[color:var(--ui-text-disabled-94a3b8)]">
                           Porcentaje: {formatChartNumber(interval.pctMin, 1)}% → {formatChartNumber(interval.pctMax, 1)}%
                         </p>
                       </div>
@@ -1115,17 +1115,17 @@ function CalibrationCurveVisualizationModal({
               </div>
             </aside>
 
-            <section className="min-w-0 bg-white p-6">
+            <section className="min-w-0 bg-[var(--ui-surface)] p-6">
               <div>
-                <h3 className="text-2xl font-semibold leading-tight text-[#0F172A]">
+                <h3 className="text-2xl font-semibold leading-tight text-[color:var(--ui-text-0f172a)]">
                   Curva de Calibración: {curve.curve_name}
                 </h3>
-                <p className="mt-1 text-sm text-[#64748B]">
+                <p className="mt-1 text-sm text-[color:var(--ui-text-muted-64748b)]">
                   Monitoreo de comportamiento estructural de volumen y alertas de almacenamiento.
                 </p>
               </div>
 
-              <div className="mt-6 h-[560px] rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <div className="mt-6 h-[560px] rounded-xl border border-[var(--ui-border-e2e8f0)] bg-[var(--ui-background-f8fafc)] p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartPoints} margin={{ top: 18, right: 24, bottom: 24, left: 24 }}>
                     <CartesianGrid stroke="rgba(226, 232, 240, 0.9)" />
@@ -1168,8 +1168,8 @@ function CalibrationCurveVisualizationModal({
                         if (!active || !payload?.length) return null;
                         const point = payload[0].payload as CurveChartPoint;
                         return (
-                          <div className="rounded-lg bg-[#0F172A] px-3 py-2 text-xs text-[#F8FAFC] shadow-xl">
-                            <p className="font-semibold text-[#38BDF8]">Nivel: {formatChartNumber(point.level)}</p>
+                          <div className="rounded-lg bg-[var(--ui-text-0f172a)] px-3 py-2 text-xs text-[color:var(--ui-background-f8fafc)] shadow-xl">
+                            <p className="font-semibold text-[color:var(--ui-primary-38bdf8)]">Nivel: {formatChartNumber(point.level)}</p>
                             <p>Vol. disponible: {formatChartNumber(point.available)} Gal</p>
                             <p>Vol. consumido: {formatChartNumber(point.consumed)} Gal</p>
                             <p>Porcentaje: {formatChartNumber(point.percentage, 2)}%</p>
@@ -1223,8 +1223,8 @@ function CurvePointsEditor({
   };
 
   return (
-    <div className="max-w-[720px] space-y-2 rounded border border-[#D7D9DE] bg-white p-2">
-      <div className="grid grid-cols-[72px_112px_112px_72px_96px_28px] gap-1.5 text-xs font-medium text-[#5F6773]">
+    <div className="max-w-[720px] space-y-2 rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-surface)] p-2">
+      <div className="grid grid-cols-[72px_112px_112px_72px_96px_28px] gap-1.5 text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">
         <span>Nivel</span>
         <span>{availableLabel}</span>
         <span>{consumedLabel}</span>
@@ -1238,35 +1238,35 @@ function CurvePointsEditor({
             type="text"
             value={point.point_key}
             onChange={(e) => handlePointChange(point.id, 'point_key', e.target.value)}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.available_gallons}
             onChange={(e) => handlePointChange(point.id, 'available_gallons', e.target.value)}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.consumed_gallons}
             onChange={(e) => handlePointChange(point.id, 'consumed_gallons', e.target.value)}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.percentage}
             onChange={(e) => handlePointChange(point.id, 'percentage', e.target.value)}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             placeholder="0"
           />
           <input
             type="text"
             value={point.status}
             onChange={(e) => handlePointChange(point.id, 'status', e.target.value)}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-2 py-1 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
             placeholder="OK"
           />
           <TableActionButton tone="danger" onClick={() => handleRemovePoint(point.id)} title="Quitar punto">
@@ -1275,7 +1275,7 @@ function CurvePointsEditor({
         </div>
       ))}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-[#5F6773]">{points.length} punto{points.length === 1 ? '' : 's'} en edición</span>
+        <span className="text-xs text-[color:var(--ui-text-muted-5f6773)]">{points.length} punto{points.length === 1 ? '' : 's'} en edición</span>
         <Button variant="outline" size="sm" onClick={handleAddPoint}>
           + Punto
         </Button>
@@ -1400,26 +1400,26 @@ function CalibrationCurvesTable({
 
   return (
     <Card noPadding>
-      <div className="space-y-3 border-b border-[#9D9B9A] p-4">
+      <div className="space-y-3 border-b border-[var(--ui-border-9d9b9a)] p-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <h4 className="text-base font-medium text-[#3B3A36]">Curvas de conversión</h4>
+          <h4 className="text-base font-medium text-[color:var(--ui-text-3b3a36)]">Curvas de conversión</h4>
           {!loading && (
-            <span className="inline-flex w-fit rounded-full bg-[#EEF4FB] px-3 py-1 text-xs font-medium text-[#2475C7]">
+            <span className="inline-flex w-fit rounded-full bg-[var(--ui-primary-soft-eef4fb)] px-3 py-1 text-xs font-medium text-[color:var(--ui-primary-2475c7)]">
               {itemCountLabel || `${items.length} items`}
             </span>
           )}
         </div>
         <div>
-          <p className="mt-0.5 text-sm text-[#5F6773]">
+          <p className="mt-0.5 text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Catálogo por planta para reutilizar tablas de conversión. La importación por Excel funciona por planta y hace upsert seguro sobre el nombre de curva. Si una curva ya está en uso, el sistema bloquea renombres y borrados para mantener diesel, silos y aditivos sincronizados.
           </p>
         </div>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
-          <label className="min-w-[120px] text-sm text-[#5F6773]">Planta</label>
+          <label className="min-w-[120px] text-sm text-[color:var(--ui-text-muted-5f6773)]">Planta</label>
           <select
             value={selectedPlantId}
             onChange={(e) => onPlantChange(e.target.value)}
-            className="w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none md:max-w-sm"
+            className="w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none md:max-w-sm"
           >
             <option value="">Selecciona una planta</option>
             {plantOptions.map((option) => (
@@ -1433,42 +1433,42 @@ function CalibrationCurvesTable({
       </div>
 
       {!selectedPlantId ? (
-        <div className="p-8 text-center text-[#5F6773]">Selecciona una planta para ver sus curvas.</div>
+        <div className="p-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Selecciona una planta para ver sus curvas.</div>
       ) : loading ? (
-        <div className="p-8 text-center text-[#5F6773]">Cargando curvas...</div>
+        <div className="p-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando curvas...</div>
       ) : (
         <>
           <table className="w-full">
-            <thead className="bg-[#F2F3F5]">
+            <thead className="bg-[var(--ui-background-f2f3f5)]">
               <tr>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Nombre</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Método</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Unidad lectura</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-[#5F6773]">Puntos</th>
-                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[#5F6773]">Acciones</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Nombre</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Método</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Unidad lectura</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Puntos</th>
+                <th className="w-28 px-4 py-2 text-center text-sm font-medium text-[color:var(--ui-text-muted-5f6773)]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-[#5F6773]">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
                     No hay curvas configuradas para esta planta.
                   </td>
                 </tr>
               ) : (
                 items.map((item) => (
-                  <tr key={item.id} className="border-t border-[#F2F3F5] align-top">
+                  <tr key={item.id} className="border-t border-[var(--ui-background-f2f3f5)] align-top">
                     <td className="px-4 py-2">
                       {editingId === item.id ? (
                         <input
                           type="text"
                           value={editCurveName}
                           onChange={(e) => setEditCurveName(e.target.value)}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                           autoFocus
                         />
                       ) : (
-                        <span className="text-sm text-[#3B3A36]">{item.curve_name}</span>
+                        <span className="text-sm text-[color:var(--ui-text-3b3a36)]">{item.curve_name}</span>
                       )}
                     </td>
                     <td className="px-4 py-2">
@@ -1477,10 +1477,10 @@ function CalibrationCurvesTable({
                           type="text"
                           value={editMeasurementType}
                           onChange={(e) => setEditMeasurementType(e.target.value)}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                         />
                       ) : (
-                        <span className="text-sm text-[#5F6773]">{item.measurement_type}</span>
+                        <span className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{item.measurement_type}</span>
                       )}
                     </td>
                     <td className="px-4 py-2">
@@ -1489,10 +1489,10 @@ function CalibrationCurvesTable({
                           type="text"
                           value={editReadingUom}
                           onChange={(e) => setEditReadingUom(e.target.value)}
-                          className="w-full rounded border border-[#2475C7] px-2 py-1 text-sm text-[#3B3A36] focus:outline-none"
+                          className="w-full rounded border border-[var(--ui-primary-2475c7)] px-2 py-1 text-sm text-[color:var(--ui-text-3b3a36)] focus:outline-none"
                         />
                       ) : (
-                        <span className="text-sm text-[#5F6773]">{item.reading_uom || '—'}</span>
+                        <span className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{item.reading_uom || '—'}</span>
                       )}
                     </td>
                     <td className="px-4 py-2">
@@ -1500,10 +1500,10 @@ function CalibrationCurvesTable({
                         <CurvePointsEditor points={editPoints} onChange={setEditPoints} measurementType={editMeasurementType} />
                       ) : (
                         <div className="space-y-1">
-                          <div className="inline-flex rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+                          <div className="inline-flex rounded-full bg-[var(--ui-primary-soft-eef4fb)] px-2 py-1 text-xs font-medium text-[color:var(--ui-primary-2475c7)]">
                             {item.point_count || item.points.length} punto{(item.point_count || item.points.length) === 1 ? '' : 's'}
                           </div>
-                          <div className="text-xs text-[#5F6773]">
+                          <div className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
                             {formatCurvePointSummary(item.points || [])}
                           </div>
                         </div>
@@ -1553,28 +1553,28 @@ function CalibrationCurvesTable({
             </tbody>
           </table>
 
-          <div className="space-y-2 border-t border-[#9D9B9A] bg-[#F2F3F5] p-3">
+          <div className="space-y-2 border-t border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] p-3">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               <input
                 type="text"
                 value={newCurveName}
                 onChange={(e) => setNewCurveName(e.target.value)}
                 placeholder="Nombre de curva..."
-                className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
               />
               <input
                 type="text"
                 value={newMeasurementType}
                 onChange={(e) => setNewMeasurementType(e.target.value)}
                 placeholder="Método..."
-                className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
               />
               <input
                 type="text"
                 value={newReadingUom}
                 onChange={(e) => setNewReadingUom(e.target.value)}
                 placeholder="Unidad de lectura..."
-                className="rounded border border-[#9D9B9A] bg-white px-3 py-1.5 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-1.5 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
               />
             </div>
             <CurvePointsEditor points={newPoints} onChange={setNewPoints} measurementType={newMeasurementType} />
@@ -2351,8 +2351,8 @@ export function CatalogsPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg text-[#3B3A36]">Catálogos</h3>
-        <p className="mt-1 text-sm text-[#5F6773]">
+        <h3 className="text-lg text-[color:var(--ui-text-3b3a36)]">Catálogos</h3>
+        <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
           Administra los valores estandarizados que usan las configuraciones por planta. Materiales, procedencias, aditivos y curvas de conversión ya soportan importación masiva con plantilla Excel y previsualización, y el sistema procura mantener las configuraciones sincronizadas con esos catálogos.
         </p>
       </div>
@@ -2364,11 +2364,11 @@ export function CatalogsPanel() {
       )}
 
       <div className="space-y-4">
-        <div className="rounded-lg border border-[#D4D8DD] bg-white p-4">
+        <div className="rounded-lg border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-surface)] p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-medium text-[#3B3A36]">Sección activa</p>
-              <p className="mt-1 text-sm text-[#5F6773]">{activeSectionMeta.description}</p>
+              <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Sección activa</p>
+              <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">{activeSectionMeta.description}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {sectionOptions.map((option) => {
@@ -2381,8 +2381,8 @@ export function CatalogsPanel() {
                     className={[
                       'rounded-md border px-4 py-2 text-sm font-medium transition-colors',
                       isActive
-                        ? 'border-[#2475C7] bg-[#EEF4FB] text-[#2475C7]'
-                        : 'border-[#D4D8DD] bg-white text-[#5F6773] hover:border-[#9D9B9A] hover:text-[#3B3A36]',
+                        ? 'border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-soft-eef4fb)] text-[color:var(--ui-primary-2475c7)]'
+                        : 'border-[var(--ui-border-d4d8dd)] bg-[var(--ui-surface)] text-[color:var(--ui-text-muted-5f6773)] hover:border-[var(--ui-border-9d9b9a)] hover:text-[color:var(--ui-text-3b3a36)]',
                     ].join(' ')}
                   >
                     {option.label} ({option.count})

@@ -123,45 +123,45 @@ function CurvePreviewTable({ curve }: { curve: CalibrationCurveItem | null | und
   const points = getCurvePreviewPoints(curve);
   if (!curve) {
     return (
-      <div className="rounded border border-[#D7D9DE] bg-white px-3 py-4 text-sm text-[#5F6773]">
+      <div className="rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-surface)] px-3 py-4 text-sm text-[color:var(--ui-text-muted-5f6773)]">
         Selecciona una curva para ver sus puntos.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded border border-[#D7D9DE] bg-white">
-      <div className="flex items-center justify-between border-b border-[#E4E4E4] px-3 py-2">
-        <span className="text-sm font-medium text-[#3B3A36]">Tabla de conversión</span>
-        <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+    <div className="overflow-hidden rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--ui-border-e4e4e4)] px-3 py-2">
+        <span className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Tabla de conversión</span>
+        <span className="rounded-full bg-[var(--ui-primary-soft-eef4fb)] px-2 py-1 text-xs font-medium text-[color:var(--ui-primary-2475c7)]">
           {points.length} punto{points.length === 1 ? '' : 's'}
         </span>
       </div>
       <div className="max-h-64 overflow-auto">
         <table className="w-full min-w-[680px]">
-          <thead className="bg-[#F2F3F5]">
+          <thead className="bg-[var(--ui-background-f2f3f5)]">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Nivel</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones disponibles</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Galones consumidos</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">%</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">Status</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">Nivel</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">Galones disponibles</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">Galones consumidos</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">%</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">Status</th>
             </tr>
           </thead>
           <tbody>
             {points.map((point) => (
-              <tr key={`${point.point_key}-${point.point_value}`} className="border-t border-[#F2F3F5]">
-                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.point_key}</td>
-                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.available_gallons ?? point.point_value}</td>
-                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.consumed_gallons ?? '—'}</td>
-                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.percentage ?? '—'}</td>
-                <td className="px-3 py-2 text-sm text-[#5F6773]">{point.status || '—'}</td>
+              <tr key={`${point.point_key}-${point.point_value}`} className="border-t border-[var(--ui-background-f2f3f5)]">
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">{point.point_key}</td>
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">{point.available_gallons ?? point.point_value}</td>
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">{point.consumed_gallons ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">{point.percentage ?? '—'}</td>
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">{point.status || '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="border-t border-[#E4E4E4] px-3 py-2 text-xs text-[#5F6773]">
+      <p className="border-t border-[var(--ui-border-e4e4e4)] px-3 py-2 text-xs text-[color:var(--ui-text-muted-5f6773)]">
         Para modificar estos puntos, actualiza la curva en Catálogos.
       </p>
     </div>
@@ -446,12 +446,12 @@ export function AdditivesConfigModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white">
-        <div className="border-b border-[#9D9B9A] p-6">
-          <h3 className="text-xl font-medium text-[#3B3A36]">
+      <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-[var(--ui-surface)]">
+        <div className="border-b border-[var(--ui-border-9d9b9a)] p-6">
+          <h3 className="text-xl font-medium text-[color:var(--ui-text-3b3a36)]">
             Configuración de Aditivos — {plant.name}
           </h3>
-          <p className="mt-1 text-sm text-[#5F6773]">
+          <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Selecciona el método de medición y configura únicamente los parámetros físicos que le corresponden.
           </p>
         </div>
@@ -476,21 +476,21 @@ export function AdditivesConfigModal({
           )}
 
           {loading ? (
-            <div className="py-8 text-center text-[#5F6773]">Cargando aditivos...</div>
+            <div className="py-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando aditivos...</div>
           ) : (
             <div className="space-y-4">
               {rows.length === 0 ? (
-                <div className="rounded-lg bg-[#F2F3F5] py-8 text-center">
-                  <p className="mb-2 text-[#5F6773]">No hay aditivos configurados</p>
-                  <p className="text-sm text-[#5F6773]">Agrega la primera fila para esta planta</p>
+                <div className="rounded-lg bg-[var(--ui-background-f2f3f5)] py-8 text-center">
+                  <p className="mb-2 text-[color:var(--ui-text-muted-5f6773)]">No hay aditivos configurados</p>
+                  <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Agrega la primera fila para esta planta</p>
                 </div>
               ) : (
                 rows.map((row, index) => (
-                  <div key={row.id || `new-${index}`} className="rounded-lg border border-[#9D9B9A] p-4">
+                  <div key={row.id || `new-${index}`} className="rounded-lg border border-[var(--ui-border-9d9b9a)] p-4">
                     <div className="mb-4 flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-[#3B3A36]">Aditivo #{index + 1}</h4>
+                      <h4 className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Aditivo #{index + 1}</h4>
                       <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-2 text-sm text-[#5F6773]">
+                        <label className="flex items-center gap-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                           Activo
                           <input
                             type="checkbox"
@@ -532,7 +532,7 @@ export function AdditivesConfigModal({
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
+                      <label className="flex items-center gap-2 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">
                         <input
                           type="checkbox"
                           checked={row.requires_photo}
@@ -562,7 +562,7 @@ export function AdditivesConfigModal({
                     </div>
 
                     {row.measurement_method === 'MANUAL' && (
-                      <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                      <div className="mt-4 rounded-lg border border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f9fafb)] p-4">
                         <Input
                           label="Nombre del recipiente (opcional)"
                           value={row.tank_name || ''}
@@ -589,14 +589,14 @@ export function AdditivesConfigModal({
                             required
                           />
                         </div>
-                        <p className="mt-3 text-xs text-[#5F6773]">
+                        <p className="mt-3 text-xs text-[color:var(--ui-text-muted-5f6773)]">
                           La cantidad manual se registrará en esta unidad y se comparará con la capacidad nominal para calcular el porcentaje disponible.
                         </p>
                       </div>
                     )}
 
                     {row.measurement_method !== 'MANUAL' && (
-                    <div className="mt-4 space-y-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
+                    <div className="mt-4 space-y-4 rounded-lg border border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f9fafb)] p-4">
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                         <Input
                           label="Nombre del tanque"
@@ -662,7 +662,7 @@ export function AdditivesConfigModal({
                               options={capacityUnitOptions} required
                             />
                           </div>
-                          <p className="text-xs text-[#5F6773]">
+                          <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
                             La altura del líquido se capturará en la unidad dimensional. El servidor limitará el resultado a la capacidad nominal.
                           </p>
                         </div>
@@ -680,7 +680,7 @@ export function AdditivesConfigModal({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
+        <div className="flex items-center justify-end gap-3 border-t border-[var(--ui-border-9d9b9a)] p-6">
           <Button variant="dangerOutline" onClick={onClose} disabled={saving}>
             Salir
           </Button>

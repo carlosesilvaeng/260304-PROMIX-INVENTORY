@@ -79,8 +79,8 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de agregados...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de agregados...</p>
             </div>
           </div>
         </Card>
@@ -103,7 +103,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                 <p className="text-red-800 mb-4">
                   {prefillData.error}
                 </p>
-                <div className="bg-white rounded p-4 mb-4 text-sm text-[#3B3A36]">
+                <div className="bg-[var(--ui-surface)] rounded p-4 mb-4 text-sm text-[color:var(--ui-text-3b3a36)]">
                   <p className="font-semibold mb-2">Posibles soluciones:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Verifica que la base de datos esté configurada (Herramientas → Base de Datos)</li>
@@ -307,7 +307,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
       />
     ) : (
       <div>
-        <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
+        <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">
           {label} ({lengthUnitLabel}) *
         </label>
         <NumericInput
@@ -316,19 +316,19 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
           placeholder="0.00"
           className="w-full"
         />
-        {helperText && <p className="text-xs text-[#6F767E] mt-1">{helperText}</p>}
+        {helperText && <p className="text-xs text-[color:var(--ui-text-muted-6f767e)] mt-1">{helperText}</p>}
       </div>
     )
   );
 
   if (prefillData.agregadosEntries.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] p-6">
+      <div className="min-h-screen bg-[var(--ui-background-f5f7fa)] p-6">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-[#1A1D1F] mb-2">
+          <h2 className="text-xl font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2">
             Sin Agregados Configurados
           </h2>
-          <p className="text-[#6F767E]">
+          <p className="text-[color:var(--ui-text-muted-6f767e)]">
             No hay agregados configurados para esta planta. 
             Contacta al administrador para configurar los agregados.
           </p>
@@ -342,18 +342,18 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   // ============================================================================
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
+    <div className="min-h-screen bg-[var(--ui-background-f5f7fa)] p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#1A1D1F] mb-2">
+          <h1 className="text-3xl font-bold text-[color:var(--ui-text-1a1d1f)] mb-2">
             Inventario de Agregados
           </h1>
-          <p className="text-[#6F767E]">
+          <p className="text-[color:var(--ui-text-muted-6f767e)]">
             {currentPlant?.name} - {prefillData.inventoryMonth?.year_month}
           </p>
           <div className="flex items-center gap-4 mt-2">
-            <span className="text-sm text-[#9D9B9A]">
+            <span className="text-sm text-[color:var(--ui-border-9d9b9a)]">
               Progreso: {completedCount}/{totalCount} agregados completos
             </span>
             {prefillData.previousMonth && (
@@ -398,19 +398,19 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-[#1A1D1F]">
+                  <h3 className="text-lg font-semibold text-[color:var(--ui-text-1a1d1f)]">
                     Agregado #{index + 1} · {entry.material_type || 'Material sin nombre'}
                   </h3>
-                  <div className="flex gap-3 text-sm text-[#6F767E] mt-1">
+                  <div className="flex gap-3 text-sm text-[color:var(--ui-text-muted-6f767e)] mt-1">
                     <span>📦 {entry.material_type}</span>
                     <span>📍 Procedencia: {entry.location_area}</span>
-                    <span className="font-medium text-[#2B7DE9]">
+                    <span className="font-medium text-[color:var(--ui-primary-2b7de9)]">
                       {entry.measurement_method === 'BOX' ? '📏 Cajón' : '🔺 Cono'}
                     </span>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <span className="text-sm font-medium text-[#6F767E] bg-gray-100 px-3 py-1 rounded">
+                  <span className="text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] bg-gray-100 px-3 py-1 rounded">
                     #{index + 1}
                   </span>
                   {isEntryComplete(entry) && (
@@ -427,10 +427,10 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Width - READ ONLY */}
                     <div>
-                      <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                      <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                         Ancho ({lengthUnitLabel}) 🔒
                       </label>
-                      <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[#3B3A36]">
+                      <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 text-[color:var(--ui-text-3b3a36)]">
                         {formatLengthValue(entry.box_width_ft || 0)}
                       </div>
                     </div>
@@ -443,14 +443,14 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
                     {/* Volume - AUTO CALCULATED */}
                     <div>
-                      <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                      <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                         Volumen ({volumeUnitLabel}) 📊
                       </label>
-                      <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold">
+                      <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[color:var(--ui-text-1a1d1f)] font-semibold">
                         {formatNumber(entry.calculated_volume_cy || 0)} {volumeUnitLabel}
                       </div>
                       {inventoryUnit !== displayUnit && (
-                        <p className="mt-1 text-xs text-[#6F767E]">
+                        <p className="mt-1 text-xs text-[color:var(--ui-text-muted-6f767e)]">
                           Inventario:{' '}
                           {calculateInventoryQuantity(Number(entry.calculated_volume_cy || 0)) === null
                             ? 'requiere factor'
@@ -497,14 +497,14 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
                   {/* Volume */}
                   <div>
-                    <label className="block text-sm font-medium text-[#6F767E] mb-2">
+                    <label className="block text-sm font-medium text-[color:var(--ui-text-muted-6f767e)] mb-2">
                       Volumen Calculado ({volumeUnitLabel}) 📊
                     </label>
-                    <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[#1A1D1F] font-semibold text-lg">
+                    <div className="bg-green-50 border border-green-300 rounded px-3 py-2 text-[color:var(--ui-text-1a1d1f)] font-semibold text-lg">
                       {formatNumber(entry.calculated_volume_cy || 0)} {volumeUnitLabel}
                     </div>
                     {inventoryUnit !== displayUnit && (
-                      <p className="mt-1 text-xs text-[#6F767E]">
+                      <p className="mt-1 text-xs text-[color:var(--ui-text-muted-6f767e)]">
                         Inventario:{' '}
                         {calculateInventoryQuantity(Number(entry.calculated_volume_cy || 0)) === null
                           ? 'requiere factor'
@@ -517,7 +517,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
 
               {/* Notes */}
               <div className="mt-4">
-                <label className="block text-sm font-medium text-[#1A1D1F] mb-2">
+                <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">
                   Notas / Observaciones
                 </label>
                 <textarea
@@ -526,7 +526,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                   placeholder="Observaciones opcionales..."
                   rows={2}
-                  className="w-full px-3 py-2 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2B7DE9]"
+                  className="w-full px-3 py-2 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2b7de9)]"
                 />
               </div>
 
@@ -545,8 +545,8 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
         </div>
 
         {/* Actions */}
-        <div className="sticky bottom-0 mt-6 flex flex-col items-stretch gap-3 rounded-t border-t border-[#9D9B9A] bg-white p-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-4">
-          <div className="text-sm text-[#6F767E] sm:flex-1">
+        <div className="sticky bottom-0 mt-6 flex flex-col items-stretch gap-3 rounded-t border-t border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] p-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="text-sm text-[color:var(--ui-text-muted-6f767e)] sm:flex-1">
             {completedCount}/{totalCount} agregados completos • 
             {totalCount - completedCount > 0 && ` ${totalCount - completedCount} pendientes`}
           </div>

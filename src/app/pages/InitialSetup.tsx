@@ -146,18 +146,18 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F6F7] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+    <div className="min-h-screen bg-[var(--ui-background-f5f6f7)] flex items-center justify-center p-4">
+      <div className="bg-[var(--ui-surface)] rounded-lg shadow-lg p-8 w-full max-w-md">
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <PromixLogo size="large" />
         </div>
 
         {/* Title */}
-        <h1 className="text-2xl font-bold text-[#1A1D1F] text-center mb-2">
+        <h1 className="text-2xl font-bold text-[color:var(--ui-text-1a1d1f)] text-center mb-2">
           Configuración Inicial
         </h1>
-        <p className="text-sm text-[#6F767E] text-center mb-6">
+        <p className="text-sm text-[color:var(--ui-text-muted-6f767e)] text-center mb-6">
           {step === 'database' 
             ? 'Verifica que el proyecto esté listo para crear el primer usuario'
             : 'Crea tu cuenta de Super Administrador'}
@@ -180,14 +180,14 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
         {/* Step 1: Database Initialization */}
         {step === 'database' && (
           <div className="space-y-4">
-            <div className="bg-[#F5F6F7] rounded-lg p-4 mb-4">
-              <h3 className="font-semibold text-[#1A1D1F] mb-2">
+            <div className="bg-[var(--ui-background-f5f6f7)] rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2">
                 Bootstrap Inicial
               </h3>
-              <p className="text-sm text-[#6F767E] mb-3">
+              <p className="text-sm text-[color:var(--ui-text-muted-6f767e)] mb-3">
                 Este paso verifica que el esquema de Supabase ya esté instalado y que todavía no existan usuarios.
               </p>
-              <ul className="text-sm text-[#6F767E] space-y-1 list-disc list-inside">
+              <ul className="text-sm text-[color:var(--ui-text-muted-6f767e)] space-y-1 list-disc list-inside">
                 <li>Confirma que las tablas requeridas existen</li>
                 <li>Confirma que el bootstrap inicial sigue disponible</li>
                 <li>No crea tablas automáticamente desde la app</li>
@@ -208,11 +208,11 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
         {/* Step 2: Admin Creation */}
         {step === 'admin' && (
           <form onSubmit={handleCreateAdmin} className="space-y-4">
-            <div className="bg-[#F5F6F7] rounded-lg p-4 mb-4">
-              <h3 className="font-semibold text-[#1A1D1F] mb-2">
+            <div className="bg-[var(--ui-background-f5f6f7)] rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2">
                 Cuenta de Super Administrador
               </h3>
-              <p className="text-sm text-[#6F767E]">
+              <p className="text-sm text-[color:var(--ui-text-muted-6f767e)]">
                 Crea tu cuenta de Super Administrador para gestionar el sistema.
               </p>
             </div>
@@ -266,7 +266,7 @@ export function InitialSetup({ onSetupComplete }: InitialSetupProps) {
 
         {/* Build Version */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-[#9CA0A6]">
+          <p className="text-xs text-[color:var(--ui-text-disabled-9ca0a6)]">
             Version de build: {BUILD_VERSION}
           </p>
         </div>

@@ -511,14 +511,14 @@ export function AggregatesConfigModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white">
-          <div className="border-b border-[#9D9B9A] p-6">
+        <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-[var(--ui-surface)]">
+          <div className="border-b border-[var(--ui-border-9d9b9a)] p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h3 className="text-xl font-medium text-[#3B3A36]">
+                <h3 className="text-xl font-medium text-[color:var(--ui-text-3b3a36)]">
                   Configuración de Agregados — {plant.name}
                 </h3>
-                <p className="mt-1 text-sm text-[#5F6773]">
+                <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                   Define la captura por cajón o cono y administra la configuración en bloque con plantilla oficial.
                 </p>
               </div>
@@ -529,7 +529,7 @@ export function AggregatesConfigModal({
                   onClick={handleDownloadBlankTemplate}
                   loading={exportingTemplate}
                   disabled={loading}
-                  className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
+                  className="border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-soft-eef4fb)] text-[color:var(--ui-primary-2475c7)] hover:bg-[var(--ui-primary-soft-hover-dcebfa)]"
                 >
                   <FileSpreadsheet size={16} aria-hidden="true" />
                   Generar plantilla
@@ -585,7 +585,7 @@ export function AggregatesConfigModal({
           )}
 
           {loading ? (
-            <div className="py-8 text-center text-[#5F6773]">Cargando agregados...</div>
+            <div className="py-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando agregados...</div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
@@ -599,9 +599,9 @@ export function AggregatesConfigModal({
                 </div>
 
                 {rows.length === 0 ? (
-                  <div className="rounded-lg bg-[#F2F3F5] py-8 text-center">
-                    <p className="mb-2 text-[#5F6773]">No hay agregados configurados</p>
-                    <p className="text-sm text-[#5F6773]">Agrega la primera fila para esta planta</p>
+                  <div className="rounded-lg bg-[var(--ui-background-f2f3f5)] py-8 text-center">
+                    <p className="mb-2 text-[color:var(--ui-text-muted-5f6773)]">No hay agregados configurados</p>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Agrega la primera fila para esta planta</p>
                   </div>
                 ) : (
                   rows.map((row, index) => {
@@ -609,11 +609,11 @@ export function AggregatesConfigModal({
                     const heightError = getBoxDimensionError(row, index, 'box_height_ft');
 
                     return (
-                      <div key={row.id || `new-${index}`} className="rounded-lg border border-[#9D9B9A] p-4">
+                      <div key={row.id || `new-${index}`} className="rounded-lg border border-[var(--ui-border-9d9b9a)] p-4">
                         <div className="mb-4 flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-[#3B3A36]">Agregado #{index + 1}</h4>
+                          <h4 className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Agregado #{index + 1}</h4>
                           <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-2 text-sm text-[#5F6773]">
+                            <label className="flex items-center gap-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                               Activo
                               <input
                                 type="checkbox"
@@ -660,8 +660,8 @@ export function AggregatesConfigModal({
                         </div>
 
                         {row.measurement_method === 'BOX' ? (
-                          <div className="mt-4 rounded-lg border border-[#E4E4E4] bg-[#F9FAFB] p-4">
-                            <p className="mb-3 text-sm text-[#5F6773]">
+                          <div className="mt-4 rounded-lg border border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f9fafb)] p-4">
+                            <p className="mb-3 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                               Para cajón, ancho y alto quedan fijos en configuración; el gerente solo capturará el largo.
                             </p>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -739,7 +739,7 @@ export function AggregatesConfigModal({
             )}
           </div>
 
-          <div className="border-t border-[#9D9B9A] p-6">
+          <div className="border-t border-[var(--ui-border-9d9b9a)] p-6">
             <div className="flex items-center justify-end gap-3">
             <Button variant="dangerOutline" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
@@ -783,32 +783,32 @@ export function AggregatesConfigModal({
         }
       >
         {!importPreview ? (
-          <p className="text-sm text-[#5F6773]">Preparando previsualización...</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Preparando previsualización...</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Archivo</p>
-                <p className="mt-1 text-sm font-medium text-[#3B3A36]">{selectedImportFileName || 'Plantilla'}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Archivo</p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{selectedImportFileName || 'Plantilla'}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Filas</p>
-                <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{importPreview.summary.total_rows}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Filas</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">{importPreview.summary.total_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Válidas</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Válidas</p>
                 <p className="mt-1 text-2xl font-semibold text-[#1D6F42]">{importPreview.summary.valid_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Crear</p>
-                <p className="mt-1 text-2xl font-semibold text-[#2475C7]">{importPreview.summary.creates}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Crear</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-primary-2475c7)]">{importPreview.summary.creates}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Actualizar</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Actualizar</p>
                 <p className="mt-1 text-2xl font-semibold text-[#9A5A12]">{importPreview.summary.updates}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Legacy cajones</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Legacy cajones</p>
                 <p className="mt-1 text-2xl font-semibold text-[#C94A4A]">{importPreview.summary.legacy_cajones}</p>
               </div>
             </div>
@@ -827,9 +827,9 @@ export function AggregatesConfigModal({
                   type="error"
                   message={`Se encontraron ${importPreview.errors.length} errores. Corrige el archivo y vuelve a importarlo.`}
                 />
-                <div className="max-h-[320px] overflow-auto rounded border border-[#E4E4E4]">
+                <div className="max-h-[320px] overflow-auto rounded border border-[var(--ui-border-e4e4e4)]">
                   <table className="w-full min-w-[720px]">
-                    <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                    <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)]">
                       <tr>
                         <th className="px-4 py-3 text-left">Fila</th>
                         <th className="px-4 py-3 text-left">Columna</th>
@@ -838,9 +838,9 @@ export function AggregatesConfigModal({
                     </thead>
                     <tbody>
                       {importPreview.errors.map((item, index) => (
-                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[#E4E4E4]">
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.row}</td>
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.column}</td>
+                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.row}</td>
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.column}</td>
                           <td className="px-4 py-3 text-sm text-[#C94A4A]">{item.message}</td>
                         </tr>
                       ))}
@@ -856,13 +856,13 @@ export function AggregatesConfigModal({
             )}
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#3B3A36]">
+              <label className="mb-2 block text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
                 Motivo de la importación
               </label>
               <textarea
                 value={importReason}
                 onChange={(event) => setImportReason(event.target.value)}
-                className="min-h-[110px] w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="min-h-[110px] w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
                 placeholder="Ej: migración masiva de cajones a la configuración nueva de agregados."
               />
             </div>

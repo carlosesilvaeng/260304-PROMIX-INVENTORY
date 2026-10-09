@@ -485,14 +485,14 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
   return (
     <>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-[#9D9B9A]">
+        <div className="bg-[var(--ui-surface)] rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-[var(--ui-border-9d9b9a)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h3 className="text-xl text-[#3B3A36] font-medium">
+                <h3 className="text-xl text-[color:var(--ui-text-3b3a36)] font-medium">
                   Configuración de Silos — {plant.name}
                 </h3>
-                <p className="text-sm text-[#5F6773] mt-1">
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
                   Administra silos y usa plantilla oficial para editar en bloque nombres, método y productos permitidos.
                 </p>
               </div>
@@ -503,7 +503,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                   onClick={handleDownloadBlankTemplate}
                   loading={exportingTemplate}
                   disabled={loading}
-                  className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
+                  className="border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-soft-eef4fb)] text-[color:var(--ui-primary-2475c7)] hover:bg-[var(--ui-primary-soft-hover-dcebfa)]"
                 >
                   <FileSpreadsheet size={16} aria-hidden="true" />
                   Generar plantilla
@@ -547,7 +547,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
             )}
 
             {loading ? (
-              <div className="text-center py-8 text-[#5F6773]">Cargando silos...</div>
+              <div className="text-center py-8 text-[color:var(--ui-text-muted-5f6773)]">Cargando silos...</div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
@@ -561,17 +561,17 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                 </div>
 
                 {silos.length === 0 ? (
-                  <div className="text-center py-8 bg-[#F2F3F5] rounded-lg">
-                    <p className="text-[#5F6773] mb-2">No hay silos configurados</p>
-                    <p className="text-sm text-[#5F6773]">
+                  <div className="text-center py-8 bg-[var(--ui-background-f2f3f5)] rounded-lg">
+                    <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay silos configurados</p>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                       Haga clic en "Agregar Silo" para comenzar
                     </p>
                   </div>
                 ) : (
                   silos.map((silo, index) => (
-                    <div key={silo.id || index} className="border border-[#9D9B9A] rounded-lg p-4">
+                    <div key={silo.id || index} className="border border-[var(--ui-border-9d9b9a)] rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-sm font-medium text-[#3B3A36]">
+                        <h4 className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
                           Silo #{index + 1}
                         </h4>
                         <DeleteIconButton
@@ -627,7 +627,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                           value={silo.reading_uom || ''}
                           disabled
                         />
-                        <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
+                        <label className="flex items-center gap-2 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">
                           <input
                             type="checkbox"
                             checked={silo.is_active}
@@ -684,7 +684,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                             value={silo.capacity_fraction}
                             onChange={(e) => updateSilo(index, { capacity_fraction: Number(e.target.value) })}
                           />
-                          <label className="flex items-center gap-2 text-sm text-[#3B3A36]">
+                          <label className="flex items-center gap-2 text-sm text-[color:var(--ui-text-3b3a36)]">
                             <input type="checkbox" checked={silo.requires_photo}
                               onChange={(e) => updateSilo(index, { requires_photo: e.target.checked })} />
                             Requiere fotografía
@@ -699,10 +699,10 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                         const pointRows = buildCurvePointRows(silo.conversion_table, selectedCurve?.points);
 
                         return (
-                          <div className="mt-4 rounded border border-[#D4D8DD] bg-[#F9FAFB] p-3">
+                          <div className="mt-4 rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-3">
                             <div className="max-h-[260px] overflow-auto">
                               <table className="w-full min-w-[540px] text-sm">
-                                <thead className="bg-[#EEF0F2] text-[#5F6773]">
+                                <thead className="bg-[var(--ui-background-eef0f2)] text-[color:var(--ui-text-muted-5f6773)]">
                                   <tr>
                                     <th className="px-3 py-2 text-left">Nivel</th>
                                     <th className="px-3 py-2 text-left">Vol. disponible</th>
@@ -713,17 +713,17 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                                 </thead>
                                 <tbody>
                                   {pointRows.map((point, pointIndex) => (
-                                    <tr key={`${point.level}-${pointIndex}`} className="border-t border-[#E4E4E4]">
-                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.level)}</td>
-                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.available)}</td>
-                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.consumed)}</td>
-                                      <td className="px-3 py-2 text-[#3B3A36]">{formatCurveValue(point.percentage)}</td>
+                                    <tr key={`${point.level}-${pointIndex}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                                      <td className="px-3 py-2 text-[color:var(--ui-text-3b3a36)]">{formatCurveValue(point.level)}</td>
+                                      <td className="px-3 py-2 text-[color:var(--ui-text-3b3a36)]">{formatCurveValue(point.available)}</td>
+                                      <td className="px-3 py-2 text-[color:var(--ui-text-3b3a36)]">{formatCurveValue(point.consumed)}</td>
+                                      <td className="px-3 py-2 text-[color:var(--ui-text-3b3a36)]">{formatCurveValue(point.percentage)}</td>
                                       <td className="px-3 py-2 text-[#1D6F42]">{point.status || 'OK'}</td>
                                     </tr>
                                   ))}
                                   {pointRows.length === 0 && (
                                     <tr>
-                                      <td className="px-3 py-3 text-[#5F6773]" colSpan={5}>
+                                      <td className="px-3 py-3 text-[color:var(--ui-text-muted-5f6773)]" colSpan={5}>
                                         La curva seleccionada no tiene puntos.
                                       </td>
                                     </tr>
@@ -731,7 +731,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                                 </tbody>
                               </table>
                             </div>
-                            <p className="mt-2 text-xs text-[#5F6773]">
+                            <p className="mt-2 text-xs text-[color:var(--ui-text-muted-5f6773)]">
                               Tabla sincronizada con la curva seleccionada. Para cambiar puntos, actualiza Catálogos &gt; Curvas de conversión.
                             </p>
                           </div>
@@ -739,7 +739,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                       })()}
 
                       {silo.allowed_products.length > 0 && (
-                        <p className="mt-3 text-sm text-[#5F6773]">
+                        <p className="mt-3 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                           Productos permitidos: {silo.allowed_products.join(', ')}
                         </p>
                       )}
@@ -764,7 +764,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                             {silo.allowed_products.map((product) => (
                               <button key={product} type="button"
                                 onClick={() => updateSilo(index, { allowed_products: silo.allowed_products.filter((item) => item !== product) })}
-                                className="rounded bg-[#EEF4FB] px-2 py-1 text-xs text-[#2475C7]">
+                                className="rounded bg-[var(--ui-primary-soft-eef4fb)] px-2 py-1 text-xs text-[color:var(--ui-primary-2475c7)]">
                                 {product} ×
                               </button>
                             ))}
@@ -782,7 +782,7 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
             )}
           </div>
 
-          <div className="p-6 border-t border-[#9D9B9A] flex items-center justify-end gap-3">
+          <div className="p-6 border-t border-[var(--ui-border-9d9b9a)] flex items-center justify-end gap-3">
             <Button variant="dangerOutline" onClick={onClose} disabled={saving || previewingImport || executingImport}>
               Salir
             </Button>
@@ -814,33 +814,33 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
         }
       >
         {!importPreview ? (
-          <p className="text-sm text-[#5F6773]">Preparando previsualización...</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Preparando previsualización...</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Archivo</p>
-                <p className="mt-1 text-sm font-medium text-[#3B3A36]">{selectedImportFileName || 'Plantilla'}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Archivo</p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{selectedImportFileName || 'Plantilla'}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Filas</p>
-                <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{importPreview.summary.total_rows}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Filas</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">{importPreview.summary.total_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Válidas</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Válidas</p>
                 <p className="mt-1 text-2xl font-semibold text-[#1D6F42]">{importPreview.summary.valid_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Crear</p>
-                <p className="mt-1 text-2xl font-semibold text-[#2475C7]">{importPreview.summary.creates}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Crear</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-primary-2475c7)]">{importPreview.summary.creates}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Actualizar</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Actualizar</p>
                 <p className="mt-1 text-2xl font-semibold text-[#9A5A12]">{importPreview.summary.updates}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Productos ligados</p>
-                <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{importPreview.summary.linked_products}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Productos ligados</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">{importPreview.summary.linked_products}</p>
               </div>
             </div>
 
@@ -858,9 +858,9 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                   type="error"
                   message={`Se encontraron ${importPreview.errors.length} errores. Corrige el archivo y vuelve a importarlo.`}
                 />
-                <div className="max-h-[320px] overflow-auto rounded border border-[#E4E4E4]">
+                <div className="max-h-[320px] overflow-auto rounded border border-[var(--ui-border-e4e4e4)]">
                   <table className="w-full min-w-[720px]">
-                    <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                    <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)]">
                       <tr>
                         <th className="px-4 py-3 text-left">Fila</th>
                         <th className="px-4 py-3 text-left">Columna</th>
@@ -869,9 +869,9 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
                     </thead>
                     <tbody>
                       {importPreview.errors.map((item, index) => (
-                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[#E4E4E4]">
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.row}</td>
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.column}</td>
+                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.row}</td>
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.column}</td>
                           <td className="px-4 py-3 text-sm text-[#C94A4A]">{item.message}</td>
                         </tr>
                       ))}
@@ -887,13 +887,13 @@ export function SilosConfigModal({ plant, onSaved, onClose }: SilosConfigModalPr
             )}
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#3B3A36]">
+              <label className="mb-2 block text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
                 Motivo de la importación
               </label>
               <textarea
                 value={importReason}
                 onChange={(event) => setImportReason(event.target.value)}
-                className="min-h-[110px] w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="min-h-[110px] w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
                 placeholder="Ej: actualización masiva de silos y productos permitidos desde plantilla oficial."
               />
             </div>

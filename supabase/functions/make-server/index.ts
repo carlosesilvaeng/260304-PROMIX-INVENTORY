@@ -1,3 +1,4 @@
+import { createAppearanceHandlers } from './appearance_config.ts';
 import { Hono } from "npm:hono@4.6";
 import { cors } from "npm:hono@4.6/cors";
 import { logger } from "npm:hono@4.6/logger";
@@ -593,6 +594,7 @@ app.use('/make-server/plants/*', requireAuth);
 
 // Module config endpoints require a valid login (write ops check admin inside handler)
 app.use('/make-server/modules/*', requireAuth);
+app.use('/make-server/appearance/*', requireAuth);
 
 // Debug endpoint requires admin role
 app.use('/make-server/debug/*', requireAdmin);
@@ -3675,6 +3677,10 @@ app.post("/make-server/inventory/reject", async (c) => {
 // ============================================================================
 // MODULE CONFIGURATION ENDPOINTS
 // ============================================================================
+
+const appearanceHandlers = createAppearanceHandlers(kv);
+app.get('/make-server/appearance/config', appearanceHandlers.read);
+app.post('/make-server/appearance/config', appearanceHandlers.write);
 
 // Get module configuration
 app.get("/make-server/modules/config", async (c) => {

@@ -89,7 +89,7 @@ function formatDateTime(value: string) {
 function StatusBadge({ status }: { status: InventoryStatus }) {
   const config = {
     IN_PROGRESS: 'bg-[#f59e0b]/10 text-[#f59e0b]',
-    SUBMITTED: 'bg-[#2475C7]/10 text-[#2475C7]',
+    SUBMITTED: 'bg-[var(--ui-primary-2475c7)]/10 text-[color:var(--ui-primary-2475c7)]',
     APPROVED: 'bg-[#2ecc71]/10 text-[#2ecc71]',
   }[status];
 
@@ -109,9 +109,9 @@ function KpiCard({
 }) {
   return (
     <Card className="space-y-1">
-      <p className="text-sm text-[#5F6773]">{title}</p>
-      <p className="text-3xl font-semibold text-[#3B3A36]">{value.toLocaleString('en-US')}</p>
-      {subtitle ? <p className="text-xs text-[#5F6773]">{subtitle}</p> : null}
+      <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{title}</p>
+      <p className="text-3xl font-semibold text-[color:var(--ui-text-3b3a36)]">{value.toLocaleString('en-US')}</p>
+      {subtitle ? <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">{subtitle}</p> : null}
     </Card>
   );
 }
@@ -378,8 +378,8 @@ export function DataControlPanel() {
       ) : null}
 
       <div>
-        <h3 className="text-lg font-semibold text-[#3B3A36]">Control de datos</h3>
-        <p className="text-sm text-[#5F6773]">
+        <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Control de datos</h3>
+        <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           Visibilidad del sistema y limpieza controlada de inventarios de prueba.
         </p>
       </div>
@@ -397,16 +397,16 @@ export function DataControlPanel() {
       </div>
 
       <Card noPadding>
-        <div className="p-6 border-b border-[#E4E4E4]">
-          <h4 className="text-base font-semibold text-[#3B3A36]">Resumen del sistema</h4>
-          <p className="text-sm text-[#5F6773]">Cobertura de configuracion y actividad por planta.</p>
+        <div className="p-6 border-b border-[var(--ui-border-e4e4e4)]">
+          <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">Resumen del sistema</h4>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Cobertura de configuracion y actividad por planta.</p>
         </div>
         {loadingSummary || !summary ? (
-          <div className="p-6 text-sm text-[#5F6773]">Cargando resumen...</div>
+          <div className="p-6 text-sm text-[color:var(--ui-text-muted-5f6773)]">Cargando resumen...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1100px]">
-              <thead className="bg-[#3B3A36] text-white">
+              <thead className="bg-[var(--ui-text-3b3a36)] text-white">
                 <tr>
                   <th className="px-4 py-3 text-left">Planta</th>
                   <th className="px-4 py-3 text-center">Agregados</th>
@@ -426,8 +426,8 @@ export function DataControlPanel() {
                   const photoRow = summary.photoSummary.by_plant.find((item) => item.plant_id === row.plant_id);
 
                   return (
-                    <tr key={row.plant_id} className="border-b border-[#E4E4E4]">
-                      <td className="px-4 py-3 text-[#3B3A36] font-medium">{row.plant_name}</td>
+                    <tr key={row.plant_id} className="border-b border-[var(--ui-border-e4e4e4)]">
+                      <td className="px-4 py-3 text-[color:var(--ui-text-3b3a36)] font-medium">{row.plant_name}</td>
                       <td className="px-4 py-3 text-center">{row.aggregates}</td>
                       <td className="px-4 py-3 text-center">{row.silos}</td>
                       <td className="px-4 py-3 text-center">{row.additives}</td>
@@ -447,10 +447,10 @@ export function DataControlPanel() {
       </Card>
 
       <Card noPadding>
-        <div className="p-6 border-b border-[#E4E4E4] space-y-4">
+        <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] space-y-4">
           <div>
-            <h4 className="text-base font-semibold text-[#3B3A36]">Inventarios cargados</h4>
-            <p className="text-sm text-[#5F6773]">Filtra los inventarios existentes y elimina registros puntuales si lo necesitas.</p>
+            <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">Inventarios cargados</h4>
+            <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Filtra los inventarios existentes y elimina registros puntuales si lo necesitas.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <select
@@ -459,7 +459,7 @@ export function DataControlPanel() {
                 setInventoryPlantFilter(event.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-[#C5C6C7] rounded-md bg-white text-[#3B3A36]"
+              className="px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)]"
             >
               <option value="ALL">Todas las plantas</option>
               {allPlants.map((plant) => (
@@ -473,7 +473,7 @@ export function DataControlPanel() {
                 setInventoryMonthFrom(event.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              className="px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)]"
             />
             <input
               type="month"
@@ -482,7 +482,7 @@ export function DataControlPanel() {
                 setInventoryMonthTo(event.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              className="px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)]"
             />
             <select
               value={inventoryStatusFilter}
@@ -490,7 +490,7 @@ export function DataControlPanel() {
                 setInventoryStatusFilter(event.target.value as 'ALL' | InventoryStatus);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-[#C5C6C7] rounded-md bg-white text-[#3B3A36]"
+              className="px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)]"
             >
               <option value="ALL">Todos los estados</option>
               {STATUS_OPTIONS.map((option) => (
@@ -501,12 +501,12 @@ export function DataControlPanel() {
         </div>
 
         {loadingInventories ? (
-          <div className="p-6 text-sm text-[#5F6773]">Cargando inventarios...</div>
+          <div className="p-6 text-sm text-[color:var(--ui-text-muted-5f6773)]">Cargando inventarios...</div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
-                <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)]">
                   <tr>
                     <th className="px-4 py-3 text-left">Planta</th>
                     <th className="px-4 py-3 text-left">Periodo</th>
@@ -521,19 +521,19 @@ export function DataControlPanel() {
                 <tbody>
                   {inventories.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-6 text-center text-sm text-[#5F6773]">
+                      <td colSpan={8} className="px-4 py-6 text-center text-sm text-[color:var(--ui-text-muted-5f6773)]">
                         No hay inventarios que coincidan con los filtros seleccionados.
                       </td>
                     </tr>
                   ) : inventories.map((item) => (
-                    <tr key={item.id} className="border-b border-[#E4E4E4]">
-                      <td className="px-4 py-3 font-medium text-[#3B3A36]">{item.plant_id}</td>
-                      <td className="px-4 py-3 text-[#5F6773] capitalize">{formatYearMonthLabel(item.year_month)}</td>
+                    <tr key={item.id} className="border-b border-[var(--ui-border-e4e4e4)]">
+                      <td className="px-4 py-3 font-medium text-[color:var(--ui-text-3b3a36)]">{item.plant_id}</td>
+                      <td className="px-4 py-3 text-[color:var(--ui-text-muted-5f6773)] capitalize">{formatYearMonthLabel(item.year_month)}</td>
                       <td className="px-4 py-3 text-center"><StatusBadge status={item.status} /></td>
-                      <td className="px-4 py-3 text-[#5F6773]">{item.created_by}</td>
-                      <td className="px-4 py-3 text-[#5F6773]">{formatDateTime(item.updated_at)}</td>
+                      <td className="px-4 py-3 text-[color:var(--ui-text-muted-5f6773)]">{item.created_by}</td>
+                      <td className="px-4 py-3 text-[color:var(--ui-text-muted-5f6773)]">{formatDateTime(item.updated_at)}</td>
                       <td className="px-4 py-3 text-center">{item.photo_count}</td>
-                      <td className="px-4 py-3 text-xs text-[#5F6773]">
+                      <td className="px-4 py-3 text-xs text-[color:var(--ui-text-muted-5f6773)]">
                         {Object.entries(item.child_counts)
                           .filter(([, count]) => count > 0)
                           .map(([key, count]) => `${CHILD_TABLE_LABELS[key] || key}: ${count}`)
@@ -553,8 +553,8 @@ export function DataControlPanel() {
                 </tbody>
               </table>
             </div>
-            <div className="p-4 border-t border-[#E4E4E4] flex items-center justify-between">
-              <p className="text-sm text-[#5F6773]">
+            <div className="p-4 border-t border-[var(--ui-border-e4e4e4)] flex items-center justify-between">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 Pagina {currentPage} de {totalPages} · {totalItems} registros
               </p>
               <div className="flex gap-2">
@@ -582,23 +582,23 @@ export function DataControlPanel() {
 
       <Card className="space-y-4 border-[#C94A4A]/30 bg-[#FFF8F8]">
         <div>
-          <h4 className="text-base font-semibold text-[#3B3A36]">Limpieza controlada</h4>
-          <p className="text-sm text-[#5F6773]">
+          <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">Limpieza controlada</h4>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Previsualiza y elimina datos transaccionales de prueba sin tocar configuraciones ni catalogos.
           </p>
         </div>
 
         <div className="space-y-3">
           <div>
-            <p className="text-sm font-medium text-[#3B3A36] mb-2">Plantas incluidas</p>
+            <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">Plantas incluidas</p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setCleanupPlantIds([])}
                 className={`px-3 py-1.5 rounded-full border text-sm ${
                   cleanupPlantIds.length === 0
-                    ? 'bg-[#2475C7] text-white border-[#2475C7]'
-                    : 'bg-white text-[#3B3A36] border-[#C5C6C7]'
+                    ? 'bg-[var(--ui-primary-2475c7)] text-white border-[var(--ui-primary-2475c7)]'
+                    : 'bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)] border-[var(--ui-border-c5c6c7)]'
                 }`}
               >
                 Todas
@@ -610,8 +610,8 @@ export function DataControlPanel() {
                   onClick={() => toggleCleanupPlant(plant.id)}
                   className={`px-3 py-1.5 rounded-full border text-sm ${
                     cleanupPlantIds.includes(plant.id)
-                      ? 'bg-[#2475C7] text-white border-[#2475C7]'
-                      : 'bg-white text-[#3B3A36] border-[#C5C6C7]'
+                      ? 'bg-[var(--ui-primary-2475c7)] text-white border-[var(--ui-primary-2475c7)]'
+                      : 'bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)] border-[var(--ui-border-c5c6c7)]'
                   }`}
                 >
                   {plant.name}
@@ -625,21 +625,21 @@ export function DataControlPanel() {
               type="month"
               value={cleanupMonthFrom}
               onChange={(event) => setCleanupMonthFrom(event.target.value)}
-              className="px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36] bg-white"
+              className="px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)] bg-[var(--ui-surface)]"
             />
             <input
               type="month"
               value={cleanupMonthTo}
               onChange={(event) => setCleanupMonthTo(event.target.value)}
-              className="px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36] bg-white"
+              className="px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)] bg-[var(--ui-surface)]"
             />
           </div>
 
           <div>
-            <p className="text-sm font-medium text-[#3B3A36] mb-2">Estados incluidos</p>
+            <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">Estados incluidos</p>
             <div className="flex flex-wrap gap-4">
               {STATUS_OPTIONS.map((option) => (
-                <label key={option.value} className="flex items-center gap-2 text-sm text-[#3B3A36]">
+                <label key={option.value} className="flex items-center gap-2 text-sm text-[color:var(--ui-text-3b3a36)]">
                   <input
                     type="checkbox"
                     checked={cleanupStatuses.includes(option.value)}
@@ -653,7 +653,7 @@ export function DataControlPanel() {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-[#5F6773]">
+          <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
             El sistema eliminara inventarios, tablas hijas y fotos asociadas.
           </p>
           <Button
@@ -666,10 +666,10 @@ export function DataControlPanel() {
         </div>
       </Card>
 
-      <Card className="space-y-4 border-[#D8E8FA] bg-[#F7FBFF]">
+      <Card className="space-y-4 border-[var(--ui-primary-soft-hover-d8e8fa)] bg-[#F7FBFF]">
         <div>
-          <h4 className="text-base font-semibold text-[#3B3A36]">Reinicio de configuracion por planta</h4>
-          <p className="text-sm text-[#5F6773]">
+          <h4 className="text-base font-semibold text-[color:var(--ui-text-3b3a36)]">Reinicio de configuracion por planta</h4>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Limpia modulos operativos de una planta para arrancar desde cero sin borrar inventarios historicos.
           </p>
         </div>
@@ -681,11 +681,11 @@ export function DataControlPanel() {
 
         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,260px)_1fr] gap-4">
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">Planta</label>
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">Planta</label>
             <select
               value={configCleanupPlantId}
               onChange={(event) => setConfigCleanupPlantId(event.target.value)}
-              className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md bg-white text-[#3B3A36]"
+              className="w-full px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)]"
             >
               <option value="">Selecciona una planta</option>
               {allPlants.map((plant) => (
@@ -695,12 +695,12 @@ export function DataControlPanel() {
           </div>
 
           <div>
-            <p className="text-sm font-medium text-[#3B3A36] mb-2">Modulos a reiniciar</p>
+            <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">Modulos a reiniciar</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {CONFIG_MODULE_OPTIONS.map((option) => (
                 <label
                   key={option.value}
-                  className="flex items-center gap-2 rounded-md border border-[#D4D8DD] bg-white px-3 py-2 text-sm text-[#3B3A36]"
+                  className="flex items-center gap-2 rounded-md border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]"
                 >
                   <input
                     type="checkbox"
@@ -715,7 +715,7 @@ export function DataControlPanel() {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-[#5F6773]">
+          <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
             Se borraran los registros de configuracion seleccionados y sus relaciones hijas seguras.
           </p>
           <Button
@@ -753,7 +753,7 @@ export function DataControlPanel() {
         }
       >
         {!previewData ? (
-          <p className="text-sm text-[#5F6773]">Cargando previsualizacion...</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Cargando previsualizacion...</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -762,13 +762,13 @@ export function DataControlPanel() {
               <KpiCard title="Fotos a eliminar" value={previewData.deleted_photos_count} />
             </div>
 
-            <Card className="space-y-3 bg-[#F9FAFB]">
-              <p className="text-sm font-medium text-[#3B3A36]">Conteos por tabla</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#5F6773]">
+            <Card className="space-y-3 bg-[var(--ui-background-f9fafb)]">
+              <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Conteos por tabla</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 {Object.entries(previewData.counts_by_table).map(([key, count]) => (
                   <div key={key} className="flex justify-between gap-4">
                     <span>{CHILD_TABLE_LABELS[key] || key}</span>
-                    <strong className="text-[#3B3A36]">{count}</strong>
+                    <strong className="text-[color:var(--ui-text-3b3a36)]">{count}</strong>
                   </div>
                 ))}
               </div>
@@ -776,12 +776,12 @@ export function DataControlPanel() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-medium text-[#3B3A36] mb-2">Plantas impactadas</p>
-                <p className="text-[#5F6773]">{previewData.plants.join(', ') || 'Ninguna'}</p>
+                <p className="font-medium text-[color:var(--ui-text-3b3a36)] mb-2">Plantas impactadas</p>
+                <p className="text-[color:var(--ui-text-muted-5f6773)]">{previewData.plants.join(', ') || 'Ninguna'}</p>
               </div>
               <div>
-                <p className="font-medium text-[#3B3A36] mb-2">Meses impactados</p>
-                <p className="text-[#5F6773]">{previewData.year_months.map(formatYearMonthLabel).join(', ') || 'Ninguno'}</p>
+                <p className="font-medium text-[color:var(--ui-text-3b3a36)] mb-2">Meses impactados</p>
+                <p className="text-[color:var(--ui-text-muted-5f6773)]">{previewData.year_months.map(formatYearMonthLabel).join(', ') || 'Ninguno'}</p>
               </div>
             </div>
 
@@ -824,7 +824,7 @@ export function DataControlPanel() {
         }
       >
         {!configPreviewData ? (
-          <p className="text-sm text-[#5F6773]">Cargando previsualizacion...</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Cargando previsualizacion...</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -836,27 +836,27 @@ export function DataControlPanel() {
               />
             </div>
 
-            <Card className="space-y-3 bg-[#F9FAFB]">
-              <p className="text-sm font-medium text-[#3B3A36]">Conteos por modulo</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#5F6773]">
+            <Card className="space-y-3 bg-[var(--ui-background-f9fafb)]">
+              <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Conteos por modulo</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 {CONFIG_MODULE_OPTIONS
                   .filter((option) => configPreviewData.modules.includes(option.value))
                   .map((option) => (
                     <div key={option.value} className="flex justify-between gap-4">
                       <span>{option.label}</span>
-                      <strong className="text-[#3B3A36]">{configPreviewData.counts_by_module[option.value] || 0}</strong>
+                      <strong className="text-[color:var(--ui-text-3b3a36)]">{configPreviewData.counts_by_module[option.value] || 0}</strong>
                     </div>
                   ))}
               </div>
             </Card>
 
-            <Card className="space-y-3 bg-[#F9FAFB]">
-              <p className="text-sm font-medium text-[#3B3A36]">Conteos por tabla</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[#5F6773]">
+            <Card className="space-y-3 bg-[var(--ui-background-f9fafb)]">
+              <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Conteos por tabla</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 {Object.entries(configPreviewData.counts_by_table).map(([key, count]) => (
                   <div key={key} className="flex justify-between gap-4">
                     <span>{CONFIG_TABLE_LABELS[key] || key}</span>
-                    <strong className="text-[#3B3A36]">{count}</strong>
+                    <strong className="text-[color:var(--ui-text-3b3a36)]">{count}</strong>
                   </div>
                 ))}
               </div>
@@ -908,25 +908,25 @@ export function DataControlPanel() {
           />
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Escribe exactamente: ELIMINAR DATOS DE PRUEBA
             </label>
             <input
               value={confirmationText}
               onChange={(event) => setConfirmationText(event.target.value)}
-              className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              className="w-full px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)]"
               placeholder="ELIMINAR DATOS DE PRUEBA"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Motivo
             </label>
             <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="w-full min-h-[120px] px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              className="w-full min-h-[120px] px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)]"
               placeholder="Ej: Reinicio de ambiente de pruebas para validacion del flujo de marzo."
             />
           </div>
@@ -961,25 +961,25 @@ export function DataControlPanel() {
           />
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Escribe exactamente: REINICIAR CONFIGURACION
             </label>
             <input
               value={configConfirmationText}
               onChange={(event) => setConfigConfirmationText(event.target.value)}
-              className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              className="w-full px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)]"
               placeholder="REINICIAR CONFIGURACION"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Motivo
             </label>
             <textarea
               value={configReason}
               onChange={(event) => setConfigReason(event.target.value)}
-              className="w-full min-h-[120px] px-3 py-2 border border-[#C5C6C7] rounded-md text-[#3B3A36]"
+              className="w-full min-h-[120px] px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md text-[color:var(--ui-text-3b3a36)]"
               placeholder="Ej: Reinicio de configuracion de Guaynabo para arrancar pruebas desde cero."
             />
           </div>

@@ -12,7 +12,7 @@ export function Select({ label, error, helperText, options, children, className 
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-[#3B3A36] mb-1.5">
+        <label className="block text-[color:var(--ui-text-3b3a36)] mb-1.5">
           {label}
           {props.required && <span className="text-[#C94A4A] ml-1">*</span>}
         </label>
@@ -20,15 +20,15 @@ export function Select({ label, error, helperText, options, children, className 
       <select
         className={`
           w-full px-4 py-2.5 
-          bg-white
-          border border-[#9D9B9A] 
+          bg-[var(--ui-surface)]
+          border border-[var(--ui-border-9d9b9a)]
           rounded 
-          text-[#3B3A36] 
+          text-[color:var(--ui-text-3b3a36)]
           focus:outline-none 
           focus:ring-2 
-          focus:ring-[#2475C7] 
+          focus:ring-[var(--ui-primary-2475c7)]
           focus:border-transparent
-          disabled:bg-[#F2F3F5]
+          disabled:bg-[var(--ui-background-f2f3f5)]
           disabled:opacity-50 
           disabled:cursor-not-allowed
           transition-all
@@ -48,7 +48,7 @@ export function Select({ label, error, helperText, options, children, className 
         )}
       </select>
       {helperText && !error && (
-        <p className="mt-1 text-xs text-[#5F6773]">{helperText}</p>
+        <p className="mt-1 text-xs text-[color:var(--ui-text-muted-5f6773)]">{helperText}</p>
       )}
       {error && (
         <p className="mt-1 text-sm text-[#C94A4A]">{error}</p>

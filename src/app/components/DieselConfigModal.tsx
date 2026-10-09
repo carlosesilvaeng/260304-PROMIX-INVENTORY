@@ -97,21 +97,21 @@ function DieselCalibrationTable({
 
   if (points.length === 0) {
     return (
-      <div className="rounded border border-[#D7D9DE] bg-white px-3 py-4 text-sm text-[#5F6773]">
+      <div className="rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-surface)] px-3 py-4 text-sm text-[color:var(--ui-text-muted-5f6773)]">
         Importa una tabla técnica para ver sus puntos.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded border border-[#D7D9DE] bg-white">
-      <div className="flex flex-col gap-2 border-b border-[#E4E4E4] px-3 py-2 md:flex-row md:items-center md:justify-between">
+    <div className="overflow-hidden rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-surface)]">
+      <div className="flex flex-col gap-2 border-b border-[var(--ui-border-e4e4e4)] px-3 py-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <span className="text-sm font-medium text-[#3B3A36]">Tabla técnica de diesel</span>
-          <p className="mt-1 text-xs text-[#5F6773]">Cargada directamente en la configuración de diesel</p>
+          <span className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Tabla técnica de diesel</span>
+          <p className="mt-1 text-xs text-[color:var(--ui-text-muted-5f6773)]">Cargada directamente en la configuración de diesel</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-[#EEF4FB] px-2 py-1 text-xs font-medium text-[#2475C7]">
+          <span className="rounded-full bg-[var(--ui-primary-soft-eef4fb)] px-2 py-1 text-xs font-medium text-[color:var(--ui-primary-2475c7)]">
             {points.length} punto{points.length === 1 ? '' : 's'}
           </span>
           {lastPoint && (
@@ -128,23 +128,23 @@ function DieselCalibrationTable({
       </div>
       <div className="max-h-64 overflow-auto">
         <table className="w-full min-w-[360px]">
-          <thead className="bg-[#F2F3F5]">
+          <thead className="bg-[var(--ui-background-f2f3f5)]">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">PROF. H (in)</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#5F6773]">VOL. (GAL)</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">PROF. H (in)</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-[color:var(--ui-text-muted-5f6773)]">VOL. (GAL)</th>
             </tr>
           </thead>
           <tbody>
             {points.map((point) => (
-              <tr key={`${point.depth_inches}-${point.volume_gallons}`} className="border-t border-[#F2F3F5]">
-                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.depth_inches}</td>
-                <td className="px-3 py-2 text-sm text-[#3B3A36]">{point.volume_gallons.toLocaleString()}</td>
+              <tr key={`${point.depth_inches}-${point.volume_gallons}`} className="border-t border-[var(--ui-background-f2f3f5)]">
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">{point.depth_inches}</td>
+                <td className="px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">{point.volume_gallons.toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="border-t border-[#E4E4E4] px-3 py-2 text-xs text-[#5F6773]">
+      <p className="border-t border-[var(--ui-border-e4e4e4)] px-3 py-2 text-xs text-[color:var(--ui-text-muted-5f6773)]">
         Capacidad configurada: {(Number(tankCapacityGallons) || 0).toLocaleString()} GAL. La captura de inventario interpola el volumen usando esta tabla.
       </p>
     </div>
@@ -494,14 +494,14 @@ export function DieselConfigModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white">
-          <div className="border-b border-[#9D9B9A] p-6">
+        <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-[var(--ui-surface)]">
+          <div className="border-b border-[var(--ui-border-9d9b9a)] p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h3 className="text-xl font-medium text-[#3B3A36]">
+                <h3 className="text-xl font-medium text-[color:var(--ui-text-3b3a36)]">
                   Configuración de Diesel — {plant.name}
                 </h3>
-                <p className="mt-1 text-sm text-[#5F6773]">
+                <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                   Administra el tanque y la tabla de calibración desde la base de datos o con plantilla oficial.
                 </p>
               </div>
@@ -524,7 +524,7 @@ export function DieselConfigModal({
                   onClick={handleDownloadBlankTemplate}
                   loading={exportingTemplate}
                   disabled={loading || Boolean(dieselLoadError)}
-                  className="border-[#2475C7] bg-[#EEF4FB] text-[#2475C7] hover:bg-[#DCEBFA]"
+                  className="border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-soft-eef4fb)] text-[color:var(--ui-primary-2475c7)] hover:bg-[var(--ui-primary-soft-hover-dcebfa)]"
                 >
                   <FileSpreadsheet size={16} aria-hidden="true" />
                   Generar plantilla
@@ -568,7 +568,7 @@ export function DieselConfigModal({
             )}
 
             {loading ? (
-              <div className="py-8 text-center text-[#5F6773]">Cargando diesel...</div>
+              <div className="py-8 text-center text-[color:var(--ui-text-muted-5f6773)]">Cargando diesel...</div>
             ) : dieselLoadError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-5">
                 <p className="font-semibold text-red-900">No se pudo cargar la configuración guardada.</p>
@@ -618,7 +618,7 @@ export function DieselConfigModal({
                     onChange={(e) => setForm((prev) => ({ ...prev, initial_inventory_gallons: e.target.value }))}
                     placeholder="5000"
                   />
-                  <label className="flex items-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-3 py-2 text-sm text-[#3B3A36]">
+                  <label className="flex items-center gap-2 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)]">
                     <input
                       type="checkbox"
                       checked={form.is_active}
@@ -636,7 +636,7 @@ export function DieselConfigModal({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-[#9D9B9A] p-6">
+          <div className="flex items-center justify-end gap-3 border-t border-[var(--ui-border-9d9b9a)] p-6">
             <Button variant="dangerOutline" onClick={onClose} disabled={saving || deleting || previewingImport || executingImport}>
               Salir
             </Button>
@@ -668,28 +668,28 @@ export function DieselConfigModal({
         }
       >
         {!importPreview ? (
-          <p className="text-sm text-[#5F6773]">Preparando previsualización...</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Preparando previsualización...</p>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Archivo</p>
-                <p className="mt-1 text-sm font-medium text-[#3B3A36]">{selectedImportFileName || 'Plantilla'}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Archivo</p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{selectedImportFileName || 'Plantilla'}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Filas</p>
-                <p className="mt-1 text-2xl font-semibold text-[#3B3A36]">{importPreview.summary.total_rows}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Filas</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-text-3b3a36)]">{importPreview.summary.total_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Válidas</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Válidas</p>
                 <p className="mt-1 text-2xl font-semibold text-[#1D6F42]">{importPreview.summary.valid_rows}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Crear</p>
-                <p className="mt-1 text-2xl font-semibold text-[#2475C7]">{importPreview.summary.creates}</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Crear</p>
+                <p className="mt-1 text-2xl font-semibold text-[color:var(--ui-primary-2475c7)]">{importPreview.summary.creates}</p>
               </div>
-              <div className="rounded border border-[#D4D8DD] bg-[#F9FAFB] p-4">
-                <p className="text-xs text-[#5F6773]">Actualizar</p>
+              <div className="rounded border border-[var(--ui-border-d4d8dd)] bg-[var(--ui-background-f9fafb)] p-4">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">Actualizar</p>
                 <p className="mt-1 text-2xl font-semibold text-[#9A5A12]">{importPreview.summary.updates}</p>
               </div>
             </div>
@@ -708,9 +708,9 @@ export function DieselConfigModal({
                   type="error"
                   message={`Se encontraron ${importPreview.errors.length} errores. Corrige el archivo y vuelve a importarlo.`}
                 />
-                <div className="max-h-[320px] overflow-auto rounded border border-[#E4E4E4]">
+                <div className="max-h-[320px] overflow-auto rounded border border-[var(--ui-border-e4e4e4)]">
                   <table className="w-full min-w-[720px]">
-                    <thead className="bg-[#F2F3F5] text-[#3B3A36]">
+                    <thead className="bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)]">
                       <tr>
                         <th className="px-4 py-3 text-left">Fila</th>
                         <th className="px-4 py-3 text-left">Columna</th>
@@ -719,9 +719,9 @@ export function DieselConfigModal({
                     </thead>
                     <tbody>
                       {importPreview.errors.map((item, index) => (
-                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[#E4E4E4]">
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.row}</td>
-                          <td className="px-4 py-3 text-sm text-[#3B3A36]">{item.column}</td>
+                        <tr key={`${item.row}-${item.column}-${index}`} className="border-t border-[var(--ui-border-e4e4e4)]">
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.row}</td>
+                          <td className="px-4 py-3 text-sm text-[color:var(--ui-text-3b3a36)]">{item.column}</td>
                           <td className="px-4 py-3 text-sm text-[#C94A4A]">{item.message}</td>
                         </tr>
                       ))}
@@ -737,13 +737,13 @@ export function DieselConfigModal({
             )}
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#3B3A36]">
+              <label className="mb-2 block text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
                 Motivo de la importación
               </label>
               <textarea
                 value={importReason}
                 onChange={(event) => setImportReason(event.target.value)}
-                className="min-h-[110px] w-full rounded border border-[#9D9B9A] bg-white px-3 py-2 text-sm text-[#3B3A36] focus:border-[#2475C7] focus:outline-none"
+                className="min-h-[110px] w-full rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-sm text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none"
                 placeholder="Ej: actualización de capacidad y tabla de calibración desde plantilla oficial."
               />
             </div>

@@ -32,14 +32,14 @@ export function InventorySyncStatus({ section }: { section?: string | null }) {
     if (!reply.success || !reply.data) throw new Error(reply.error || 'No se pudo consultar el servidor.');
     setComparison({section,server:(reply.data as any)[properties[section] || section],revision:reply.data.section_revisions?.[section] || 0});
   };
-  return <aside className="shrink-0 border-b bg-white px-3 py-2 text-sm max-h-[40vh] overflow-y-auto" aria-label="Estado del borrador">
+  return <aside className="shrink-0 border-b bg-[var(--ui-surface)] px-3 py-2 text-sm max-h-[40vh] overflow-y-auto" aria-label="Estado del borrador">
     <div className="flex flex-wrap items-center gap-2" role="status" aria-live="polite">
       {entries.map(([key,state]) => <div key={key} className="min-w-0 flex-1 basis-48">
         <p className={state.state === 'attention' ? 'font-semibold text-red-700' : 'font-semibold text-slate-700'}>{labels[key]}: {states[state.state]}</p>
         {state.message && <p className="break-words text-xs">{state.message}</p>}
         {state.state === 'attention' && <button className="min-h-11 underline" disabled={busy} onClick={()=>run(()=>compare(key))}>Consultar diferencias</button>}
       </div>)}
-      <button className="min-h-11 rounded bg-[#2475C7] px-3 text-white disabled:opacity-50" disabled={busy} onClick={()=>run(async()=>{
+      <button className="min-h-11 rounded bg-[var(--ui-primary-2475c7)] px-3 text-white disabled:opacity-50" disabled={busy} onClick={()=>run(async()=>{
         const replies=await Promise.all(entries.map(([key])=>saveSection(key)));
         const failed=replies.find(reply=>!reply.success);if(failed)throw new Error(failed.error || 'Hay cambios pendientes.');
       })}>Guardar ahora</button>

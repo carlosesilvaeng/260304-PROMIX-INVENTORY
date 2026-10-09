@@ -64,8 +64,8 @@ export function ModuleManagementPanel() {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando configuración de módulos...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando configuración de módulos...</p>
             </div>
           </div>
         </Card>
@@ -81,8 +81,8 @@ export function ModuleManagementPanel() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Gestión de Módulos</h2>
-          <p className="text-[#5F6773]">
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Gestión de Módulos</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">
             Controla qué secciones están disponibles para todos los usuarios
           </p>
         </div>
@@ -143,14 +143,14 @@ export function ModuleManagementPanel() {
               className={`p-5 transition-all ${
                 isEnabled 
                   ? 'border-green-400 bg-green-50' 
-                  : 'border-[#D4D2CF] bg-white'
+                  : 'border-[var(--ui-border-d4d2cf)] bg-[var(--ui-surface)]'
               }`}
             >
               <div className="flex items-start gap-4">
                 {/* Icon */}
                 <div className={`
                   text-4xl p-3 rounded-lg
-                  ${isEnabled ? 'bg-green-100' : 'bg-[#F2F3F5]'}
+                  ${isEnabled ? 'bg-green-100' : 'bg-[var(--ui-background-f2f3f5)]'}
                 `}>
                   {module.icon}
                 </div>
@@ -160,11 +160,11 @@ export function ModuleManagementPanel() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className={`text-lg font-bold ${
-                        isEnabled ? 'text-green-900' : 'text-[#3B3A36]'
+                        isEnabled ? 'text-green-900' : 'text-[color:var(--ui-text-3b3a36)]'
                       }`}>
                         {module.name}
                       </h3>
-                      <p className="text-sm text-[#5F6773] mt-0.5">
+                      <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-0.5">
                         {module.description}
                       </p>
                     </div>
@@ -174,7 +174,7 @@ export function ModuleManagementPanel() {
                       px-3 py-1 rounded-full text-xs font-bold
                       ${isEnabled 
                         ? 'bg-green-600 text-white' 
-                        : 'bg-[#9D9B9A] text-white'
+                        : 'bg-[var(--ui-border-9d9b9a)] text-white'
                       }
                     `}>
                       {isEnabled ? 'ACTIVO' : 'INACTIVO'}
@@ -218,8 +218,8 @@ export function ModuleManagementPanel() {
 
       {/* LAST UPDATED INFO */}
       {moduleSettings.lastUpdatedBy && (
-        <Card className="bg-[#F2F3F5] border-[#D4D2CF]">
-          <div className="p-4 text-sm text-[#5F6773]">
+        <Card className="bg-[var(--ui-background-f2f3f5)] border-[var(--ui-border-d4d2cf)]">
+          <div className="p-4 text-sm text-[color:var(--ui-text-muted-5f6773)]">
             <p>
               <strong>Última actualización:</strong>{' '}
               {new Date(moduleSettings.lastUpdatedAt!).toLocaleString('es-PR', {

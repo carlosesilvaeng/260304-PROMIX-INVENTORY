@@ -55,16 +55,16 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2B7DE9] to-[#1E5BB8] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--ui-primary-2b7de9)] to-[var(--ui-primary-hover-1e5bb8)] flex items-center justify-center p-4">
       {/* Language Selector - Top Right */}
       <div className="absolute top-4 right-4">
-        <div className="flex items-center gap-2 bg-white/90 backdrop-blur rounded-lg p-1 shadow-lg">
+        <div className="flex items-center gap-2 bg-[var(--ui-surface)]/90 backdrop-blur rounded-lg p-1 shadow-lg">
           <button
             onClick={() => setLanguage('es')}
             className={`px-3 py-2 rounded text-sm font-medium transition-all ${
               language === 'es'
-                ? 'bg-[#2B7DE9] text-white'
-                : 'text-[#6C7178] hover:text-[#3D3F42]'
+                ? 'bg-[var(--ui-primary-2b7de9)] text-white'
+                : 'text-[color:var(--ui-text-muted-6c7178)] hover:text-[color:var(--ui-text-3d3f42)]'
             }`}
           >
             🇪🇸 ES
@@ -73,8 +73,8 @@ export function Login() {
             onClick={() => setLanguage('en')}
             className={`px-3 py-2 rounded text-sm font-medium transition-all ${
               language === 'en'
-                ? 'bg-[#2B7DE9] text-white'
-                : 'text-[#6C7178] hover:text-[#3D3F42]'
+                ? 'bg-[var(--ui-primary-2b7de9)] text-white'
+                : 'text-[color:var(--ui-text-muted-6c7178)] hover:text-[color:var(--ui-text-3d3f42)]'
             }`}
           >
             🇺🇸 EN
@@ -85,18 +85,18 @@ export function Login() {
       <div className="w-full max-w-md">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="bg-white rounded-lg p-6 inline-block mb-4 shadow-lg">
+          <div className="bg-[var(--ui-surface)] rounded-lg p-6 inline-block mb-4 shadow-lg">
             <div className="flex justify-center mb-3">
               <PromixLogo size="xl" />
             </div>
-            <div className="text-sm text-[#6C7178] mt-1">{t('login.subtitle')}</div>
+            <div className="text-sm text-[color:var(--ui-text-muted-6c7178)] mt-1">{t('login.subtitle')}</div>
           </div>
         </div>
 
         {/* Login Card */}
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          <h2 className="text-2xl text-[#3D3F42] mb-2 text-center">{t('login.welcome')}</h2>
-          <p className="text-sm text-[#6C7178] mb-6 text-center">{t('login.description')}</p>
+        <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl p-8">
+          <h2 className="text-2xl text-[color:var(--ui-text-3d3f42)] mb-2 text-center">{t('login.welcome')}</h2>
+          <p className="text-sm text-[color:var(--ui-text-muted-6c7178)] mb-6 text-center">{t('login.description')}</p>
           
           {error && (
             <div className="mb-4">
@@ -115,7 +115,7 @@ export function Login() {
             />
 
             <div className="w-full">
-              <label className="flex min-h-5 items-center text-[#3B3A36] mb-1.5 leading-5" htmlFor="login-password">
+              <label className="flex min-h-5 items-center text-[color:var(--ui-text-3b3a36)] mb-1.5 leading-5" htmlFor="login-password">
                 {t('login.password')}
                 <span className="text-[#C94A4A] ml-1">*</span>
               </label>
@@ -128,14 +128,14 @@ export function Login() {
                   placeholder="••••••••"
                   className="
                     w-full px-4 py-2.5 pr-12
-                    bg-white
-                    border border-[#9D9B9A]
+                    bg-[var(--ui-surface)]
+                    border border-[var(--ui-border-9d9b9a)]
                     rounded
-                    text-[#3B3A36]
-                    placeholder:text-[#5F6773]
+                    text-[color:var(--ui-text-3b3a36)]
+                    placeholder:text-[color:var(--ui-text-muted-5f6773)]
                     focus:outline-none
                     focus:ring-2
-                    focus:ring-[#2475C7]
+                    focus:ring-[var(--ui-primary-2475c7)]
                     focus:border-transparent
                     transition-all
                   "
@@ -144,7 +144,7 @@ export function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((current) => !current)}
-                  className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded bg-white text-[#2475C7] transition-colors hover:bg-[#EAF2FB] hover:text-[#1a5a9f] focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:ring-offset-1"
+                  className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded bg-[var(--ui-surface)] text-[color:var(--ui-primary-2475c7)] transition-colors hover:bg-[var(--ui-login-hover)] hover:text-[color:var(--ui-primary-hover-1a5a9f)] focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:ring-offset-1"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
@@ -168,18 +168,18 @@ export function Login() {
 
             {/* Build Version */}
             <div className="text-center mt-3">
-              <p className="text-xs text-[#9CA0A6]">
+              <p className="text-xs text-[color:var(--ui-text-disabled-9ca0a6)]">
                 Version de build: {BUILD_VERSION}
               </p>
             </div>
           </form>
 
           {/* Emergency Reset Button - Always visible but discrete */}
-          <div className="text-center mt-4 pt-3 border-t border-[#E8EAED]">
+          <div className="text-center mt-4 pt-3 border-t border-[var(--ui-hover-e8eaed)]">
             <button
               type="button"
               onClick={handleEmergencyReset}
-              className="text-xs text-[#9CA0A6] hover:text-[#F44336] transition-colors"
+              className="text-xs text-[color:var(--ui-text-disabled-9ca0a6)] hover:text-[#F44336] transition-colors"
             >
               🔧 Limpiar datos y reiniciar
             </button>

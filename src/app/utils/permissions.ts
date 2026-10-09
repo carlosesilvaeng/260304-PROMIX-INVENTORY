@@ -1,3 +1,4 @@
+export { canManageAppearance } from '../../../supabase/functions/make-server/appearance_config';
 export type UserRole = 'plant_manager' | 'operations_manager' | 'admin' | 'super_admin';
 
 export function isPlantManagerLike(role?: string | null): role is 'plant_manager' | 'operations_manager' {

@@ -40,8 +40,8 @@ export function PettyCashSection() {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de petty cash...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de petty cash...</p>
             </div>
           </div>
         </Card>
@@ -89,8 +89,8 @@ export function PettyCashSection() {
     return (
       <div className="p-6">
         <Card className="text-center py-12">
-          <p className="text-[#5F6773] mb-2">No hay configuración de Petty Cash para esta planta</p>
-          <p className="text-sm text-[#5F6773]">
+          <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay configuración de Petty Cash para esta planta</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Contacta al administrador para configurar el Petty Cash
           </p>
         </Card>
@@ -203,10 +203,10 @@ export function PettyCashSection() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Caja chica</h2>
-          <p className="text-[#5F6773]">Control de Efectivo y Recibos</p>
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Caja chica</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">Control de Efectivo y Recibos</p>
         </div>
-        <div className="text-sm text-[#5F6773]">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
@@ -253,16 +253,16 @@ export function PettyCashSection() {
       <Card className={complete ? 'border-green-300 bg-green-50/30' : ''}>
         <div className="p-6 space-y-6">
           {/* ESTABLISHED AMOUNT - READ-ONLY */}
-          <div className="bg-gradient-to-r from-[#2475C7]/10 to-[#2475C7]/5 border-2 border-[#2475C7] rounded-lg p-6">
+          <div className="bg-gradient-to-r from-[var(--ui-primary-2475c7)]/10 to-[var(--ui-primary-2475c7)]/5 border-2 border-[var(--ui-primary-2475c7)] rounded-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-[#5F6773] mb-1">
+                <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] mb-1">
                   Fondo establecido (no editable)
                 </p>
-                <p className="text-4xl font-bold text-[#2475C7]">
+                <p className="text-4xl font-bold text-[color:var(--ui-primary-2475c7)]">
                   {formatCurrency(pettyCash.established_amount)}
                 </p>
-                <p className="text-xs text-[#5F6773] mt-1">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                   Este es el monto fijo que debe mantenerse en la caja chica
                 </p>
               </div>
@@ -299,13 +299,13 @@ export function PettyCashSection() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* TOTAL */}
             <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
-              <p className="text-sm font-semibold text-[#5F6773] mb-2">
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] mb-2">
                 Total (Recibos + Efectivo)
               </p>
-              <p className="text-4xl font-bold text-[#2475C7]">
+              <p className="text-4xl font-bold text-[color:var(--ui-primary-2475c7)]">
                 {formatCurrency(pettyCash.total || 0)}
               </p>
-              <p className="text-xs text-[#5F6773] mt-2">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-2">
                 = {formatCurrency(pettyCash.receipts || 0)} + {formatCurrency(pettyCash.cash || 0)}
               </p>
             </div>
@@ -320,13 +320,13 @@ export function PettyCashSection() {
                   ? 'bg-red-50 border-red-300'
                   : 'bg-orange-50 border-orange-300'
             }`}>
-              <p className="text-sm font-semibold text-[#5F6773] mb-2">
+              <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] mb-2">
                 {hasBothAmounts ? status.label : 'Diferencia'}
               </p>
               <p className={`text-4xl font-bold ${status.color}`}>
                 {hasBothAmounts ? formatCurrency(Math.abs(pettyCash.difference ?? 0)) : 'Pendiente'}
               </p>
-              <p className="text-xs text-[#5F6773] mt-2">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-2">
                 {!hasBothAmounts && 'Ingresa recibos y efectivo para calcularla'}
                 {hasBothAmounts && status.status === 'CORRECT' && '✓ La caja chica cuadra correctamente'}
                 {hasBothAmounts && status.status === 'SHORT' && '⚠️ Falta dinero para alcanzar el monto establecido'}
@@ -369,7 +369,7 @@ export function PettyCashSection() {
 
           {/* NOTES */}
           <div>
-            <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+            <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
               Notas / Comentarios (Opcional)
             </label>
             <textarea
@@ -377,10 +377,10 @@ export function PettyCashSection() {
               value={pettyCash.notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
               placeholder="Explica cualquier discrepancia, gastos importantes, o situaciones especiales..."
-              className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+              className="w-full px-4 py-2.5 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
               rows={3}
             />
-            <p className="text-xs text-[#5F6773] mt-1">
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
               Si la caja chica no cuadra, explica aquí la razón
             </p>
           </div>
@@ -403,8 +403,8 @@ export function PettyCashSection() {
       )}
 
       {/* SAVE BUTTON */}
-      <div className="flex flex-col items-stretch gap-3 border-t border-[#D4D2CF] pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-[#5F6773] sm:flex-1">
+      <div className="flex flex-col items-stretch gap-3 border-t border-[var(--ui-border-d4d2cf)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] sm:flex-1">
           {!complete && (
             <span className="text-orange-600">
               Pendiente: {[

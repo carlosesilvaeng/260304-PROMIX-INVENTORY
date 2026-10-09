@@ -23,8 +23,8 @@ export function TopBar({ onChangePlant }: TopBarProps) {
     if (!currentInventory) return null;
 
     const statusStyles = {
-      draft: { bg: 'bg-[#9D9B9A]', text: t('status.draft') },
-      'in-progress': { bg: 'bg-[#2475C7]', text: t('status.inProgress') },
+      draft: { bg: 'bg-[var(--ui-border-9d9b9a)]', text: t('status.draft') },
+      'in-progress': { bg: 'bg-[var(--ui-primary-2475c7)]', text: t('status.inProgress') },
       completed: { bg: 'bg-[#2ecc71]', text: t('status.completed') },
       approved: { bg: 'bg-[#2ecc71]', text: t('status.approved') },
     };
@@ -43,7 +43,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
   };
 
   return (
-    <div className="relative bg-white border-b border-[#9D9B9A] px-2 py-2 sm:px-6 sm:py-4">
+    <div className="relative bg-[var(--ui-surface)] border-b border-[var(--ui-border-9d9b9a)] px-2 py-2 sm:px-6 sm:py-4">
       <Button
         variant="destructive"
         size="sm"
@@ -62,28 +62,28 @@ export function TopBar({ onChangePlant }: TopBarProps) {
           {/* Plant info or Global access indicator */}
           {currentPlant ? (
             <div className="min-w-0">
-              <h2 className="truncate text-base font-bold text-[#3B3A36] sm:text-lg">{currentPlant.name}</h2>
-              <p className="hidden truncate text-sm text-[#5F6773] sm:block">{currentPlant.code} • {currentPlant.location}</p>
+              <h2 className="truncate text-base font-bold text-[color:var(--ui-text-3b3a36)] sm:text-lg">{currentPlant.name}</h2>
+              <p className="hidden truncate text-sm text-[color:var(--ui-text-muted-5f6773)] sm:block">{currentPlant.code} • {currentPlant.location}</p>
             </div>
           ) : (
             <div className="min-w-0">
-              <h2 className="truncate text-base font-bold text-[#3B3A36] sm:text-lg">PROMIX PLANT INVENTORY</h2>
-              <p className="hidden truncate text-sm font-medium text-[#2475C7] sm:block">🌐 Acceso Global - {getRoleLabel(user?.role || '')}</p>
+              <h2 className="truncate text-base font-bold text-[color:var(--ui-text-3b3a36)] sm:text-lg">PROMIX PLANT INVENTORY</h2>
+              <p className="hidden truncate text-sm font-medium text-[color:var(--ui-primary-2475c7)] sm:block">🌐 Acceso Global - {getRoleLabel(user?.role || '')}</p>
             </div>
           )}
           
           {shouldShowInventoryInfo && (
             <div className="hidden lg:flex lg:items-center lg:gap-6">
-              <div className="hidden h-10 w-px bg-[#9D9B9A] lg:block" />
+              <div className="hidden h-10 w-px bg-[var(--ui-border-9d9b9a)] lg:block" />
               <div>
-                <p className="text-sm text-[#5F6773]">{t('sidebar.inventory')}</p>
-                <p className="text-[#3B3A36] font-medium">
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{t('sidebar.inventory')}</p>
+                <p className="text-[color:var(--ui-text-3b3a36)] font-medium">
                   {currentInventory.month} {currentInventory.year}
                 </p>
               </div>
-              <div className="hidden h-10 w-px bg-[#9D9B9A] lg:block" />
+              <div className="hidden h-10 w-px bg-[var(--ui-border-9d9b9a)] lg:block" />
               <div className="flex items-center gap-2">
-                <span className="text-sm text-[#5F6773]">{t('settings.status')}:</span>
+                <span className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{t('settings.status')}:</span>
                 {getStatusBadge()}
               </div>
             </div>
@@ -99,13 +99,13 @@ export function TopBar({ onChangePlant }: TopBarProps) {
         {/* Right side - Language Selector & User Info */}
         <div className="flex items-center gap-2 sm:gap-4 lg:justify-end">
           {/* Language Selector */}
-          <div className="flex items-center gap-2 bg-[#F2F3F5] rounded-lg p-1">
+          <div className="flex items-center gap-2 bg-[var(--ui-background-f2f3f5)] rounded-lg p-1">
             <button
               onClick={() => setLanguage('es')}
               className={`min-h-11 min-w-11 px-2 py-1 rounded text-xs font-medium transition-all sm:px-3 sm:text-sm ${
                 language === 'es'
-                  ? 'bg-[#2475C7] text-white'
-                  : 'text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'bg-[var(--ui-primary-2475c7)] text-white'
+                  : 'text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               🇪🇸 ES
@@ -114,8 +114,8 @@ export function TopBar({ onChangePlant }: TopBarProps) {
               onClick={() => setLanguage('en')}
               className={`min-h-11 min-w-11 px-2 py-1 rounded text-xs font-medium transition-all sm:px-3 sm:text-sm ${
                 language === 'en'
-                  ? 'bg-[#2475C7] text-white'
-                  : 'text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'bg-[var(--ui-primary-2475c7)] text-white'
+                  : 'text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               🇺🇸 EN
@@ -123,12 +123,12 @@ export function TopBar({ onChangePlant }: TopBarProps) {
           </div>
 
           <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium text-[#3B3A36]">{user?.name}</p>
-            <p className="text-xs text-[#5F6773]">
+            <p className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{user?.name}</p>
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
               {user && getRoleLabel(user.role)}
             </p>
           </div>
-          <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#2475C7] text-white font-medium sm:flex">
+          <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-[var(--ui-primary-2475c7)] text-white font-medium sm:flex">
             {user?.name.charAt(0)}
           </div>
         </div>

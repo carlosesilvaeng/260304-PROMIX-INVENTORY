@@ -46,13 +46,13 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
       />
       
       {/* Modal */}
-      <div className={`relative bg-white rounded-lg shadow-xl w-full ${sizeStyles[size]} mx-4 max-h-[90vh] flex flex-col`}>
+      <div className={`relative bg-[var(--ui-surface)] rounded-lg shadow-xl w-full ${sizeStyles[size]} mx-4 max-h-[90vh] flex flex-col`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[#9D9B9A]">
-          <h2 className="text-xl text-[#3B3A36]">{title}</h2>
+        <div className="flex items-center justify-between p-6 border-b border-[var(--ui-border-9d9b9a)]">
+          <h2 className="text-xl text-[color:var(--ui-text-3b3a36)]">{title}</h2>
           <button
             onClick={onClose}
-            className="text-[#5F6773] hover:text-[#3B3A36] transition-colors"
+            className="text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)] transition-colors"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -67,7 +67,7 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
         
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-[#9D9B9A]">
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--ui-border-9d9b9a)]">
             {footer}
           </div>
         )}
@@ -120,7 +120,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <p className="text-[#3B3A36]">{message}</p>
+      <p className="text-[color:var(--ui-text-3b3a36)]">{message}</p>
     </Modal>
   );
 }

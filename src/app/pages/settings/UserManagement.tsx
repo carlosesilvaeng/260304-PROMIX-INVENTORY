@@ -536,11 +536,11 @@ export function UserManagement() {
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-[#3B3A36]">Gestión de Usuarios</h3>
-          <p className="text-sm text-[#5F6773] mt-1">
+          <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Gestión de Usuarios</h3>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
             Crear, editar y administrar usuarios operativos del sistema
           </p>
-          <p className="text-xs text-[#9D9B9A] mt-1">
+          <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mt-1">
             {currentUser?.role === 'operations_manager'
               ? 'Como Gerente de Operaciones, solo puedes gestionar usuarios con rol de Gerente de Planta.'
             : 'Solo el Super Administrador puede ver y crear usuarios con rol de Super Administrador.'}
@@ -577,20 +577,20 @@ export function UserManagement() {
       {/* Users Table */}
       {loading ? (
         <Card>
-          <div className="text-center py-8 text-[#5F6773]">
+          <div className="text-center py-8 text-[color:var(--ui-text-muted-5f6773)]">
             Cargando usuarios...
           </div>
         </Card>
       ) : users.length === 0 ? (
         <Card>
-          <div className="text-center py-8 text-[#5F6773]">
+          <div className="text-center py-8 text-[color:var(--ui-text-muted-5f6773)]">
             No hay usuarios registrados
           </div>
         </Card>
       ) : (() => {
         return users.length === 0 ? (
           <Card>
-            <div className="text-center py-8 text-[#5F6773]">
+            <div className="text-center py-8 text-[color:var(--ui-text-muted-5f6773)]">
               No hay usuarios registrados
             </div>
           </Card>
@@ -598,7 +598,7 @@ export function UserManagement() {
           <Card noPadding>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#3B3A36] text-white">
+                <thead className="bg-[var(--ui-text-3b3a36)] text-white">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Nombre</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">Correo electronico</th>
@@ -609,14 +609,14 @@ export function UserManagement() {
                     <th className="px-6 py-3 text-center text-sm font-semibold">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E4E4E4]">
+                <tbody className="divide-y divide-[var(--ui-border-e4e4e4)]">
                   {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-[#F2F3F5] transition-colors">
+                    <tr key={user.id} className="hover:bg-[var(--ui-background-f2f3f5)] transition-colors">
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-[#3B3A36]">{user.name}</div>
+                        <div className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">{user.name}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-[#5F6773]">{user.email}</div>
+                        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{user.email}</div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
@@ -624,9 +624,9 @@ export function UserManagement() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-[#5F6773]">
+                        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                           {user.assigned_plants.length === 0 ? (
-                            <span className="text-[#9D9B9A]">Ninguna</span>
+                            <span className="text-[color:var(--ui-border-9d9b9a)]">Ninguna</span>
                           ) : user.assigned_plants.length > 3 ? (
                             <span>{user.assigned_plants.length} plantas</span>
                           ) : (
@@ -659,7 +659,7 @@ export function UserManagement() {
                         </button>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="text-xs text-[#5F6773]">
+                        <div className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
                           {formatDate(user.last_login_at)}
                         </div>
                       </td>
@@ -667,14 +667,14 @@ export function UserManagement() {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleOpenEdit(user)}
-                            className="rounded border border-blue-200 bg-white p-2 text-blue-600 transition-colors hover:bg-blue-50"
+                            className="rounded border border-blue-200 bg-[var(--ui-surface)] p-2 text-blue-600 transition-colors hover:bg-blue-50"
                             title="Editar usuario"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleOpenResetPassword(user)}
-                            className="rounded border border-amber-200 bg-white p-2 text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="rounded border border-amber-200 bg-[var(--ui-surface)] p-2 text-amber-600 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
                             title={user.id === currentUser?.id ? 'Usa Cambiar Contraseña para tu propia cuenta' : 'Resetear contraseña'}
                             disabled={user.id === currentUser?.id}
                           >
@@ -682,7 +682,7 @@ export function UserManagement() {
                           </button>
                           <button
                             onClick={() => handleOpenDelete(user)}
-                            className="rounded border border-red-200 bg-white p-2 text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="rounded border border-red-200 bg-[var(--ui-surface)] p-2 text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                             title="Eliminar usuario"
                             disabled={user.id === currentUser?.id || !canDeleteUserAccounts}
                           >
@@ -702,12 +702,12 @@ export function UserManagement() {
       {/* Create User Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-center sticky top-0 bg-white">
-              <h3 className="text-lg font-semibold text-[#3B3A36]">Crear Nuevo Usuario</h3>
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] flex justify-between items-center sticky top-0 bg-[var(--ui-surface)]">
+              <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Crear Nuevo Usuario</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -761,12 +761,12 @@ export function UserManagement() {
 
               {createForm.role === 'plant_manager' && (
                 <div>
-                  <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
                     Plantas Asignadas
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {(allPlants || []).filter(p => p.isActive).map((plant) => (
-                      <label key={plant.id} className="flex items-center gap-2 p-2 border border-[#E4E4E4] rounded hover:bg-[#F2F3F5] cursor-pointer">
+                      <label key={plant.id} className="flex items-center gap-2 p-2 border border-[var(--ui-border-e4e4e4)] rounded hover:bg-[var(--ui-background-f2f3f5)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={createForm.assigned_plants.includes(plant.id)}
@@ -783,9 +783,9 @@ export function UserManagement() {
                               });
                             }
                           }}
-                          className="rounded border-[#9D9B9A]"
+                          className="rounded border-[var(--ui-border-9d9b9a)]"
                         />
-                        <span className="text-sm text-[#3B3A36]">{plant.name}</span>
+                        <span className="text-sm text-[color:var(--ui-text-3b3a36)]">{plant.name}</span>
                       </label>
                     ))}
                   </div>
@@ -813,12 +813,12 @@ export function UserManagement() {
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-center sticky top-0 bg-white">
-              <h3 className="text-lg font-semibold text-[#3B3A36]">Editar Usuario</h3>
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] flex justify-between items-center sticky top-0 bg-[var(--ui-surface)]">
+              <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Editar Usuario</h3>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -833,13 +833,13 @@ export function UserManagement() {
               />
 
               <div>
-                <label className="block text-sm font-medium text-[#3B3A36] mb-1">
+                <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-1">
                   Correo electronico
                 </label>
-                <div className="text-sm text-[#5F6773] bg-[#F2F3F5] p-3 rounded border border-[#E4E4E4]">
+                <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] bg-[var(--ui-background-f2f3f5)] p-3 rounded border border-[var(--ui-border-e4e4e4)]">
                   {selectedUser.email}
                 </div>
-                <p className="text-xs text-[#9D9B9A] mt-1">El correo electronico no se puede modificar</p>
+                <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mt-1">El correo electronico no se puede modificar</p>
               </div>
 
               <Select
@@ -862,12 +862,12 @@ export function UserManagement() {
 
               {editForm.role === 'plant_manager' && (
                 <div>
-                  <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+                  <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
                     Plantas Asignadas
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {(allPlants || []).filter(p => p.isActive).map((plant) => (
-                      <label key={plant.id} className="flex items-center gap-2 p-2 border border-[#E4E4E4] rounded hover:bg-[#F2F3F5] cursor-pointer">
+                      <label key={plant.id} className="flex items-center gap-2 p-2 border border-[var(--ui-border-e4e4e4)] rounded hover:bg-[var(--ui-background-f2f3f5)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={editForm.assigned_plants.includes(plant.id)}
@@ -884,9 +884,9 @@ export function UserManagement() {
                               });
                             }
                           }}
-                          className="rounded border-[#9D9B9A]"
+                          className="rounded border-[var(--ui-border-9d9b9a)]"
                         />
-                        <span className="text-sm text-[#3B3A36]">{plant.name}</span>
+                        <span className="text-sm text-[color:var(--ui-text-3b3a36)]">{plant.name}</span>
                       </label>
                     ))}
                   </div>
@@ -894,16 +894,16 @@ export function UserManagement() {
               )}
 
               <div>
-                <label className="flex items-center gap-2 p-3 border border-[#E4E4E4] rounded hover:bg-[#F2F3F5] cursor-pointer">
+                <label className="flex items-center gap-2 p-3 border border-[var(--ui-border-e4e4e4)] rounded hover:bg-[var(--ui-background-f2f3f5)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={editForm.is_active}
                     onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                    className="rounded border-[#9D9B9A]"
+                    className="rounded border-[var(--ui-border-9d9b9a)]"
                   />
-                  <span className="text-sm font-medium text-[#3B3A36]">Usuario Activo</span>
+                  <span className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">Usuario Activo</span>
                 </label>
-                <p className="text-xs text-[#9D9B9A] mt-1">
+                <p className="text-xs text-[color:var(--ui-border-9d9b9a)] mt-1">
                   Los usuarios inactivos no podrán iniciar sesión
                 </p>
               </div>
@@ -929,16 +929,16 @@ export function UserManagement() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && selectedUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-red-100 rounded-full">
                   <AlertCircle className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-[#3B3A36]">Eliminar Usuario</h3>
+                <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Eliminar Usuario</h3>
               </div>
 
-              <p className="text-sm text-[#5F6773] mb-4">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-4">
                 ¿Estás seguro que deseas eliminar al usuario <strong>{selectedUser.name}</strong>?
               </p>
               
@@ -973,17 +973,17 @@ export function UserManagement() {
       {/* Reset Password Modal */}
       {showResetPasswordModal && selectedUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-center">
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-semibold text-[#3B3A36]">Resetear Contraseña</h3>
-                <p className="text-sm text-[#5F6773] mt-1">
+                <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Resetear Contraseña</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
                   Define una contraseña temporal para <strong>{selectedUser.name}</strong>
                 </p>
               </div>
               <button
                 onClick={handleCloseResetPassword}
-                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
                 disabled={resetPasswordLoading}
               >
                 <X className="w-5 h-5" />

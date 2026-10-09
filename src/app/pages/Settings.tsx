@@ -1,3 +1,5 @@
+import { AppearancePanel } from './settings/AppearancePanel';
+import { canManageAppearance } from '../utils/permissions';
 import { AlertTriangle, FileImage, Maximize2, Trash2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useState, useEffect } from 'react';
@@ -49,7 +51,7 @@ const EMPTY_MODULE_COUNTS: PlantModuleCounts = {
 export function Settings() {
   const { user, allPlants, togglePlantStatus, updatePlant, createPlant, refreshPlants } = useAuth();
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'data-control' | 'account'>('plants');
+  const [activeTab, setActiveTab] = useState<'plants' | 'users' | 'audit' | 'modules' | 'catalogs' | 'units' | 'data-control' | 'account' | 'appearance'>('plants');
   const [editingAggregates, setEditingAggregates] = useState<Plant | null>(null);
   const [editingSilos, setEditingSilos] = useState<Plant | null>(null);
   const [editingAdditives, setEditingAdditives] = useState<Plant | null>(null);
@@ -72,6 +74,7 @@ export function Settings() {
   const [newPlantCode, setNewPlantCode] = useState('');
   const [newPlantLocation, setNewPlantLocation] = useState('');
   const [plantModuleCounts, setPlantModuleCounts] = useState<Record<string, PlantModuleCounts>>({});
+  const canEditAppearance = canManageAppearance(user?.role);
   const canManageUsers = canManagePlantManagers(user?.role);
   const canManagePlants = canManagePlantConfiguration(user?.role);
   const canViewAudit = canAccessAudit(user?.role);
@@ -85,6 +88,7 @@ export function Settings() {
 
     const allowedTabs = new Set<typeof activeTab>(['account']);
     if (canManageUsers) allowedTabs.add('users');
+    if (canEditAppearance) allowedTabs.add('appearance');
     if (canManagePlants) {
       allowedTabs.add('plants');
       allowedTabs.add('catalogs');
@@ -99,7 +103,7 @@ export function Settings() {
     } else if (!hasManagementTabs) {
       setActiveTab('account');
     }
-  }, [user, activeTab, canManageUsers, canManagePlants, canViewUnits, canViewAudit, canManageSystemModules, canAccessDataControl, hasManagementTabs]);
+  }, [user, activeTab, canEditAppearance, canManageUsers, canManagePlants, canViewUnits, canViewAudit, canManageSystemModules, canAccessDataControl, hasManagementTabs]);
 
   const handleSave = () => {
     setShowSaveSuccess(true);
@@ -176,7 +180,7 @@ export function Settings() {
         {hasWarning && <AlertTriangle size={12} className="text-[#C97A1E]" aria-hidden="true" />}
       </span>
       <span className="flex items-center justify-center gap-1 leading-none">
-        <span className={`text-lg font-semibold ${count > 0 ? 'text-[#C94A4A]' : 'text-[#9D9B9A]'}`}>
+        <span className={`text-lg font-semibold ${count > 0 ? 'text-[#C94A4A]' : 'text-[color:var(--ui-border-9d9b9a)]'}`}>
           {count}
         </span>
       </span>
@@ -351,8 +355,8 @@ export function Settings() {
       </div>
       
       <div>
-        <h2 className="text-2xl text-[#3B3A36]">Configuración</h2>
-        <p className="text-[#5F6773]">Gestión de plantas, usuarios y auditoría</p>
+        <h2 className="text-2xl text-[color:var(--ui-text-3b3a36)]">Configuración</h2>
+        <p className="text-[color:var(--ui-text-muted-5f6773)]">Gestión de plantas, usuarios y auditoría</p>
       </div>
 
       {showSaveSuccess && (
@@ -364,7 +368,7 @@ export function Settings() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-[#9D9B9A]">
+      <div className="border-b border-[var(--ui-border-9d9b9a)]">
         <div className="flex gap-4 overflow-x-auto">
           {canManagePlants && (
             <>
@@ -372,8 +376,8 @@ export function Settings() {
                 onClick={() => setActiveTab('plants')}
                 className={`px-4 py-2 border-b-2 transition-colors ${
                   activeTab === 'plants'
-                    ? 'border-[#2475C7] text-[#2475C7]'
-                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                    ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                    : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
                 }`}
               >
                 Plantas
@@ -382,8 +386,8 @@ export function Settings() {
                 onClick={() => setActiveTab('catalogs')}
                 className={`px-4 py-2 border-b-2 transition-colors ${
                   activeTab === 'catalogs'
-                    ? 'border-[#2475C7] text-[#2475C7]'
-                    : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                    ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                    : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
                 }`}
               >
                 Catálogos
@@ -395,8 +399,8 @@ export function Settings() {
               onClick={() => setActiveTab('units')}
               className={`px-4 py-2 border-b-2 transition-colors ${
                 activeTab === 'units'
-                  ? 'border-[#2475C7] text-[#2475C7]'
-                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                  : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               Unidades
@@ -407,8 +411,8 @@ export function Settings() {
               onClick={() => setActiveTab('users')}
               className={`px-4 py-2 border-b-2 transition-colors ${
                 activeTab === 'users'
-                  ? 'border-[#2475C7] text-[#2475C7]'
-                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                  : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               Usuarios
@@ -419,8 +423,8 @@ export function Settings() {
               onClick={() => setActiveTab('audit')}
               className={`px-4 py-2 border-b-2 transition-colors ${
                 activeTab === 'audit'
-                  ? 'border-[#2475C7] text-[#2475C7]'
-                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                  : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               Auditoría
@@ -431,8 +435,8 @@ export function Settings() {
               onClick={() => setActiveTab('modules')}
               className={`px-4 py-2 border-b-2 transition-colors ${
                 activeTab === 'modules'
-                  ? 'border-[#2475C7] text-[#2475C7]'
-                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                  : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               Módulos
@@ -443,11 +447,16 @@ export function Settings() {
               onClick={() => setActiveTab('data-control')}
               className={`px-4 py-2 border-b-2 transition-colors ${
                 activeTab === 'data-control'
-                  ? 'border-[#2475C7] text-[#2475C7]'
-                  : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                  ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                  : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
               }`}
             >
               Control de Datos
+            </button>
+          )}
+          {canEditAppearance && (
+            <button onClick={() => setActiveTab('appearance')} className={`px-4 py-2 border-b-2 transition-colors ${activeTab === 'appearance' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+              Apariencia
             </button>
           )}
           {/* Todos los usuarios pueden ver Mi Cuenta y cambiar contraseña */}
@@ -455,8 +464,8 @@ export function Settings() {
             onClick={() => setActiveTab('account')}
             className={`px-4 py-2 border-b-2 transition-colors ${
               activeTab === 'account'
-                ? 'border-[#2475C7] text-[#2475C7]'
-                : 'border-transparent text-[#5F6773] hover:text-[#3B3A36]'
+                ? 'border-[var(--ui-primary-2475c7)] text-[color:var(--ui-primary-2475c7)]'
+                : 'border-transparent text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
             }`}
           >
             Mi Cuenta
@@ -471,11 +480,13 @@ export function Settings() {
         />
       )}
 
+      {canEditAppearance && activeTab === 'appearance' && <AppearancePanel />}
+
       {/* Plants Tab */}
       {canManagePlants && activeTab === 'plants' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
-            <h3 className="text-lg text-[#3B3A36]">Gestión de Plantas</h3>
+            <h3 className="text-lg text-[color:var(--ui-text-3b3a36)]">Gestión de Plantas</h3>
             <div className="flex items-center gap-3">
 
               {(user?.role === 'super_admin' || user?.role === 'admin') && (
@@ -490,7 +501,7 @@ export function Settings() {
           <Card noPadding>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px]">
-                <thead className="bg-[#3B3A36] text-white">
+                <thead className="bg-[var(--ui-text-3b3a36)] text-white">
                   <tr>
                     <th className="px-6 py-3 text-left">Nombre</th>
                     <th className="px-6 py-3 text-left">Código</th>
@@ -503,9 +514,9 @@ export function Settings() {
                     const counts = getCountsForPlant(plant);
 
                     return (
-                      <tr key={plant.id} className="border-b border-[#9D9B9A]">
-                        <td className="px-6 py-4 text-[#3B3A36] font-medium">{plant.name}</td>
-                        <td className="px-6 py-4 text-[#5F6773]">{plant.code}</td>
+                      <tr key={plant.id} className="border-b border-[var(--ui-border-9d9b9a)]">
+                        <td className="px-6 py-4 text-[color:var(--ui-text-3b3a36)] font-medium">{plant.name}</td>
+                        <td className="px-6 py-4 text-[color:var(--ui-text-muted-5f6773)]">{plant.code}</td>
                         <td className="px-6 py-4 text-center">
                           <button
                             onClick={() => handleTogglePlantStatus(plant)}
@@ -574,7 +585,7 @@ export function Settings() {
                             >
                               <FileImage size={22} aria-hidden="true" />
                               <span className="text-xs font-medium">Layout</span>
-                              <span className={`text-xs font-semibold ${plant.layoutImageUrl ? 'text-[#2E7D4F]' : 'text-[#9D9B9A]'}`}>
+                              <span className={`text-xs font-semibold ${plant.layoutImageUrl ? 'text-[#2E7D4F]' : 'text-[color:var(--ui-border-9d9b9a)]'}`}>
                                 {plant.layoutImageUrl ? 'Cargado' : 'Sin JPG'}
                               </span>
                             </Button>
@@ -596,8 +607,8 @@ export function Settings() {
             </div>
           </Card>
 
-          <div className="mt-4 p-4 bg-[#F2F3F5] rounded border border-[#9D9B9A]">
-            <p className="text-sm text-[#5F6773]">
+          <div className="mt-4 p-4 bg-[var(--ui-background-f2f3f5)] rounded border border-[var(--ui-border-9d9b9a)]">
+            <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
               <strong>Nota:</strong> Las plantas inactivas no aparecerán en la selección de plantas para los usuarios.
               {user?.role === 'super_admin' && ' Como Super Administrador, puedes crear nuevas plantas y administrar sus configuraciones.'}
             </p>
@@ -630,10 +641,10 @@ export function Settings() {
       {activeTab === 'account' && (
         <div className="space-y-4">
           <Card>
-            <h3 className="text-lg text-[#3B3A36] mb-4">Configuración de Cuenta</h3>
+            <h3 className="text-lg text-[color:var(--ui-text-3b3a36)] mb-4">Configuración de Cuenta</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-[#5F6773]">Cambiar Contraseña</p>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Cambiar Contraseña</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -726,20 +737,20 @@ export function Settings() {
 
       {editingPettyCash && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-start gap-4">
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-lg w-full">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] flex justify-between items-start gap-4">
               <div>
-                <h3 className="text-xl font-bold text-[#3B3A36]">Configurar Petty Cash</h3>
-                <p className="text-sm text-[#5F6773] mt-1">{editingPettyCash.name}</p>
+                <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Configurar Petty Cash</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">{editingPettyCash.name}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingPettyCash(null)}
-                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
                 aria-label="Cerrar"
                 disabled={pettyCashSaving}
               >
-                <span className="text-2xl text-[#5F6773]">×</span>
+                <span className="text-2xl text-[color:var(--ui-text-muted-5f6773)]">×</span>
               </button>
             </div>
 
@@ -753,11 +764,11 @@ export function Settings() {
               )}
 
               <div>
-                <label htmlFor="petty-cash-amount" className="block text-sm font-semibold text-[#3B3A36] mb-2">
+                <label htmlFor="petty-cash-amount" className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-2">
                   Fondo establecido (USD)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5F6773]">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--ui-text-muted-5f6773)]">$</span>
                   <input
                     id="petty-cash-amount"
                     type="number"
@@ -766,18 +777,18 @@ export function Settings() {
                     inputMode="decimal"
                     value={pettyCashAmount}
                     onChange={(event) => setPettyCashAmount(event.target.value)}
-                    className="w-full rounded border border-[#9D9B9A] py-2.5 pl-8 pr-3 text-lg text-[#3B3A36] focus:border-[#2475C7] focus:outline-none focus:ring-2 focus:ring-[#2475C7]/20"
+                    className="w-full rounded border border-[var(--ui-border-9d9b9a)] py-2.5 pl-8 pr-3 text-lg text-[color:var(--ui-text-3b3a36)] focus:border-[var(--ui-primary-2475c7)] focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]/20"
                     disabled={pettyCashSaving}
                   />
                 </div>
               </div>
 
-              <div className="rounded border border-[#B8D6F2] bg-[#EEF6FD] p-4 text-sm text-[#3B3A36]">
+              <div className="rounded border border-[var(--ui-primary-soft-border-b8d6f2)] bg-[var(--ui-primary-soft-eef6fd)] p-4 text-sm text-[color:var(--ui-text-3b3a36)]">
                 El monto nuevo aplicará a inventarios en progreso y a los futuros. Los inventarios enviados o aprobados conservarán su valor histórico.
               </div>
             </div>
 
-            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex justify-end gap-3">
+            <div className="p-6 border-t border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f2f3f5)] flex justify-end gap-3">
               <Button
                 variant="outline"
                 onClick={() => setEditingPettyCash(null)}
@@ -795,18 +806,18 @@ export function Settings() {
 
       {editingLayout && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[92vh] overflow-y-auto">
-            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-start gap-4 sticky top-0 bg-white">
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-4xl w-full max-h-[92vh] overflow-y-auto">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] flex justify-between items-start gap-4 sticky top-0 bg-[var(--ui-surface)]">
               <div>
-                <h3 className="text-xl font-bold text-[#3B3A36]">Layout de planta</h3>
-                <p className="text-sm text-[#5F6773] mt-1">{editingLayout.name} • Solo imágenes JPG</p>
+                <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Layout de planta</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">{editingLayout.name} • Solo imágenes JPG</p>
               </div>
               <button
                 onClick={() => setEditingLayout(null)}
-                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
                 aria-label="Cerrar"
               >
-                <span className="text-2xl text-[#5F6773]">×</span>
+                <span className="text-2xl text-[color:var(--ui-text-muted-5f6773)]">×</span>
               </button>
             </div>
 
@@ -821,7 +832,7 @@ export function Settings() {
               )}
 
               <div className="flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center justify-center gap-2 rounded border border-[#9D9B9A] bg-[#F2F3F5] px-4 py-2 text-[#3B3A36] font-medium hover:bg-[#E4E4E4] transition-colors cursor-pointer">
+                <label className="inline-flex items-center justify-center gap-2 rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-background-f2f3f5)] px-4 py-2 text-[color:var(--ui-text-3b3a36)] font-medium hover:bg-[var(--ui-border-e4e4e4)] transition-colors cursor-pointer">
                   <FileImage size={18} aria-hidden="true" />
                   <span>{layoutUploading ? 'Cargando...' : layoutPreviewUrl ? 'Cambiar JPG' : 'Cargar JPG'}</span>
                   <input
@@ -848,7 +859,7 @@ export function Settings() {
                 )}
               </div>
 
-              <div className="relative border border-[#E4E4E4] rounded-lg bg-[#F7F8FA] min-h-[280px] flex items-center justify-center overflow-hidden">
+              <div className="relative border border-[var(--ui-border-e4e4e4)] rounded-lg bg-[#F7F8FA] min-h-[280px] flex items-center justify-center overflow-hidden">
                 {layoutPreviewUrl ? (
                   <>
                     <img
@@ -859,7 +870,7 @@ export function Settings() {
                     <button
                       type="button"
                       onClick={() => setLayoutExpanded(true)}
-                      className="absolute bottom-3 right-3 rounded-full bg-[#2475C7] p-2 text-white shadow hover:bg-[#1d5fa1] transition-colors"
+                      className="absolute bottom-3 right-3 rounded-full bg-[var(--ui-primary-2475c7)] p-2 text-white shadow hover:bg-[var(--ui-primary-hover-1d5fa1)] transition-colors"
                       title="Ampliar layout"
                       aria-label="Ampliar layout"
                     >
@@ -868,15 +879,15 @@ export function Settings() {
                   </>
                 ) : (
                   <div className="text-center p-8">
-                    <FileImage size={46} className="mx-auto text-[#9D9B9A] mb-3" aria-hidden="true" />
-                    <p className="text-[#3B3A36] font-medium">No hay layout cargado</p>
-                    <p className="text-sm text-[#5F6773] mt-1">Carga un JPG para que aparezca en Inicio.</p>
+                    <FileImage size={46} className="mx-auto text-[color:var(--ui-border-9d9b9a)] mb-3" aria-hidden="true" />
+                    <p className="text-[color:var(--ui-text-3b3a36)] font-medium">No hay layout cargado</p>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">Carga un JPG para que aparezca en Inicio.</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5]">
+            <div className="p-6 border-t border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f2f3f5)]">
               <Button
                 variant="dangerOutline"
                 onClick={() => setEditingLayout(null)}
@@ -898,7 +909,7 @@ export function Settings() {
                   <img
                     src={layoutPreviewUrl}
                     alt={`Layout ampliado de ${editingLayout.name}`}
-                    className="max-h-[92vh] max-w-full rounded bg-white object-contain"
+                    className="max-h-[92vh] max-w-full rounded bg-[var(--ui-surface)] object-contain"
                   />
                   <button
                     type="button"
@@ -921,18 +932,18 @@ export function Settings() {
       {/* Plant Details Modal */}
       {viewingPlantDetails && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="p-6 border-b border-[#E4E4E4] flex justify-between items-center sticky top-0 bg-white">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)] flex justify-between items-center sticky top-0 bg-[var(--ui-surface)]">
               <div>
-                <h3 className="text-xl font-bold text-[#3B3A36]">{viewingPlantDetails.name}</h3>
-                <p className="text-sm text-[#5F6773]">{viewingPlantDetails.code} • {viewingPlantDetails.location}</p>
+                <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">{viewingPlantDetails.name}</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{viewingPlantDetails.code} • {viewingPlantDetails.location}</p>
               </div>
               <button
                 onClick={() => setViewingPlantDetails(null)}
-                className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+                className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
               >
-                <span className="text-2xl text-[#5F6773]">×</span>
+                <span className="text-2xl text-[color:var(--ui-text-muted-5f6773)]">×</span>
               </button>
             </div>
 
@@ -940,7 +951,7 @@ export function Settings() {
             <div className="p-6 space-y-6">
               {/* Estado */}
               <div>
-                <h4 className="text-sm font-semibold text-[#3B3A36] mb-2">Estado</h4>
+                <h4 className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-2">Estado</h4>
                 <span className={`inline-block px-3 py-1 rounded text-sm font-medium ${
                   viewingPlantDetails.isActive
                     ? 'bg-[#2ecc71]/10 text-[#2ecc71]'
@@ -953,8 +964,8 @@ export function Settings() {
               {/* Petty Cash */}
               {viewingPlantDetails.pettyCashEstablished >= 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-[#3B3A36] mb-2">Petty Cash</h4>
-                  <p className="text-[#5F6773]">
+                  <h4 className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-2">Petty Cash</h4>
+                  <p className="text-[color:var(--ui-text-muted-5f6773)]">
                     ${viewingPlantDetails.pettyCashEstablished.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
@@ -962,14 +973,14 @@ export function Settings() {
 
               {/* Silos */}
               <div>
-                <h4 className="text-sm font-semibold text-[#3B3A36] mb-3">
+                <h4 className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-3">
                   Silos ({viewingPlantDetails.silos.length})
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {viewingPlantDetails.silos.map((silo) => (
-                    <div key={silo.id} className="p-3 border border-[#E4E4E4] rounded-lg bg-[#F2F3F5]">
-                      <div className="font-medium text-[#3B3A36]">{silo.name}</div>
-                      <div className="text-sm text-[#5F6773] mt-1">
+                    <div key={silo.id} className="p-3 border border-[var(--ui-border-e4e4e4)] rounded-lg bg-[var(--ui-background-f2f3f5)]">
+                      <div className="font-medium text-[color:var(--ui-text-3b3a36)]">{silo.name}</div>
+                      <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
                         Capacidad: {silo.capacity ? silo.capacity.toLocaleString() : 'N/A'} {silo.unit || ''}
                       </div>
                     </div>
@@ -979,13 +990,13 @@ export function Settings() {
 
               {/* Ubicación completa */}
               <div>
-                <h4 className="text-sm font-semibold text-[#3B3A36] mb-2">Ubicación</h4>
-                <p className="text-[#5F6773]">{viewingPlantDetails.location}</p>
+                <h4 className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-2">Ubicación</h4>
+                <p className="text-[color:var(--ui-text-muted-5f6773)]">{viewingPlantDetails.location}</p>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5]">
+            <div className="p-6 border-t border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f2f3f5)]">
               <Button
                 variant="dangerOutline"
                 onClick={() => setViewingPlantDetails(null)}
@@ -1012,43 +1023,43 @@ export function Settings() {
       {/* Create Plant Modal */}
       {showCreatePlantModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-[#E4E4E4]">
-              <h3 className="text-xl font-bold text-[#3B3A36]">Agregar Planta</h3>
-              <p className="text-sm text-[#5F6773] mt-1">Completa los datos para crear una nueva planta</p>
+          <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-[var(--ui-border-e4e4e4)]">
+              <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Agregar Planta</h3>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">Completa los datos para crear una nueva planta</p>
             </div>
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm text-[#3B3A36] mb-1">Nombre</label>
+                <label className="block text-sm text-[color:var(--ui-text-3b3a36)] mb-1">Nombre</label>
                 <input
                   value={newPlantName}
                   onChange={(e) => setNewPlantName(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]/30"
+                  className="w-full px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]/30"
                   placeholder="Ej: Bayamón"
                 />
               </div>
               <div>
-                <label className="block text-sm text-[#3B3A36] mb-1">Código</label>
+                <label className="block text-sm text-[color:var(--ui-text-3b3a36)] mb-1">Código</label>
                 <input
                   value={newPlantCode}
                   onChange={(e) => setNewPlantCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]/30"
+                  className="w-full px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]/30"
                   placeholder="Ej: BAYAMON"
                 />
               </div>
               <div>
-                <label className="block text-sm text-[#3B3A36] mb-1">Ubicación</label>
+                <label className="block text-sm text-[color:var(--ui-text-3b3a36)] mb-1">Ubicación</label>
                 <input
                   value={newPlantLocation}
                   onChange={(e) => setNewPlantLocation(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#C5C6C7] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]/30"
+                  className="w-full px-3 py-2 border border-[var(--ui-border-c5c6c7)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]/30"
                   placeholder="Ej: Puerto Rico"
                 />
               </div>
             </div>
 
-            <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex gap-3">
+            <div className="p-6 border-t border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f2f3f5)] flex gap-3">
               <Button
                 variant="dangerOutline"
                 className="flex-1"
@@ -1070,7 +1081,7 @@ export function Settings() {
       )}
       
       {/* Build Version Footer */}
-      <div className="mt-6 text-center text-xs text-[#6F767E]">
+      <div className="mt-6 text-center text-xs text-[color:var(--ui-text-muted-6f767e)]">
         Version de build: {BUILD_VERSION}
       </div>
     </div>

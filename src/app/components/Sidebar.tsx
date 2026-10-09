@@ -35,11 +35,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   }
 
   return (
-    <div className="w-64 bg-[#3B3A36] min-h-screen text-white flex flex-col">
+    <div className="w-64 bg-[var(--nav-background)] min-h-screen text-[color:var(--nav-foreground)] flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-[#5F6773]">
-        <h1 className="text-2xl font-bold text-[#2475C7]">PROMIX</h1>
-        <p className="text-sm text-white/70 mt-1">Plant Inventory</p>
+      <div className="p-6 border-b border-[var(--nav-border)]">
+        <h1 className="text-2xl font-bold text-[color:var(--ui-primary-2475c7)]">PROMIX</h1>
+        <p className="text-sm text-[color:var(--nav-foreground)]/70 mt-1">Plant Inventory</p>
       </div>
 
       {/* Navigation */}
@@ -52,8 +52,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 className={`
                   w-full flex items-center gap-3 px-4 py-3 rounded transition-all
                   ${currentView === item.id 
-                    ? 'bg-[#2475C7] text-white' 
-                    : 'text-white/80 hover:bg-[#5F6773] hover:text-white'
+                    ? 'bg-[var(--ui-primary-2475c7)] text-white'
+                    : 'text-[color:var(--nav-foreground)]/80 hover:bg-[var(--nav-hover)] hover:text-[color:var(--nav-foreground)]'
                   }
                 `}
               >
@@ -65,8 +65,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </ul>
 
         {toolsMenuItems.length > 0 && (
-          <div className="mt-6 border-t border-[#5F6773] pt-4">
-            <p className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+          <div className="mt-6 border-t border-[var(--nav-border)] pt-4">
+            <p className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--nav-foreground)]/50">
               {t('sidebar.tools')}
             </p>
             <ul className="space-y-2">
@@ -77,8 +77,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                     className={`
                       w-full flex items-center gap-3 px-4 py-3 rounded transition-all
                       ${currentView === item.id
-                        ? 'bg-[#2475C7] text-white'
-                        : 'text-white/80 hover:bg-[#5F6773] hover:text-white'
+                        ? 'bg-[var(--ui-primary-2475c7)] text-white'
+                        : 'text-[color:var(--nav-foreground)]/80 hover:bg-[var(--nav-hover)] hover:text-[color:var(--nav-foreground)]'
                       }
                     `}
                   >
@@ -93,8 +93,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-[#5F6773]">
-        <p className="text-xs text-white/50 text-center">
+      <div className="p-4 border-t border-[var(--nav-border)]">
+        <p className="text-xs text-[color:var(--nav-foreground)]/50 text-center">
           © 2026 PROMIX
         </p>
       </div>

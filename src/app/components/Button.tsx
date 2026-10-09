@@ -22,12 +22,12 @@ export function Button({
   const baseStyles = 'inline-flex min-h-11 items-center justify-center gap-2 rounded transition-all duration-200 font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variantStyles = {
-    primary: 'bg-[#2475C7] text-white hover:bg-[#1a5a9f] active:bg-[#134578]',
-    secondary: 'bg-[#F2F3F5] text-[#3B3A36] hover:bg-[#9D9B9A] border border-[#9D9B9A]',
-    outline: 'bg-white text-[#3B3A36] border border-[#9D9B9A] hover:bg-[#F2F3F5] active:bg-[#E6E8EB]',
-    ghost: 'bg-transparent text-[#3B3A36] hover:bg-[#F2F3F5]',
+    primary: 'bg-[var(--ui-primary-2475c7)] text-white hover:bg-[var(--ui-primary-hover-1a5a9f)] active:bg-[var(--ui-primary-active-134578)]',
+    secondary: 'bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-text-3b3a36)] hover:bg-[var(--ui-border-9d9b9a)] border border-[var(--ui-border-9d9b9a)]',
+    outline: 'bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)] border border-[var(--ui-border-9d9b9a)] hover:bg-[var(--ui-background-f2f3f5)] active:bg-[var(--ui-hover-e6e8eb)]',
+    ghost: 'bg-transparent text-[color:var(--ui-text-3b3a36)] hover:bg-[var(--ui-background-f2f3f5)]',
     success: 'bg-[#1D8F4E] text-white hover:bg-[#176F3E] active:bg-[#115A31]',
-    dangerOutline: 'bg-white text-[#C94A4A] border border-[#C94A4A] hover:bg-[#FBEAEA] active:bg-[#F4D7D7]',
+    dangerOutline: 'bg-[var(--ui-surface)] text-[#C94A4A] border border-[#C94A4A] hover:bg-[#FBEAEA] active:bg-[#F4D7D7]',
     destructive: 'bg-[#C94A4A] text-white hover:bg-[#a03838]'
   };
   

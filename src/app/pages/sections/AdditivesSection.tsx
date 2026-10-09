@@ -221,25 +221,25 @@ function TankLevelIndicator({
   const fillColor = hasMeasurement ? getTankLevelColor(safePercentage) : '#9D9B9A';
 
   return (
-    <div className="h-full min-h-[192px] rounded border border-[#9D9B9A] bg-white p-4">
+    <div className="h-full min-h-[192px] rounded border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] p-4">
       <div className="flex h-full items-center gap-4">
-        <div className="relative h-44 w-24 shrink-0 overflow-hidden rounded-md border-2 border-[#3B3A36] bg-[#F2F3F5]">
+        <div className="relative h-44 w-24 shrink-0 overflow-hidden rounded-md border-2 border-[var(--ui-text-3b3a36)] bg-[var(--ui-background-f2f3f5)]">
           <div
             className="absolute bottom-0 left-0 right-0 transition-all"
             style={{ height: `${safePercentage}%`, backgroundColor: fillColor }}
           />
-          <div className="absolute left-0 right-0 top-1/4 border-t border-[#9D9B9A]" />
-          <div className="absolute left-0 right-0 top-1/2 border-t border-[#9D9B9A]" />
-          <div className="absolute left-0 right-0 top-3/4 border-t border-[#9D9B9A]" />
+          <div className="absolute left-0 right-0 top-1/4 border-t border-[var(--ui-border-9d9b9a)]" />
+          <div className="absolute left-0 right-0 top-1/2 border-t border-[var(--ui-border-9d9b9a)]" />
+          <div className="absolute left-0 right-0 top-3/4 border-t border-[var(--ui-border-9d9b9a)]" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#3B3A36]">Nivel del tanque</p>
+          <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">Nivel del tanque</p>
           {capacityLabel && (
-            <p className="mt-1 text-sm text-[#5F6773]">
-              <span className="font-semibold text-[#3B3A36]">Capacidad nominal:</span> {capacityLabel}
+            <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">
+              <span className="font-semibold text-[color:var(--ui-text-3b3a36)]">Capacidad nominal:</span> {capacityLabel}
             </p>
           )}
-          <p className="mt-1 text-2xl font-bold text-[#3B3A36]">
+          <p className="mt-1 text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">
             {hasMeasurement ? `${formatNumber(safePercentage)}%` : 'Pendiente'}
           </p>
           <p className="mt-2 truncate text-sm font-semibold" style={{ color: fillColor }}>
@@ -360,8 +360,8 @@ export function AdditivesSection() {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de aditivos...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de aditivos...</p>
             </div>
           </div>
         </Card>
@@ -384,7 +384,7 @@ export function AdditivesSection() {
                 <p className="text-red-800 mb-4">
                   {prefillData.error}
                 </p>
-                <div className="bg-white rounded p-4 mb-4 text-sm text-[#3B3A36]">
+                <div className="bg-[var(--ui-surface)] rounded p-4 mb-4 text-sm text-[color:var(--ui-text-3b3a36)]">
                   <p className="font-semibold mb-2">Posibles soluciones:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Verifica que la base de datos esté configurada (Herramientas → Base de Datos)</li>
@@ -562,10 +562,10 @@ export function AdditivesSection() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Aditivos</h2>
-          <p className="text-[#5F6773]">Control de Tanques y Productos Manuales</p>
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Aditivos</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">Control de Tanques y Productos Manuales</p>
         </div>
-        <div className="text-sm text-[#5F6773]">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
@@ -574,13 +574,13 @@ export function AdditivesSection() {
       <UnitFlowSummary effectiveConfig={additiveUnits} />
 
       {/* TABS */}
-      <div className="flex gap-2 border-b border-[#D4D2CF]">
+      <div className="flex gap-2 border-b border-[var(--ui-border-d4d2cf)]">
         <button
           onClick={() => setActiveTab('tanks')}
           className={`px-6 py-3 font-semibold transition-colors ${
             visibleTab === 'tanks'
-              ? 'text-[#2475C7] border-b-2 border-[#2475C7]'
-              : 'text-[#5F6773] hover:text-[#3B3A36]'
+              ? 'text-[color:var(--ui-primary-2475c7)] border-b-2 border-[var(--ui-primary-2475c7)]'
+              : 'text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
           }`}
         >
           🛢️ Tanques ({tankEntries.length})
@@ -589,8 +589,8 @@ export function AdditivesSection() {
           onClick={() => setActiveTab('manual')}
           className={`px-6 py-3 font-semibold transition-colors ${
             visibleTab === 'manual'
-              ? 'text-[#2475C7] border-b-2 border-[#2475C7]'
-              : 'text-[#5F6773] hover:text-[#3B3A36]'
+              ? 'text-[color:var(--ui-primary-2475c7)] border-b-2 border-[var(--ui-primary-2475c7)]'
+              : 'text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]'
           }`}
         >
           📦 Manuales ({manualEntries.length})
@@ -602,8 +602,8 @@ export function AdditivesSection() {
         <div className="space-y-4">
           {tankEntries.length === 0 ? (
             <Card className="text-center py-12">
-              <p className="text-[#5F6773] mb-2">No hay tanques configurados para esta planta</p>
-              <p className="text-sm text-[#5F6773]">
+              <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay tanques configurados para esta planta</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 Contacta al administrador para configurar tanques
               </p>
             </Card>
@@ -624,20 +624,20 @@ export function AdditivesSection() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-bold text-[#3B3A36]">
+                        <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
                           {entry.tank_name || entry.product_name}
                         </h3>
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#2475C7]/10 text-[#2475C7]">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--ui-primary-2475c7)]/10 text-[color:var(--ui-primary-2475c7)]">
                           {methodLabel}
                         </span>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm text-[#5F6773]">
+                        <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                           <span className="font-semibold">Producto:</span> {entry.product_name}
                         </p>
-                        {entry.tank_name && <p className="text-sm text-[#5F6773]">{entry.product_name}</p>}
+                        {entry.tank_name && <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{entry.product_name}</p>}
                       {entry.brand && (
-                          <p className="text-sm text-[#5F6773]">
+                          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                             <span className="font-semibold">Marca:</span> {entry.brand}
                           </p>
                         )}
@@ -653,8 +653,8 @@ export function AdditivesSection() {
                   </div>
 
                   {!isCurve && (
-                    <div className="rounded border border-[#D7D9DE] bg-[#F9FAFB] px-4 py-3 text-sm text-[#5F6773]">
-                      <span className="font-semibold text-[#3B3A36]">Dimensiones configuradas: </span>
+                    <div className="rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-background-f9fafb)] px-4 py-3 text-sm text-[color:var(--ui-text-muted-5f6773)]">
+                      <span className="font-semibold text-[color:var(--ui-text-3b3a36)]">Dimensiones configuradas: </span>
                       {method === 'CYLINDER_VERTICAL'
                         ? `diámetro ${entry.diameter}`
                         : `largo ${entry.length} × ancho ${entry.width}`}
@@ -675,61 +675,61 @@ export function AdditivesSection() {
                       helpText={isCurve ? 'Ingresa la lectura del medidor del tanque' : `Altura máxima: ${entry.total_height} ${effectiveUnits.captureLabel}`}
                     />
                     <div>
-                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                      <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                         Volumen disponible ({effectiveUnits.displayLabel || entry.uom})
                       </label>
-                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                        <span className="text-[#2475C7] font-bold text-lg">
+                      <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[color:var(--ui-primary-2475c7)] font-bold text-lg">
                           {formatMetricValue(tankMetrics.availableVolume, '0.00')}
                         </span>
-                        <span className="text-[#5F6773] ml-2 text-sm">{effectiveUnits.displayLabel || entry.uom}</span>
+                        <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">{effectiveUnits.displayLabel || entry.uom}</span>
                       </div>
-                      <p className="text-xs text-[#5F6773] mt-1">
+                      <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                         {isCurve ? 'Inventario tomado según curva de conversión' : 'Cálculo geométrico limitado a la capacidad nominal'}
                       </p>
                     </div>
                     {isCurve && <div>
-                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                      <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                         Volumen consumido ({additiveUnits.displayLabel || entry.uom})
                       </label>
-                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                        <span className="text-[#3B3A36] font-bold text-lg">
+                      <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[color:var(--ui-text-3b3a36)] font-bold text-lg">
                           {formatMetricValue(tankMetrics.consumedVolume)}
                         </span>
                         {tankMetrics.consumedVolume !== null && tankMetrics.consumedVolume !== undefined && (
-                          <span className="text-[#5F6773] ml-2 text-sm">{effectiveUnits.displayLabel || entry.uom}</span>
+                          <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">{effectiveUnits.displayLabel || entry.uom}</span>
                         )}
                       </div>
-                      <p className="text-xs text-[#5F6773] mt-1">
+                      <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                         Según curva de calibración
                       </p>
                     </div>}
                     <div>
-                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                      <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                         Porcentaje de volumen
                       </label>
-                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                        <span className="text-[#3B3A36] font-bold text-lg">
+                      <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[color:var(--ui-text-3b3a36)] font-bold text-lg">
                           {formatMetricValue(tankMetrics.volumePercentage)}
                         </span>
                         {tankMetrics.volumePercentage !== null && tankMetrics.volumePercentage !== undefined && (
-                          <span className="text-[#5F6773] ml-2 text-sm">%</span>
+                          <span className="text-[color:var(--ui-text-muted-5f6773)] ml-2 text-sm">%</span>
                         )}
                       </div>
-                      <p className="text-xs text-[#5F6773] mt-1">
+                      <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                         {isCurve ? 'Según curva de calibración' : `Capacidad nominal: ${entry.capacity} ${entry.capacity_unit_id || ''}`}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                      <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                         Estado
                       </label>
-                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                        <span className="text-[#3B3A36] font-bold truncate">
+                      <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[color:var(--ui-text-3b3a36)] font-bold truncate">
                           {tankMetrics.status || '-'}
                         </span>
                       </div>
-                      <p className="text-xs text-[#5F6773] mt-1">
+                      <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                         Según lectura del tanque
                       </p>
                     </div>
@@ -757,7 +757,7 @@ export function AdditivesSection() {
 
                   {/* NOTES */}
                   <div>
-                    <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                    <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                       Notas (Opcional)
                     </label>
                     <textarea
@@ -765,7 +765,7 @@ export function AdditivesSection() {
                       value={entry.notes || ''}
                       onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                       placeholder="Observaciones adicionales..."
-                      className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+                      className="w-full px-4 py-2.5 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
                       rows={2}
                     />
                   </div>
@@ -782,8 +782,8 @@ export function AdditivesSection() {
         <div className="space-y-4">
           {manualEntries.length === 0 ? (
             <Card className="text-center py-12">
-              <p className="text-[#5F6773] mb-2">No hay productos manuales configurados para esta planta</p>
-              <p className="text-sm text-[#5F6773]">
+              <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay productos manuales configurados para esta planta</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 Contacta al administrador para configurar productos manuales
               </p>
             </Card>
@@ -800,16 +800,16 @@ export function AdditivesSection() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-bold text-[#3B3A36]">
+                        <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
                           {entry.tank_name || entry.product_name}
                         </h3>
                         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#f59e0b]/10 text-[#f59e0b]">
                           MANUAL
                         </span>
                       </div>
-                      {entry.tank_name && <p className="text-sm text-[#5F6773]">{entry.product_name}</p>}
+                      {entry.tank_name && <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{entry.product_name}</p>}
                       {entry.brand && (
-                        <p className="text-sm text-[#5F6773]">
+                        <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                           <span className="font-semibold">Marca:</span> {entry.brand}
                         </p>
                       )}
@@ -828,15 +828,15 @@ export function AdditivesSection() {
                       helpText={`Ingresa la cantidad disponible. Capacidad máxima de referencia: ${entry.capacity} ${capacityUnitLabel}.`}
                     />
                     <div>
-                      <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                      <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                         Unidad de Medida
                       </label>
-                      <div className="bg-[#F2F3F5] border border-[#9D9B9A] rounded px-4 py-2.5 h-[42px] flex items-center">
-                        <span className="text-[#3B3A36] font-semibold">
+                      <div className="bg-[var(--ui-background-f2f3f5)] border border-[var(--ui-border-9d9b9a)] rounded px-4 py-2.5 h-[42px] flex items-center">
+                        <span className="text-[color:var(--ui-text-3b3a36)] font-semibold">
                           {capacityUnitLabel}
                         </span>
                       </div>
-                      <p className="text-xs text-[#5F6773] mt-1">
+                      <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
                         Unidad predefinida por configuración
                       </p>
                     </div>
@@ -863,7 +863,7 @@ export function AdditivesSection() {
 
                   {/* NOTES */}
                   <div>
-                    <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+                    <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
                       Notas (Opcional)
                     </label>
                     <textarea
@@ -871,7 +871,7 @@ export function AdditivesSection() {
                       value={entry.notes || ''}
                       onChange={(e) => handleFieldChange(entry.id, 'notes', e.target.value)}
                       placeholder="Observaciones adicionales..."
-                      className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+                      className="w-full px-4 py-2.5 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
                       rows={2}
                     />
                   </div>
@@ -899,8 +899,8 @@ export function AdditivesSection() {
       )}
 
       {/* SAVE BUTTON */}
-      <div className="flex flex-col items-stretch gap-3 border-t border-[#D4D2CF] pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-[#5F6773] sm:flex-1">
+      <div className="flex flex-col items-stretch gap-3 border-t border-[var(--ui-border-d4d2cf)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] sm:flex-1">
           {!isValid() && (
             <span className="text-[#E53E3E]">
               ⚠️ Completa todos los campos requeridos antes de guardar

@@ -280,7 +280,7 @@ export function ConnectionTest() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-[var(--ui-surface)] border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -327,10 +327,10 @@ export function ConnectionTest() {
 
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#1A1D1F] mb-2">
+          <h1 className="text-3xl font-bold text-[color:var(--ui-text-1a1d1f)] mb-2">
             🔍 Prueba de Conexión - Verificación de Producción
           </h1>
-          <p className="text-[#6F767E]">
+          <p className="text-[color:var(--ui-text-muted-6f767e)]">
             Verifica que el Edge Function esté desplegado y funcionando correctamente
           </p>
         </div>
@@ -374,10 +374,10 @@ export function ConnectionTest() {
 
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Ejecutar Pruebas de Conexión</h2>
-          <p className="text-sm text-[#6F767E] mb-4">
+          <p className="text-sm text-[color:var(--ui-text-muted-6f767e)] mb-4">
             Esto verificará:
           </p>
-          <ul className="list-disc list-inside text-sm text-[#6F767E] mb-6 space-y-1">
+          <ul className="list-disc list-inside text-sm text-[color:var(--ui-text-muted-6f767e)] mb-6 space-y-1">
             <li>Edge Function está desplegado y responde</li>
             <li>Tablas de base de datos existen</li>
             <li>Variables de entorno configuradas</li>
@@ -385,7 +385,7 @@ export function ConnectionTest() {
           <Button
             onClick={runTests}
             disabled={testing}
-            className="bg-[#2B7DE9] hover:bg-[#1E5DB8] text-white"
+            className="bg-[var(--ui-primary-2b7de9)] hover:bg-[var(--ui-primary-hover-1e5db8)] text-white"
           >
             {testing ? 'Probando...' : 'Ejecutar Pruebas'}
           </Button>
@@ -394,7 +394,7 @@ export function ConnectionTest() {
         {testResults && (
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Resultados</h2>
-            <div className="text-xs text-[#6F767E] mb-4">
+            <div className="text-xs text-[color:var(--ui-text-muted-6f767e)] mb-4">
               Ejecutado: {new Date(testResults.timestamp).toLocaleString('es-PR')}
             </div>
 
@@ -426,7 +426,7 @@ export function ConnectionTest() {
                   </div>
 
                   {test.response && (
-                    <pre className="text-xs bg-white p-3 rounded overflow-x-auto mt-2">
+                    <pre className="text-xs bg-[var(--ui-surface)] p-3 rounded overflow-x-auto mt-2">
                       {JSON.stringify(test.response, null, 2)}
                     </pre>
                   )}
@@ -441,7 +441,7 @@ export function ConnectionTest() {
                   )}
 
                   {test.tokenInfo && (
-                    <div className="mt-3 p-3 bg-white rounded border">
+                    <div className="mt-3 p-3 bg-[var(--ui-surface)] rounded border">
                       <strong className="text-sm">📋 Información del Token:</strong>
                       <div className="mt-2 space-y-1 text-xs">
                         <div>
@@ -500,7 +500,7 @@ export function ConnectionTest() {
                         <div className="ml-2">
                           <div><strong>Longitud:</strong> {test.keyComparison.frontendAnonKeyLength}</div>
                           <div><strong>Prefijo:</strong> <code className="bg-gray-100 px-1">{test.keyComparison.frontendAnonKeyPrefix}</code></div>
-                          <div className="mt-1 p-2 bg-white rounded">
+                          <div className="mt-1 p-2 bg-[var(--ui-surface)] rounded">
                             <strong>CLAVE COMPLETA:</strong>
                             <div className="font-mono text-[10px] break-all mt-1">{test.keyComparison.frontendAnonKeyFull}</div>
                           </div>
@@ -563,7 +563,7 @@ export function ConnectionTest() {
         )}
         
         {/* Build Version Footer */}
-        <div className="mt-6 text-center text-xs text-[#6F767E]">
+        <div className="mt-6 text-center text-xs text-[color:var(--ui-text-muted-6f767e)]">
           Version de build: {BUILD_VERSION}
         </div>
       </div>

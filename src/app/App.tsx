@@ -1,3 +1,4 @@
+import { AppearanceProvider } from './contexts/AppearanceContext';
 import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { InventoryProvider, useInventory } from "./contexts/InventoryContext";
@@ -201,7 +202,7 @@ function AppContent() {
   // Show loading screen while verifying session
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#2B7DE9] to-[#1E5BB8] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[var(--ui-primary-2b7de9)] to-[var(--ui-primary-hover-1e5bb8)] flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white/30 border-t-white mb-4"></div>
           <p className="text-white text-lg">Cargando...</p>
@@ -227,7 +228,7 @@ function AppContent() {
 
   // Main application with sidebar
   return (
-    <div className="flex h-screen bg-[#F2F3F5]">
+    <div className="flex h-screen bg-[var(--ui-background-f2f3f5)]">
       {/* Migration Alert */}
       <MigrationAlert 
         show={showMigrationMessage} 
@@ -253,19 +254,19 @@ function AppContent() {
 
         <div className="flex-1 overflow-y-auto">
           {currentView === "section" && currentSection && (
-            <div className="sticky top-0 z-30 border-b border-[#D4D2CF] bg-white/95 px-2 py-2 shadow-sm backdrop-blur sm:px-6">
+            <div className="sticky top-0 z-30 border-b border-[var(--ui-border-d4d2cf)] bg-[var(--ui-surface)]/95 px-2 py-2 shadow-sm backdrop-blur sm:px-6">
               <div className="mx-auto flex max-w-7xl items-center gap-2 sm:justify-between">
               <button
                 type="button"
                 onClick={handleBackToDashboard}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-[#2475C7] bg-white px-3 py-2 font-semibold text-[#2475C7] hover:bg-[#2475C7]/5 sm:flex-none"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-[var(--ui-primary-2475c7)] bg-[var(--ui-surface)] px-3 py-2 font-semibold text-[color:var(--ui-primary-2475c7)] hover:bg-[var(--ui-primary-2475c7)]/5 sm:flex-none"
               >
                 <span aria-hidden="true">←</span>
                 <span className="sm:hidden">Inventario</span>
                 <span className="hidden sm:inline">Volver al inventario</span>
               </button>
                 <div className="flex min-w-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="max-w-28 truncate text-xs font-semibold text-[#3B3A36] sm:max-w-none sm:text-sm">
+                  <span className="max-w-28 truncate text-xs font-semibold text-[color:var(--ui-text-3b3a36)] sm:max-w-none sm:text-sm">
                     {sectionLabels[currentSection] || 'Inventario'}
                   </span>
                   <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:py-1 sm:text-xs ${
@@ -282,7 +283,7 @@ function AppContent() {
                         plantId: currentPlant.id,
                         yearMonth: currentYearMonth,
                       })}
-                      className="whitespace-nowrap rounded-md bg-[#2475C7] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#1f66ad]"
+                      className="whitespace-nowrap rounded-md bg-[var(--ui-primary-2475c7)] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[var(--ui-primary-hover-1f66ad)]"
                     >
                       Ver reporte
                     </button>
@@ -353,7 +354,7 @@ function AppContent() {
 
         {/* Mobile bottom navigation */}
         {currentView !== 'section' && (
-        <div className="lg:hidden bg-[#3B3A36] border-t border-[#5F6773] p-2">
+        <div className="lg:hidden bg-[var(--nav-background)] border-t border-[var(--nav-border)] p-2">
           <div className={`grid gap-1 ${mobileNavItems.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
             {mobileNavItems.map((item) => (
               <button
@@ -361,8 +362,8 @@ function AppContent() {
                 onClick={() => handleViewChange(item.id)}
                 className={`flex min-w-0 flex-col items-center gap-1 rounded px-2 py-2 ${
                   currentView === item.id
-                    ? "text-[#2475C7]"
-                    : "text-white/70"
+                    ? "text-[color:var(--ui-primary-2475c7)]"
+                    : "text-[color:var(--nav-foreground)]/70"
                 }`}
               >
                 <span className="text-xl">{item.icon}</span>
@@ -376,16 +377,16 @@ function AppContent() {
 
       {pendingExitAction && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-            <h2 id="unsaved-changes-title" className="text-xl font-bold text-[#3B3A36]">Cambios sin guardar</h2>
-            <p className="mt-3 text-[#5F6773]">
+          <div className="w-full max-w-md rounded-xl bg-[var(--ui-surface)] p-6 shadow-2xl">
+            <h2 id="unsaved-changes-title" className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Cambios sin guardar</h2>
+            <p className="mt-3 text-[color:var(--ui-text-muted-5f6773)]">
               No se ha confirmado el guardado de todos los cambios en este dispositivo. Exporta el borrador o espera a que se guarde antes de salir.
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setPendingExitAction(null)}
-                className="rounded-md border border-[#9D9B9A] px-4 py-2 font-semibold text-[#3B3A36] hover:bg-[#F2F3F5]"
+                className="rounded-md border border-[var(--ui-border-9d9b9a)] px-4 py-2 font-semibold text-[color:var(--ui-text-3b3a36)] hover:bg-[var(--ui-background-f2f3f5)]"
               >
                 Permanecer
               </button>
@@ -413,13 +414,15 @@ export default function App() {
     <ErrorBoundary>
       <LanguageProvider>
         <AuthProvider>
-          <InventoryProvider>
-            <PlantPrefillProvider>
-              <ModulesProvider>
-                <AppContent key={APP_KEY} />
-              </ModulesProvider>
-            </PlantPrefillProvider>
-          </InventoryProvider>
+          <AppearanceProvider>
+            <InventoryProvider>
+              <PlantPrefillProvider>
+                <ModulesProvider>
+                  <AppContent key={APP_KEY} />
+                </ModulesProvider>
+              </PlantPrefillProvider>
+            </InventoryProvider>
+          </AppearanceProvider>
         </AuthProvider>
       </LanguageProvider>
     </ErrorBoundary>

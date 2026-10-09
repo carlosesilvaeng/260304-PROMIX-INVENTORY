@@ -318,22 +318,22 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
           
           <Card className="text-center py-12">
             <div className="mb-6">
-              <div className="w-20 h-20 bg-[#F2F3F5] rounded-full mx-auto flex items-center justify-center mb-4">
-                <svg className="w-10 h-10 text-[#2475C7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-20 h-20 bg-[var(--ui-background-f2f3f5)] rounded-full mx-auto flex items-center justify-center mb-4">
+                <svg className="w-10 h-10 text-[color:var(--ui-primary-2475c7)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
-              <h2 className="text-2xl text-[#3B3A36] mb-2">
+              <h2 className="text-2xl text-[color:var(--ui-text-3b3a36)] mb-2">
                 Bienvenido, {user?.name}
               </h2>
-              <p className="text-[#5F6773] mb-4">
+              <p className="text-[color:var(--ui-text-muted-5f6773)] mb-4">
                 {user?.role === 'super_admin' ? 'Super Administrador' : 'Administrador'} - Acceso Global
               </p>
-              <p className="text-[#5F6773] text-sm max-w-lg mx-auto">
+              <p className="text-[color:var(--ui-text-muted-5f6773)] text-sm max-w-lg mx-auto">
                 Estás en la pantalla de inicio del sistema. Usa el menú lateral para acceder a las funciones operativas.
               </p>
               {user?.role === 'super_admin' && (
-                <p className="text-[#5F6773] text-sm max-w-lg mx-auto mt-2">
+                <p className="text-[color:var(--ui-text-muted-5f6773)] text-sm max-w-lg mx-auto mt-2">
                   Como super administrador, también tienes acceso a módulos y herramientas técnicas.
                 </p>
               )}
@@ -342,68 +342,68 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto mt-8">
               <button
                 onClick={() => onNavigate('settings')}
-                className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                className="p-6 bg-[var(--ui-background-f2f3f5)] rounded-lg hover:bg-[var(--ui-border-e4e4e4)] transition-colors text-left"
               >
                 <div className="text-3xl mb-2">⚙️</div>
-                <h3 className="font-semibold text-[#3B3A36] mb-1">Configuración</h3>
-                <p className="text-sm text-[#5F6773]">Gestionar usuarios, plantas y permisos</p>
+                <h3 className="font-semibold text-[color:var(--ui-text-3b3a36)] mb-1">Configuración</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Gestionar usuarios, plantas y permisos</p>
               </button>
 
               <button
                 onClick={() => onNavigate('reports')}
-                className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                className="p-6 bg-[var(--ui-background-f2f3f5)] rounded-lg hover:bg-[var(--ui-border-e4e4e4)] transition-colors text-left"
               >
                 <div className="text-3xl mb-2">📊</div>
-                <h3 className="font-semibold text-[#3B3A36] mb-1">Reportes</h3>
-                <p className="text-sm text-[#5F6773]">Ver reportes consolidados de todas las plantas</p>
+                <h3 className="font-semibold text-[color:var(--ui-text-3b3a36)] mb-1">Reportes</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Ver reportes consolidados de todas las plantas</p>
               </button>
 
               <button
                 onClick={() => onNavigate('photos-report')}
-                className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                className="p-6 bg-[var(--ui-background-f2f3f5)] rounded-lg hover:bg-[var(--ui-border-e4e4e4)] transition-colors text-left"
               >
                 <div className="text-3xl mb-2">🖼️</div>
-                <h3 className="font-semibold text-[#3B3A36] mb-1">Reporte de Fotos</h3>
-                <p className="text-sm text-[#5F6773]">Ver todas las fotos capturadas en inventarios</p>
+                <h3 className="font-semibold text-[color:var(--ui-text-3b3a36)] mb-1">Reporte de Fotos</h3>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Ver todas las fotos capturadas en inventarios</p>
               </button>
             </div>
 
             {user?.role === 'super_admin' && (
               <div className="max-w-5xl mx-auto mt-8">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-px flex-1 bg-[#D4D2CF]" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5F6773]">
+                  <div className="h-px flex-1 bg-[var(--ui-border-d4d2cf)]" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-muted-5f6773)]">
                     Herramientas
                   </p>
-                  <div className="h-px flex-1 bg-[#D4D2CF]" />
+                  <div className="h-px flex-1 bg-[var(--ui-border-d4d2cf)]" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={() => onNavigate('documentation')}
-                    className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                    className="p-6 bg-[var(--ui-background-f2f3f5)] rounded-lg hover:bg-[var(--ui-border-e4e4e4)] transition-colors text-left"
                   >
                     <div className="text-3xl mb-2">📄</div>
-                    <h3 className="font-semibold text-[#3B3A36] mb-1">Documentación</h3>
-                    <p className="text-sm text-[#5F6773]">Consultar documentación interna y operativa</p>
+                    <h3 className="font-semibold text-[color:var(--ui-text-3b3a36)] mb-1">Documentación</h3>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Consultar documentación interna y operativa</p>
                   </button>
 
                   <button
                     onClick={() => onNavigate('database-setup')}
-                    className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                    className="p-6 bg-[var(--ui-background-f2f3f5)] rounded-lg hover:bg-[var(--ui-border-e4e4e4)] transition-colors text-left"
                   >
                     <div className="text-3xl mb-2">🗄️</div>
-                    <h3 className="font-semibold text-[#3B3A36] mb-1">Base de Datos</h3>
-                    <p className="text-sm text-[#5F6773]">Configurar tablas y datos iniciales del sistema</p>
+                    <h3 className="font-semibold text-[color:var(--ui-text-3b3a36)] mb-1">Base de Datos</h3>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Configurar tablas y datos iniciales del sistema</p>
                   </button>
 
                   <button
                     onClick={() => onNavigate('connection-test')}
-                    className="p-6 bg-[#F2F3F5] rounded-lg hover:bg-[#E4E4E4] transition-colors text-left"
+                    className="p-6 bg-[var(--ui-background-f2f3f5)] rounded-lg hover:bg-[var(--ui-border-e4e4e4)] transition-colors text-left"
                   >
                     <div className="text-3xl mb-2">🔍</div>
-                    <h3 className="font-semibold text-[#3B3A36] mb-1">Prueba de Conexión</h3>
-                    <p className="text-sm text-[#5F6773]">Validar conectividad y configuración técnica</p>
+                    <h3 className="font-semibold text-[color:var(--ui-text-3b3a36)] mb-1">Prueba de Conexión</h3>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Validar conectividad y configuración técnica</p>
                   </button>
                 </div>
               </div>
@@ -425,27 +425,27 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
           
           <Card className="text-center py-12">
             <div className="mb-6">
-              <div className="w-20 h-20 bg-[#F2F3F5] rounded-full mx-auto flex items-center justify-center mb-4">
-                <svg className="w-10 h-10 text-[#5F6773]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-20 h-20 bg-[var(--ui-background-f2f3f5)] rounded-full mx-auto flex items-center justify-center mb-4">
+                <svg className="w-10 h-10 text-[color:var(--ui-text-muted-5f6773)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <h2 className="text-2xl text-[#3B3A36] mb-2">
+              <h2 className="text-2xl text-[color:var(--ui-text-3b3a36)] mb-2">
                 {t('dashboard.startInventory')}
               </h2>
-              <p className="text-[#5F6773] mb-6">
+              <p className="text-[color:var(--ui-text-muted-5f6773)] mb-6">
                 {t('dashboard.noInventory')} {currentPlant?.name}
               </p>
               {isPlantManager && (
                 <div className="max-w-md mx-auto mb-6 text-left">
-                  <label htmlFor="start-month" className="block text-sm font-semibold text-[#3B3A36] mb-2">
+                  <label htmlFor="start-month" className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-2">
                     Período de inventario
                   </label>
                   <select
                     id="start-month"
                     value={selectedStartMonth}
                     onChange={(e) => setSelectedStartMonth(e.target.value)}
-                    className="w-full rounded-md border border-[#9D9B9A] bg-white px-3 py-2 text-[#3B3A36]"
+                    className="w-full rounded-md border border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)] px-3 py-2 text-[color:var(--ui-text-3b3a36)]"
                   >
                     {startMonthOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -453,7 +453,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-[#5F6773] mt-2">
+                  <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-2">
                     Puedes iniciar inventario en el mes actual o en cualquiera de los 3 meses anteriores (4 periodos en total).
                   </p>
                 </div>
@@ -489,7 +489,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </div>
             )}
             {existingReport && (
-              <p className="text-sm text-[#5F6773] mt-3">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-3">
                 Ya existe un inventario en progreso para este periodo. Usa continuar para retomarlo.
               </p>
             )}
@@ -511,8 +511,8 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
         <Card className="p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-[#5F6773]">Progreso del inventario</p>
-              <p className="text-2xl font-bold text-[#3B3A36]">{overallProgress}%</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">Progreso del inventario</p>
+              <p className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">{overallProgress}%</p>
             </div>
             {currentInventory.status !== 'completed' && (
               <Button size="sm" onClick={() => onNavigate('review')}>
@@ -520,11 +520,11 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </Button>
             )}
           </div>
-          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[#F2F3F5]">
-            <div className="h-full rounded-full bg-[#2475C7]" style={{ width: `${overallProgress}%` }} />
+          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-[var(--ui-background-f2f3f5)]">
+            <div className="h-full rounded-full bg-[var(--ui-primary-2475c7)]" style={{ width: `${overallProgress}%` }} />
           </div>
         </Card>
-        <h3 className="text-lg font-semibold text-[#3B3A36]">Selecciona una sección</h3>
+        <h3 className="text-lg font-semibold text-[color:var(--ui-text-3b3a36)]">Selecciona una sección</h3>
         <div className="space-y-3">
           {activeSections.map((section) => (
             <SectionCard
@@ -542,14 +542,14 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
       <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[#2475C7]/10 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-[#2475C7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 bg-[var(--ui-primary-2475c7)]/10 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-[color:var(--ui-primary-2475c7)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[#5F6773]">{t('dashboard.overallProgress')}</p>
-              <p className="text-2xl font-bold text-[#3B3A36]">{getOverallProgress()}%</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{t('dashboard.overallProgress')}</p>
+              <p className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">{getOverallProgress()}%</p>
             </div>
           </div>
         </Card>
@@ -562,8 +562,8 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[#5F6773]">{t('dashboard.completedSections')}</p>
-              <p className="text-2xl font-bold text-[#3B3A36]">{completedSections}/{totalSections}</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{t('dashboard.completedSections')}</p>
+              <p className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">{completedSections}/{totalSections}</p>
             </div>
           </div>
         </Card>
@@ -576,8 +576,8 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[#5F6773]">{t('dashboard.period')}</p>
-              <p className="text-sm font-bold text-[#3B3A36]">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{t('dashboard.period')}</p>
+              <p className="text-sm font-bold text-[color:var(--ui-text-3b3a36)]">
                 {currentInventory.month} {currentInventory.year}
               </p>
             </div>
@@ -588,18 +588,18 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
               currentInventory.status === 'approved' ? 'bg-[#2ecc71]/10' :
-              currentInventory.status === 'completed' ? 'bg-[#2475C7]/10' : 'bg-[#f59e0b]/10'
+              currentInventory.status === 'completed' ? 'bg-[var(--ui-primary-2475c7)]/10' : 'bg-[#f59e0b]/10'
             }`}>
               <svg className={`w-6 h-6 ${
                 currentInventory.status === 'approved' ? 'text-[#2ecc71]' :
-                currentInventory.status === 'completed' ? 'text-[#2475C7]' : 'text-[#f59e0b]'
+                currentInventory.status === 'completed' ? 'text-[color:var(--ui-primary-2475c7)]' : 'text-[#f59e0b]'
               }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm text-[#5F6773]">{t('settings.status')}</p>
-              <p className="text-sm font-bold text-[#3B3A36]">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">{t('settings.status')}</p>
+              <p className="text-sm font-bold text-[color:var(--ui-text-3b3a36)]">
                 {currentInventory.status === 'approved' ? t('status.approved') :
                  currentInventory.status === 'completed' ? t('status.completed') : 
                  currentInventory.status === 'in-progress' ? t('status.inProgress') : t('status.draft')}
@@ -611,25 +611,25 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
 
       {/* Second Row: Start Timestamp and End Timestamp */}
       <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-2">
-        <Card className="bg-gradient-to-br from-[#2475C7]/5 to-[#2475C7]/10 border-[#2475C7]/20">
+        <Card className="bg-gradient-to-br from-[var(--ui-primary-2475c7)]/5 to-[var(--ui-primary-2475c7)]/10 border-[var(--ui-primary-2475c7)]/20">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-[#2475C7] rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-14 h-14 bg-[var(--ui-primary-2475c7)] rounded-lg flex items-center justify-center flex-shrink-0">
               <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#5F6773] mb-1">{t('dashboard.startTimestamp')}</p>
+              <p className="text-sm font-medium text-[color:var(--ui-text-muted-5f6773)] mb-1">{t('dashboard.startTimestamp')}</p>
               {currentInventory.startTimestamp && (
                 <>
-                  <p className="text-2xl font-bold text-[#2475C7] leading-tight">
+                  <p className="text-2xl font-bold text-[color:var(--ui-primary-2475c7)] leading-tight">
                     {currentInventory.startTimestamp.toLocaleTimeString(language === 'es' ? 'es' : 'en', { 
                       hour: '2-digit', 
                       minute: '2-digit',
                       hour12: true 
                     })}
                   </p>
-                  <p className="text-sm text-[#5F6773] mt-1">
+                  <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
                     {currentInventory.startTimestamp.toLocaleDateString(language === 'es' ? 'es' : 'en', { 
                       weekday: 'short',
                       day: '2-digit', 
@@ -646,11 +646,11 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
         <Card className={`border-2 ${
           currentInventory.endTimestamp 
             ? 'bg-gradient-to-br from-[#2ecc71]/5 to-[#2ecc71]/10 border-[#2ecc71]/20' 
-            : 'bg-[#F2F3F5] border-[#9D9B9A]/20'
+            : 'bg-[var(--ui-background-f2f3f5)] border-[var(--ui-border-9d9b9a)]/20'
         }`}>
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              currentInventory.endTimestamp ? 'bg-[#2ecc71]' : 'bg-[#9D9B9A]/30'
+              currentInventory.endTimestamp ? 'bg-[#2ecc71]' : 'bg-[var(--ui-border-9d9b9a)]/30'
             }`}>
               <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {currentInventory.endTimestamp ? (
@@ -661,7 +661,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#5F6773] mb-1">{t('dashboard.endTimestamp')}</p>
+              <p className="text-sm font-medium text-[color:var(--ui-text-muted-5f6773)] mb-1">{t('dashboard.endTimestamp')}</p>
               {currentInventory.endTimestamp ? (
                 <>
                   <p className="text-2xl font-bold text-[#2ecc71] leading-tight">
@@ -671,7 +671,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                       hour12: true 
                     })}
                   </p>
-                  <p className="text-sm text-[#5F6773] mt-1">
+                  <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
                     {currentInventory.endTimestamp.toLocaleDateString(language === 'es' ? 'es' : 'en', { 
                       weekday: 'short',
                       day: '2-digit', 
@@ -682,10 +682,10 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                 </>
               ) : (
                 <>
-                  <p className="text-2xl font-bold text-[#9D9B9A] leading-tight">
+                  <p className="text-2xl font-bold text-[color:var(--ui-border-9d9b9a)] leading-tight">
                     --:--
                   </p>
-                  <p className="text-sm text-[#9D9B9A] mt-1">
+                  <p className="text-sm text-[color:var(--ui-border-9d9b9a)] mt-1">
                     {t('status.pending')}
                   </p>
                 </>
@@ -697,10 +697,10 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
 
       {/* Progress Bar */}
       <Card className="hidden md:block">
-          <h3 className="text-lg text-[#3B3A36] mb-4">{t('dashboard.inventoryProgress')}</h3>
-          <div className="w-full bg-[#F2F3F5] rounded-full h-4">
+          <h3 className="text-lg text-[color:var(--ui-text-3b3a36)] mb-4">{t('dashboard.inventoryProgress')}</h3>
+          <div className="w-full bg-[var(--ui-background-f2f3f5)] rounded-full h-4">
             <div 
-              className="bg-[#2475C7] h-4 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
+              className="bg-[var(--ui-primary-2475c7)] h-4 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
               style={{ width: `${overallProgress}%` }}
             >
               <span className="text-xs text-white font-medium">{overallProgress}%</span>
@@ -711,7 +711,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
       {/* Sections Checklist */}
       <div className="hidden md:block">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl text-[#3B3A36]">{t('dashboard.checklist')}</h3>
+          <h3 className="text-xl text-[color:var(--ui-text-3b3a36)]">{t('dashboard.checklist')}</h3>
           {currentInventory.status !== 'completed' && (
             <div className="flex flex-col items-end gap-1">
               <Button 
@@ -721,7 +721,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                 {reviewButtonLabel}
               </Button>
               {isPlantManager && overallProgress < 100 && (
-                <p className="text-xs text-[#5F6773]">
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">
                   Revisa los datos pendientes antes de enviar.
                 </p>
               )}
@@ -756,7 +756,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
                   {unavailableSections.map((section) => (
                     <span
                       key={section.id}
-                      className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm font-medium text-amber-900"
+                      className="rounded-full border border-amber-300 bg-[var(--ui-surface)] px-3 py-1 text-sm font-medium text-amber-900"
                     >
                       {getSectionTranslation(section.name, t).name} · No configurado
                     </span>

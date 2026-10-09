@@ -46,13 +46,13 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-[var(--ui-surface)] rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-[#9D9B9A]">
-          <h3 className="text-xl text-[#3B3A36] font-medium">
+        <div className="p-6 border-b border-[var(--ui-border-9d9b9a)]">
+          <h3 className="text-xl text-[color:var(--ui-text-3b3a36)] font-medium">
             Configuración de Cajones - {plantName}
           </h3>
-          <p className="text-sm text-[#5F6773] mt-1">
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
             Configure los cajones/materiales que estarán disponibles para esta planta
           </p>
         </div>
@@ -61,17 +61,17 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
         <div className="p-6 overflow-y-auto flex-1">
           <div className="space-y-4">
             {cajones.length === 0 ? (
-              <div className="text-center py-8 bg-[#F2F3F5] rounded-lg">
-                <p className="text-[#5F6773] mb-4">No hay cajones configurados</p>
-                <p className="text-sm text-[#5F6773]">
+              <div className="text-center py-8 bg-[var(--ui-background-f2f3f5)] rounded-lg">
+                <p className="text-[color:var(--ui-text-muted-5f6773)] mb-4">No hay cajones configurados</p>
+                <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                   Haga clic en "Agregar Cajón" para comenzar
                 </p>
               </div>
             ) : (
               cajones.map((cajon, index) => (
-                <div key={cajon.id} className="border border-[#9D9B9A] rounded-lg p-4">
+                <div key={cajon.id} className="border border-[var(--ui-border-9d9b9a)] rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-medium text-[#3B3A36]">
+                    <h4 className="text-sm font-medium text-[color:var(--ui-text-3b3a36)]">
                       Cajón #{index + 1}
                     </h4>
                     <DeleteIconButton
@@ -112,10 +112,10 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                   </div>
 
                   {/* Dimensiones fijas — valores por defecto bloqueados en inventario */}
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-[#E4E4E4]">
+                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-[var(--ui-border-e4e4e4)]">
                     <div>
-                      <label className="block text-sm font-medium text-[#3B3A36] mb-1">
-                        Ancho (ft) <span className="text-xs text-[#5F6773] font-normal">— valor fijo en inventario 🔒</span>
+                      <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-1">
+                        Ancho (ft) <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] font-normal">— valor fijo en inventario 🔒</span>
                       </label>
                       <input
                         type="number"
@@ -127,12 +127,12 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                           updateCajon(index, { ancho: value === '' ? 0 : parseFloat(value) || 0 });
                         }}
                         placeholder="0"
-                        className="w-full px-3 py-2 border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:border-[#2475C7]"
+                        className="w-full px-3 py-2 border border-[var(--ui-border-9d9b9a)] rounded text-[color:var(--ui-text-3b3a36)] focus:outline-none focus:border-[var(--ui-primary-2475c7)]"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-[#3B3A36] mb-1">
-                        Alto (ft) <span className="text-xs text-[#5F6773] font-normal">— valor fijo en inventario 🔒</span>
+                      <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-1">
+                        Alto (ft) <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] font-normal">— valor fijo en inventario 🔒</span>
                       </label>
                       <input
                         type="number"
@@ -144,7 +144,7 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
                           updateCajon(index, { alto: value === '' ? 0 : parseFloat(value) || 0 });
                         }}
                         placeholder="0"
-                        className="w-full px-3 py-2 border border-[#9D9B9A] rounded text-[#3B3A36] focus:outline-none focus:border-[#2475C7]"
+                        className="w-full px-3 py-2 border border-[var(--ui-border-9d9b9a)] rounded text-[color:var(--ui-text-3b3a36)] focus:outline-none focus:border-[var(--ui-primary-2475c7)]"
                       />
                     </div>
                   </div>
@@ -159,7 +159,7 @@ export function CajonesConfigModal({ plantName, cajones: initialCajones, materia
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-[#9D9B9A] flex items-center justify-end gap-3">
+        <div className="p-6 border-t border-[var(--ui-border-9d9b9a)] flex items-center justify-end gap-3">
           <Button variant="dangerOutline" onClick={onClose}>
             Salir
           </Button>

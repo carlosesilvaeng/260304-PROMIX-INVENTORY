@@ -67,13 +67,13 @@ export function StandardInput({
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {/* Label */}
-      <label htmlFor={inputId} className="flex min-h-5 items-center gap-1 text-sm font-semibold text-[#3B3A36] leading-5">
+      <label htmlFor={inputId} className="flex min-h-5 items-center gap-1 text-sm font-semibold text-[color:var(--ui-text-3b3a36)] leading-5">
         {label}
         {required && (
           <span className="text-red-600" title="Campo requerido">*</span>
         )}
         {unit && (
-          <span className="text-xs text-[#5F6773] font-normal ml-1 leading-5">({unit})</span>
+          <span className="text-xs text-[color:var(--ui-text-muted-5f6773)] font-normal ml-1 leading-5">({unit})</span>
         )}
       </label>
 
@@ -95,10 +95,10 @@ export function StandardInput({
             text-base font-medium
             transition-all duration-200
             ${disabled 
-              ? 'bg-[#F2F3F5] text-[#9D9B9A] cursor-not-allowed border-2 border-[#D4D2CF]' 
+              ? 'bg-[var(--ui-background-f2f3f5)] text-[color:var(--ui-border-9d9b9a)] cursor-not-allowed border-2 border-[var(--ui-border-d4d2cf)]'
               : hasError
-                ? 'bg-white text-[#3B3A36] border-2 border-red-500 focus:border-red-600 focus:ring-2 focus:ring-red-200'
-                : 'bg-white text-[#3B3A36] border-2 border-[#D4D2CF] focus:border-[#2475C7] focus:ring-2 focus:ring-[#2475C7]/20'
+                ? 'bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)] border-2 border-red-500 focus:border-red-600 focus:ring-2 focus:ring-red-200'
+                : 'bg-[var(--ui-surface)] text-[color:var(--ui-text-3b3a36)] border-2 border-[var(--ui-border-d4d2cf)] focus:border-[var(--ui-primary-2475c7)] focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]/20'
             }
             ${unit && !disabled ? 'pr-16' : ''}
             outline-none
@@ -107,7 +107,7 @@ export function StandardInput({
         
         {/* Unit suffix inside input */}
         {unit && !disabled && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#5F6773] font-medium pointer-events-none">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--ui-text-muted-5f6773)] font-medium pointer-events-none">
             {unit}
           </div>
         )}
@@ -115,7 +115,7 @@ export function StandardInput({
 
       {/* Helper text or error message */}
       {helperText && !hasError && (
-        <p className="text-xs text-[#5F6773]">{helperText}</p>
+        <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">{helperText}</p>
       )}
       
       {hasError && (
@@ -150,7 +150,7 @@ export function ReadOnlyField({
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {/* Label */}
-      <label className="text-xs font-semibold text-[#5F6773] uppercase tracking-wide">
+      <label className="text-xs font-semibold text-[color:var(--ui-text-muted-5f6773)] uppercase tracking-wide">
         {label}
       </label>
 
@@ -158,13 +158,13 @@ export function ReadOnlyField({
       <div className="
         flex items-center gap-2
         px-3 py-2.5 rounded
-        bg-[#F2F3F5] border-2 border-[#E5E3E0]
-        text-base font-bold text-[#3B3A36]
+        bg-[var(--ui-background-f2f3f5)] border-2 border-[var(--ui-border-e5e3e0)]
+        text-base font-bold text-[color:var(--ui-text-3b3a36)]
       ">
-        {icon && <span className="text-[#5F6773]">{icon}</span>}
+        {icon && <span className="text-[color:var(--ui-text-muted-5f6773)]">{icon}</span>}
         <span className="flex-1">{value}</span>
         {unit && (
-          <span className="text-sm text-[#5F6773] font-medium">{unit}</span>
+          <span className="text-sm text-[color:var(--ui-text-muted-5f6773)] font-medium">{unit}</span>
         )}
       </div>
     </div>
@@ -192,16 +192,16 @@ export function FormSection({
   className = '',
 }: FormSectionProps) {
   return (
-    <div className={`bg-white border-2 border-[#D4D2CF] rounded-lg p-4 ${className}`}>
+    <div className={`bg-[var(--ui-surface)] border-2 border-[var(--ui-border-d4d2cf)] rounded-lg p-4 ${className}`}>
       {/* Section header */}
-      <div className="flex items-start gap-3 mb-4 pb-3 border-b-2 border-[#E5E3E0]">
+      <div className="flex items-start gap-3 mb-4 pb-3 border-b-2 border-[var(--ui-border-e5e3e0)]">
         {icon && (
           <div className="text-2xl mt-0.5">{icon}</div>
         )}
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-[#3B3A36]">{title}</h3>
+          <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">{title}</h3>
           {description && (
-            <p className="text-sm text-[#5F6773] mt-0.5">{description}</p>
+            <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-0.5">{description}</p>
           )}
         </div>
       </div>

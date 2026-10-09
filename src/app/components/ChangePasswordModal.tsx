@@ -79,22 +79,22 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+      <div className="bg-[var(--ui-surface)] rounded-lg shadow-xl max-w-md w-full">
         {/* Header */}
-        <div className="p-6 border-b border-[#E4E4E4]">
+        <div className="p-6 border-b border-[var(--ui-border-e4e4e4)]">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-bold text-[#3B3A36]">Cambiar Contraseña</h3>
-              <p className="text-sm text-[#5F6773] mt-1">
+              <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Cambiar Contraseña</h3>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mt-1">
                 Actualiza tu contraseña de forma segura
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-[#F2F3F5] rounded-lg transition-colors"
+              className="p-2 hover:bg-[var(--ui-background-f2f3f5)] rounded-lg transition-colors"
               disabled={loading}
             >
-              <span className="text-2xl text-[#5F6773]">×</span>
+              <span className="text-2xl text-[color:var(--ui-text-muted-5f6773)]">×</span>
             </button>
           </div>
         </div>
@@ -110,7 +110,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
           )}
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Contraseña Actual <span className="text-red-500">*</span>
             </label>
             <Input
@@ -124,7 +124,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Nueva Contraseña <span className="text-red-500">*</span>
             </label>
             <Input
@@ -135,13 +135,13 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
               disabled={loading || success}
               required
             />
-            <p className="text-xs text-[#5F6773] mt-1">
+            <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">
               Usa al menos 8 caracteres, incluyendo letras y números
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#3B3A36] mb-2">
+            <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
               Confirmar Nueva Contraseña <span className="text-red-500">*</span>
             </label>
             <Input
@@ -173,7 +173,7 @@ export function ChangePasswordModal({ onClose, onSuccess }: ChangePasswordModalP
         </form>
 
         {/* Footer */}
-        <div className="p-6 border-t border-[#E4E4E4] bg-[#F2F3F5] flex gap-3">
+        <div className="p-6 border-t border-[var(--ui-border-e4e4e4)] bg-[var(--ui-background-f2f3f5)] flex gap-3">
           <Button
             variant="dangerOutline"
             onClick={onClose}

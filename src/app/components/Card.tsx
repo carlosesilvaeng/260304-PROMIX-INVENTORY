@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ children, className = '', noPadding = false }: CardProps) {
   return (
-    <div className={`bg-white border border-[#9D9B9A] rounded-lg shadow-sm ${!noPadding ? 'p-6' : ''} ${className}`}>
+    <div className={`bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded-lg shadow-sm ${!noPadding ? 'p-6' : ''} ${className}`}>
       {children}
     </div>
   );
@@ -24,22 +24,22 @@ interface SectionCardProps {
 
 export function SectionCard({ title, status, progress, onClick, children }: SectionCardProps) {
   const statusStyles = {
-    pending: 'border-[#9D9B9A] bg-white',
-    'in-progress': 'border-[#2475C7] bg-[#2475C7]/5',
+    pending: 'border-[var(--ui-border-9d9b9a)] bg-[var(--ui-surface)]',
+    'in-progress': 'border-[var(--ui-primary-2475c7)] bg-[var(--ui-primary-2475c7)]/5',
     complete: 'border-[#2ecc71] bg-[#2ecc71]/5',
   };
 
   const statusIcons = {
     pending: (
-      <div className="w-8 h-8 rounded-full bg-[#9D9B9A]/20 flex items-center justify-center">
-        <svg className="w-5 h-5 text-[#9D9B9A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="w-8 h-8 rounded-full bg-[var(--ui-border-9d9b9a)]/20 flex items-center justify-center">
+        <svg className="w-5 h-5 text-[color:var(--ui-border-9d9b9a)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
     ),
     'in-progress': (
-      <div className="w-8 h-8 rounded-full bg-[#2475C7]/20 flex items-center justify-center">
-        <svg className="w-5 h-5 text-[#2475C7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="w-8 h-8 rounded-full bg-[var(--ui-primary-2475c7)]/20 flex items-center justify-center">
+        <svg className="w-5 h-5 text-[color:var(--ui-primary-2475c7)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </div>
@@ -58,7 +58,7 @@ export function SectionCard({ title, status, progress, onClick, children }: Sect
 
   return (
     <div 
-      className={`min-h-11 border-2 rounded-lg p-4 transition-all ${statusStyles[status]} ${onClick ? 'cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2475C7]' : ''}`}
+      className={`min-h-11 border-2 rounded-lg p-4 transition-all ${statusStyles[status]} ${onClick ? 'cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]' : ''}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -74,14 +74,14 @@ export function SectionCard({ title, status, progress, onClick, children }: Sect
         <div className="flex items-center gap-3 flex-1">
           {statusIcons[status]}
           <div className="flex-1">
-            <h3 className="text-[#3B3A36] flex items-center gap-2">
+            <h3 className="text-[color:var(--ui-text-3b3a36)] flex items-center gap-2">
               {titleIcon && <span>{titleIcon}</span>}
               {titleText}
             </h3>
             {progress !== undefined && (
-              <div className="mt-2 w-full bg-[#F2F3F5] rounded-full h-2">
+              <div className="mt-2 w-full bg-[var(--ui-background-f2f3f5)] rounded-full h-2">
                 <div 
-                  className="bg-[#2475C7] h-2 rounded-full transition-all duration-300"
+                  className="bg-[var(--ui-primary-2475c7)] h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -89,7 +89,7 @@ export function SectionCard({ title, status, progress, onClick, children }: Sect
           </div>
         </div>
         {onClick && (
-          <svg className="w-5 h-5 text-[#5F6773]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 text-[color:var(--ui-text-muted-5f6773)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         )}

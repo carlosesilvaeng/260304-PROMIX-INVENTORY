@@ -56,10 +56,10 @@ function TankLevelGraphic({
   const waterY = 260 - (fillPercentByDepth / 100) * 220;
 
   return (
-    <div className="mx-auto max-w-3xl rounded-lg border border-[#E2E8F0] bg-white p-5 shadow-sm">
+    <div className="mx-auto max-w-3xl rounded-lg border border-[var(--ui-border-e2e8f0)] bg-[var(--ui-surface)] p-5 shadow-sm">
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-[#2F4052]">Monitoreo de Tanque</h3>
-        <p className="mt-1 text-sm font-medium text-[#7A858C]">
+        <h3 className="text-2xl font-bold text-[color:var(--ui-text-2f4052)]">Monitoreo de Tanque</h3>
+        <p className="mt-1 text-sm font-medium text-[color:var(--ui-text-muted-7a858c)]">
           {plantName || 'Planta'} | Prof. máx. {formatNumber(maxDepth, 0)} {readingUom} | Cap. {formatNumber(tankCapacity, 0)} GAL
         </p>
       </div>
@@ -71,35 +71,35 @@ function TankLevelGraphic({
               <circle cx="160" cy="160" r="110" />
             </clipPath>
             <linearGradient id="dieselWaterFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#4AB1E8" />
-              <stop offset="100%" stopColor="#2475C7" />
+              <stop offset="0%" stopColor="var(--ui-illustration-light-4ab1e8)" />
+              <stop offset="100%" stopColor="var(--ui-primary-2475c7)" />
             </linearGradient>
           </defs>
-          <circle cx="160" cy="160" r="110" fill="#EFF4F7" />
+          <circle cx="160" cy="160" r="110" fill="var(--ui-illustration-background-eff4f7)" />
           <g clipPath="url(#dieselTankCircle)">
             <rect x="48" y={waterY} width="224" height="240" fill="url(#dieselWaterFill)" />
-            <rect x="48" y={waterY} width="224" height="10" fill="#76C8F0" opacity="0.7" />
+            <rect x="48" y={waterY} width="224" height="10" fill="var(--ui-illustration-highlight-76c8f0)" opacity="0.7" />
           </g>
-          <circle cx="160" cy="160" r="110" fill="none" stroke="#2F4052" strokeWidth="10" />
+          <circle cx="160" cy="160" r="110" fill="none" stroke="var(--ui-text-2f4052)" strokeWidth="10" />
         </svg>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">Volumen actual</p>
-          <p className="mt-2 text-2xl font-bold text-[#2F4052]">
+        <div className="rounded border border-[var(--ui-primary-soft-e2eef8)] bg-[var(--ui-background-f9fcff)] p-4 text-center shadow-[inset_0_-4px_0_var(--ui-illustration-shadow-3aa3dd)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--ui-text-muted-7a858c)]">Volumen actual</p>
+          <p className="mt-2 text-2xl font-bold text-[color:var(--ui-text-2f4052)]">
             {hasMeasurement ? `${formatNumber(Number(calculatedGallons || 0))} GAL` : 'Pendiente'}
           </p>
         </div>
-        <div className="rounded border border-[#E2EEF8] bg-[#F9FCFF] p-4 text-center shadow-[inset_0_-4px_0_#3AA3DD]">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#7A858C]">% de llenado</p>
-          <p className="mt-2 text-2xl font-bold text-[#2F4052]">
+        <div className="rounded border border-[var(--ui-primary-soft-e2eef8)] bg-[var(--ui-background-f9fcff)] p-4 text-center shadow-[inset_0_-4px_0_var(--ui-illustration-shadow-3aa3dd)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--ui-text-muted-7a858c)]">% de llenado</p>
+          <p className="mt-2 text-2xl font-bold text-[color:var(--ui-text-2f4052)]">
             {hasMeasurement ? `${volumePercent.toFixed(1)}%` : 'Pendiente'}
           </p>
         </div>
       </div>
 
-      <p className="mt-4 text-center text-xs text-[#8A969D]">
+      <p className="mt-4 text-center text-xs text-[color:var(--ui-text-muted-8a969d)]">
         Los valores se calculan mediante interpolación basada en la tabla técnica de {formatNumber(tankCapacity, 0)} GAL.
       </p>
     </div>
@@ -146,8 +146,8 @@ export function DieselSection() {
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos de diesel...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos de diesel...</p>
             </div>
           </div>
         </Card>
@@ -170,7 +170,7 @@ export function DieselSection() {
                 <p className="text-red-800 mb-4">
                   {prefillData.error}
                 </p>
-                <div className="bg-white rounded p-4 mb-4 text-sm text-[#3B3A36]">
+                <div className="bg-[var(--ui-surface)] rounded p-4 mb-4 text-sm text-[color:var(--ui-text-3b3a36)]">
                   <p className="font-semibold mb-2">Posibles soluciones:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Verifica que la base de datos esté configurada (Herramientas → Base de Datos)</li>
@@ -203,8 +203,8 @@ export function DieselSection() {
     return (
       <div className="p-6">
         <Card className="text-center py-12">
-          <p className="text-[#5F6773] mb-2">No hay configuración de diesel para esta planta</p>
-          <p className="text-sm text-[#5F6773]">
+          <p className="text-[color:var(--ui-text-muted-5f6773)] mb-2">No hay configuración de diesel para esta planta</p>
+          <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
             Contacta al administrador para configurar el tanque de diesel
           </p>
         </Card>
@@ -352,10 +352,10 @@ export function DieselSection() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Diesel</h2>
-          <p className="text-[#5F6773]">Control de Inventario de Diesel</p>
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Diesel</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">Control de Inventario de Diesel</p>
         </div>
-        <div className="text-sm text-[#5F6773]">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           <span className="font-semibold">{currentPlant?.name}</span>
           {' • '}
           <span>{formatYearMonthLabel(prefillData.inventoryMonth?.year_month)}</span>
@@ -364,19 +364,19 @@ export function DieselSection() {
       <UnitFlowSummary effectiveConfig={dieselUnits} />
 
       {/* TANK INFO */}
-      <Card className="bg-[#F2F3F5] border-[#2475C7]/30">
+      <Card className="bg-[var(--ui-background-f2f3f5)] border-[var(--ui-primary-2475c7)]/30">
         <div className="p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-[#5F6773]">Capacidad del Tanque</p>
-                <p className="text-2xl font-bold text-[#2475C7]">
+                <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Capacidad del Tanque</p>
+                <p className="text-2xl font-bold text-[color:var(--ui-primary-2475c7)]">
                   {formatNumber(diesel.tank_capacity_gallons ?? 0)} {dieselUnits.displayLabel || 'galones'}
                 </p>
               </div>
               <div className="sm:text-right">
-                <p className="text-sm font-semibold text-[#5F6773]">Método de Medición</p>
-                <p className="text-lg font-bold text-[#3B3A36]">
+                <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)]">Método de Medición</p>
+                <p className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
                   Lectura en {dieselUnits.captureLabel || diesel.reading_uom}
                 </p>
               </div>
@@ -422,7 +422,7 @@ export function DieselSection() {
 
           {/* READING SECTION */}
           <div>
-            <h3 className="text-lg font-bold text-[#3B3A36] mb-4">Lectura Actual del Tanque</h3>
+            <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)] mb-4">Lectura Actual del Tanque</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <StandardInput
                 label={`Lectura del Medidor`}
@@ -441,7 +441,7 @@ export function DieselSection() {
 
           {/* PURCHASES */}
           <div>
-            <h3 className="text-lg font-bold text-[#3B3A36] mb-4">Compras del Mes</h3>
+            <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)] mb-4">Compras del Mes</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <StandardInput
                 label="Diesel Comprado"
@@ -459,28 +459,28 @@ export function DieselSection() {
           </div>
 
           {/* CONSUMPTION CALCULATION */}
-          <div className="bg-[#2475C7]/10 border-2 border-[#2475C7]/30 rounded-lg p-6">
+          <div className="bg-[var(--ui-primary-2475c7)]/10 border-2 border-[var(--ui-primary-2475c7)]/30 rounded-lg p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <p className="text-sm font-semibold text-[#5F6773] mb-1">Inventario Inicial</p>
-                <p className="text-2xl font-bold text-[#3B3A36]">
+                <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] mb-1">Inventario Inicial</p>
+                <p className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">
                   {formatNumber(diesel.beginning_inventory || 0)}
                 </p>
-                <p className="text-xs text-[#5F6773]">{dieselUnits.displayLabel || 'galones'}</p>
+                <p className="text-xs text-[color:var(--ui-text-muted-5f6773)]">{dieselUnits.displayLabel || 'galones'}</p>
               </div>
               <div className="flex items-center justify-center">
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-[#5F6773] mb-1">+ Compras</p>
+                  <p className="text-sm font-semibold text-[color:var(--ui-text-muted-5f6773)] mb-1">+ Compras</p>
                   <p className="text-2xl font-bold text-green-600">
                     +{formatNumber(diesel.purchases_gallons || 0)}
                   </p>
-                  <p className="text-xs text-[#5F6773] mt-1">- Inventario Final</p>
+                  <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] mt-1">- Inventario Final</p>
                   <p className="text-2xl font-bold text-orange-600">
                     {hasDieselReading ? `-${formatNumber(diesel.ending_inventory || 0)}` : 'Pendiente'}
                   </p>
                 </div>
               </div>
-              <div className="bg-[#2475C7] text-white rounded-lg p-4 flex flex-col items-center justify-center">
+              <div className="bg-[var(--ui-primary-2475c7)] text-white rounded-lg p-4 flex flex-col items-center justify-center">
                 <p className="text-sm font-semibold mb-2">Consumo Calculado</p>
                 <p className="text-4xl font-bold">
                   {hasDieselReading ? formatNumber(diesel.consumption_gallons || 0) : 'Pendiente'}
@@ -488,8 +488,8 @@ export function DieselSection() {
                 <p className="text-sm mt-1">{dieselUnits.displayLabel || 'galones'}</p>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-[#2475C7]/20">
-              <p className="text-xs text-[#5F6773] text-center">
+            <div className="mt-4 pt-4 border-t border-[var(--ui-primary-2475c7)]/20">
+              <p className="text-xs text-[color:var(--ui-text-muted-5f6773)] text-center">
                 <span className="font-semibold">Fórmula:</span> Consumo = Inventario Inicial + Compras - Inventario Final
               </p>
             </div>
@@ -505,7 +505,7 @@ export function DieselSection() {
 
           {/* NOTES */}
           <div>
-            <label className="block text-sm font-semibold text-[#3B3A36] mb-1.5">
+            <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
               Notas (Opcional)
             </label>
             <textarea
@@ -513,7 +513,7 @@ export function DieselSection() {
               value={diesel.notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
               placeholder="Observaciones adicionales..."
-              className="w-full px-4 py-2.5 bg-white border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+              className="w-full px-4 py-2.5 bg-[var(--ui-surface)] border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
               rows={3}
             />
           </div>
@@ -536,8 +536,8 @@ export function DieselSection() {
       )}
 
       {/* SAVE BUTTON */}
-      <div className="flex flex-col items-stretch gap-3 border-t border-[#D4D2CF] pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-[#5F6773] sm:flex-1">
+      <div className="flex flex-col items-stretch gap-3 border-t border-[var(--ui-border-d4d2cf)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)] sm:flex-1">
           {!isValid() && isDraft() && (
             <span className="text-orange-600">
               Borrador incompleto: agrega la foto y revisa los campos requeridos

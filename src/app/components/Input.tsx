@@ -15,7 +15,7 @@ export function Input({ label, error, helperText, helpText, className = '', ...p
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={inputId} className="flex min-h-5 items-center text-[#3B3A36] mb-1.5 leading-5">
+        <label htmlFor={inputId} className="flex min-h-5 items-center text-[color:var(--ui-text-3b3a36)] mb-1.5 leading-5">
           {label}
           {props.required && <span className="text-[#C94A4A] ml-1">*</span>}
         </label>
@@ -26,16 +26,16 @@ export function Input({ label, error, helperText, helpText, className = '', ...p
         aria-label={!label ? props['aria-label'] : undefined}
         className={`
           w-full px-4 py-2.5 
-          bg-white
-          border border-[#9D9B9A] 
+          bg-[var(--ui-surface)]
+          border border-[var(--ui-border-9d9b9a)]
           rounded 
-          text-[#3B3A36] 
-          placeholder:text-[#5F6773]
+          text-[color:var(--ui-text-3b3a36)]
+          placeholder:text-[color:var(--ui-text-muted-5f6773)]
           focus:outline-none 
           focus:ring-2 
-          focus:ring-[#2475C7] 
+          focus:ring-[var(--ui-primary-2475c7)]
           focus:border-transparent
-          disabled:bg-[#F2F3F5]
+          disabled:bg-[var(--ui-background-f2f3f5)]
           disabled:opacity-50 
           disabled:cursor-not-allowed
           transition-all
@@ -48,7 +48,7 @@ export function Input({ label, error, helperText, helpText, className = '', ...p
         <p className="mt-1 text-sm text-[#C94A4A]">{error}</p>
       )}
       {resolvedHelperText && !error && (
-        <p className="mt-1 text-sm text-[#5F6773]">{resolvedHelperText}</p>
+        <p className="mt-1 text-sm text-[color:var(--ui-text-muted-5f6773)]">{resolvedHelperText}</p>
       )}
     </div>
   );

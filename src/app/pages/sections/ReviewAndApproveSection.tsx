@@ -312,8 +312,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
         <Card>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#2475C7] mb-4"></div>
-              <p className="text-[#5F6773]">Cargando datos del inventario...</p>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--ui-primary-2475c7)] mb-4"></div>
+              <p className="text-[color:var(--ui-text-muted-5f6773)]">Cargando datos del inventario...</p>
             </div>
           </div>
         </Card>
@@ -349,7 +349,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     return (
       <div className="p-6">
         <Card className="text-center py-12">
-          <p className="text-[#5F6773]">No hay datos de inventario para revisar</p>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">No hay datos de inventario para revisar</p>
         </Card>
       </div>
     );
@@ -381,10 +381,10 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-[#3B3A36]">Revisar y Aprobar Inventario</h2>
-          <p className="text-[#5F6773]">Verificación de completitud y aprobación final</p>
+          <h2 className="text-2xl font-bold text-[color:var(--ui-text-3b3a36)]">Revisar y Aprobar Inventario</h2>
+          <p className="text-[color:var(--ui-text-muted-5f6773)]">Verificación de completitud y aprobación final</p>
         </div>
-        <div className="text-sm text-[#5F6773]">
+        <div className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
           <span className="font-semibold">{reviewedPlantName}</span>
           {' • '}
           <span>{formatYearMonthLabel(inventoryMonth.year_month)}</span>
@@ -405,14 +405,14 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
               {isApproved && '✅'}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[#3B3A36]">
+              <h3 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">
                 Estado: {
                   isInProgress ? 'En Progreso' :
                   isSubmitted ? 'Enviado a Aprobación' :
                   isApproved ? 'Aprobado' : 'Desconocido'
                 }
               </h3>
-              <p className="text-sm text-[#5F6773]">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 {isInProgress && 'El inventario está siendo completado por el gerente de planta'}
                 {isSubmitted && 'El inventario ha sido enviado y está en espera de aprobación'}
                 {isApproved && 'El inventario ha sido aprobado y está finalizado'}
@@ -420,13 +420,13 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
             </div>
           </div>
           {isSubmitted && inventoryMonth.created_by && (
-            <div className="text-right text-sm text-[#5F6773]">
+            <div className="text-right text-sm text-[color:var(--ui-text-muted-5f6773)]">
               <p className="font-semibold">Llenado por:</p>
               <p>{inventoryMonth.created_by}</p>
             </div>
           )}
           {isApproved && inventoryMonth.approved_by && (
-            <div className="text-right text-sm text-[#5F6773]">
+            <div className="text-right text-sm text-[color:var(--ui-text-muted-5f6773)]">
               <p className="font-semibold">Aprobado por:</p>
               <p>{inventoryMonth.approved_by}</p>
               {inventoryMonth.approved_at && (
@@ -487,26 +487,26 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
       {/* OVERALL SUMMARY */}
       <Card>
         <div className="p-6">
-          <h3 className="text-xl font-bold text-[#3B3A36] mb-4">Resumen General</h3>
+          <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)] mb-4">Resumen General</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-              <p className="text-sm text-[#5F6773] mb-1">Secciones Totales</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Secciones Totales</p>
               <p className="text-3xl font-bold text-blue-600">{validation.totalSections}</p>
             </div>
             
             <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-              <p className="text-sm text-[#5F6773] mb-1">Secciones Completas</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Secciones Completas</p>
               <p className="text-3xl font-bold text-green-600">{validation.completeSections}</p>
             </div>
             
             <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-              <p className="text-sm text-[#5F6773] mb-1">Datos Pendientes</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Datos Pendientes</p>
               <p className="text-3xl font-bold text-red-600">{validation.totalCriticalIssues}</p>
             </div>
             
             <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
-              <p className="text-sm text-[#5F6773] mb-1">Advertencias</p>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)] mb-1">Advertencias</p>
               <p className="text-3xl font-bold text-yellow-600">{validation.totalWarningIssues}</p>
             </div>
           </div>
@@ -514,8 +514,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
           {/* COMPLETION BAR */}
           <div className="mb-4">
             <div className="flex justify-between items-center mb-2">
-              <p className="text-sm font-semibold text-[#3B3A36]">Progreso de Completitud</p>
-              <p className="text-sm font-semibold text-[#3B3A36]">
+              <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">Progreso de Completitud</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)]">
                 {validation.totalSections === 0 ? 0 : Math.round((validation.completeSections / validation.totalSections) * 100)}%
               </p>
             </div>
@@ -546,7 +546,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
       {/* SECTION VALIDATION DETAILS */}
       <div className="space-y-4">
-        <h3 className="text-xl font-bold text-[#3B3A36]">Detalle por Sección</h3>
+        <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Detalle por Sección</h3>
         
         {validation.allSections.map((section) => (
           <Card key={section.sectionId} className={
@@ -555,7 +555,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
             <div className="p-4">
               {/* SECTION HEADER */}
               <div 
-                className="flex min-h-11 cursor-pointer items-center justify-between rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7]"
+                className="flex min-h-11 cursor-pointer items-center justify-between rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)]"
                 onClick={() => toggleSection(section.sectionId)}
                 role="button"
                 tabIndex={0}
@@ -573,8 +573,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                     {section.isComplete ? '✅' : '⚠️'}
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold text-[#3B3A36]">{section.sectionName}</h4>
-                    <p className="text-sm text-[#5F6773]">
+                    <h4 className="text-lg font-bold text-[color:var(--ui-text-3b3a36)]">{section.sectionName}</h4>
+                    <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                       {section.completeItems} / {section.totalItems} ítems completos
                       {section.criticalIssues > 0 && (
                         <span className="text-red-600 ml-2">
@@ -589,7 +589,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                     </p>
                   </div>
                 </div>
-                <div className="text-[#5F6773]">
+                <div className="text-[color:var(--ui-text-muted-5f6773)]">
                   {expandedSections.has(section.sectionId) ? '▼' : '▶'}
                 </div>
               </div>
@@ -607,8 +607,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
               {/* SECTION DETAILS (EXPANDABLE) */}
               {expandedSections.has(section.sectionId) && section.issues.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-[#D4D2CF]">
-                  <h5 className="text-sm font-semibold text-[#3B3A36] mb-2">Datos que faltan o requieren atención:</h5>
+                <div className="mt-4 pt-4 border-t border-[var(--ui-border-d4d2cf)]">
+                  <h5 className="text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-2">Datos que faltan o requieren atención:</h5>
                   <ul className="space-y-2">
                     {section.issues.map((issue, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
@@ -621,7 +621,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                           }`}>
                             {issue.field}
                           </p>
-                          <p className="text-[#5F6773]">{issue.message}</p>
+                          <p className="text-[color:var(--ui-text-muted-5f6773)]">{issue.message}</p>
                         </div>
                       </li>
                     ))}
@@ -654,14 +654,14 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
           {/* LEFT SIDE: INFO */}
           <div className="flex-1">
             {isInProgress && canSubmit && (
-              <p className="text-sm text-[#5F6773]">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 {validation.canSubmit 
                   ? '✓ Puedes guardar como borrador o enviar a aprobación'
                   : 'Completa los datos pendientes antes de enviar a aprobación'}
               </p>
             )}
             {isSubmitted && canApprove && (
-              <p className="text-sm text-[#5F6773]">
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 {validation.canApprove
                   ? '✓ Puedes aprobar o rechazar este inventario'
                   : 'Hay datos pendientes antes de aprobar'}
@@ -735,8 +735,8 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-lg w-full">
             <div className="p-6 space-y-4">
-              <h3 className="text-xl font-bold text-[#3B3A36]">Rechazar Inventario</h3>
-              <p className="text-sm text-[#5F6773]">
+              <h3 className="text-xl font-bold text-[color:var(--ui-text-3b3a36)]">Rechazar Inventario</h3>
+              <p className="text-sm text-[color:var(--ui-text-muted-5f6773)]">
                 El inventario volverá al estado "En Progreso" y el gerente podrá editarlo nuevamente.
                 Por favor, proporciona las razones del rechazo:
               </p>
@@ -745,7 +745,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                 value={rejectionNotes}
                 onChange={(e) => setRejectionNotes(e.target.value)}
                 placeholder="Explica por qué estás rechazando este inventario..."
-                className="w-full px-4 py-2.5 border border-[#9D9B9A] rounded focus:outline-none focus:ring-2 focus:ring-[#2475C7] focus:border-transparent resize-none"
+                className="w-full px-4 py-2.5 border border-[var(--ui-border-9d9b9a)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary-2475c7)] focus:border-transparent resize-none"
                 rows={4}
                 required
               />

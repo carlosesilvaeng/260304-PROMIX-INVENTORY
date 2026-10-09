@@ -38,27 +38,27 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex items-center justify-center min-h-screen bg-[#F2F3F5] p-6">
-          <div className="bg-white rounded-lg border border-[#9D9B9A] p-8 max-w-md w-full text-center">
+        <div className="flex items-center justify-center min-h-screen bg-[var(--ui-background-f2f3f5)] p-6">
+          <div className="bg-[var(--ui-surface)] rounded-lg border border-[var(--ui-border-9d9b9a)] p-8 max-w-md w-full text-center">
             <div className="text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl text-[#3B3A36] mb-2 font-bold">
+            <h2 className="text-2xl text-[color:var(--ui-text-3b3a36)] mb-2 font-bold">
               Error de Aplicación
             </h2>
-            <p className="text-[#5F6773] mb-6">
+            <p className="text-[color:var(--ui-text-muted-5f6773)] mb-6">
               Ha ocurrido un error inesperado. Por favor, recarga la página.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="bg-[#2475C7] text-white px-6 py-3 rounded-lg hover:bg-[#1f5da6] transition-colors font-medium"
+              className="bg-[var(--ui-primary-2475c7)] text-white px-6 py-3 rounded-lg hover:bg-[var(--ui-primary-hover-1f5da6)] transition-colors font-medium"
             >
               Recargar Página
             </button>
             {this.state.error && (
               <details className="mt-4 text-left">
-                <summary className="cursor-pointer text-sm text-[#5F6773] hover:text-[#3B3A36]">
+                <summary className="cursor-pointer text-sm text-[color:var(--ui-text-muted-5f6773)] hover:text-[color:var(--ui-text-3b3a36)]">
                   Detalles técnicos
                 </summary>
-                <pre className="mt-2 p-3 bg-[#F2F3F5] rounded text-xs overflow-auto">
+                <pre className="mt-2 p-3 bg-[var(--ui-background-f2f3f5)] rounded text-xs overflow-auto">
                   {this.state.error.toString()}
                 </pre>
               </details>

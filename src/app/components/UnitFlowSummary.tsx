@@ -55,13 +55,13 @@ export function UnitFlowSummary({
 
   return (
     <div className={className}>
-      <details className="rounded border border-[#D4D2CF] bg-[#F8FAFC] px-3 py-2 text-xs text-[#5F6773] sm:hidden">
-        <summary className="min-h-8 cursor-pointer py-1 font-semibold text-[#3B3A36]">
+      <details className="rounded border border-[var(--ui-border-d4d2cf)] bg-[var(--ui-background-f8fafc)] px-3 py-2 text-xs text-[color:var(--ui-text-muted-5f6773)] sm:hidden">
+        <summary className="min-h-8 cursor-pointer py-1 font-semibold text-[color:var(--ui-text-3b3a36)]">
           Unidades y método de cálculo
         </summary>
         <div className="pt-2">{content}</div>
       </details>
-      <div className="hidden rounded border border-[#D4D2CF] bg-[#F8FAFC] px-4 py-3 text-xs text-[#5F6773] sm:block">
+      <div className="hidden rounded border border-[var(--ui-border-d4d2cf)] bg-[var(--ui-background-f8fafc)] px-4 py-3 text-xs text-[color:var(--ui-text-muted-5f6773)] sm:block">
         {content}
       </div>
     </div>

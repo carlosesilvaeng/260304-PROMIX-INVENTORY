@@ -213,13 +213,13 @@ export function DatabaseSetup() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-6">
+    <div className="min-h-screen bg-[var(--ui-background-f5f7fa)] p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#1A1D1F] mb-2">
+          <h1 className="text-3xl font-bold text-[color:var(--ui-text-1a1d1f)] mb-2">
             Configuración de Base de Datos
           </h1>
-          <p className="text-[#6F767E]">
+          <p className="text-[color:var(--ui-text-muted-6f767e)]">
             Inicializa y configura el sistema de inventarios PROMIX
           </p>
         </div>
@@ -246,7 +246,7 @@ export function DatabaseSetup() {
                 Antes de usar esta pantalla, DEBES ejecutar el script SQL manualmente:
               </p>
               
-              <ol className="list-decimal list-inside space-y-3 ml-2 bg-white p-4 rounded border border-amber-300">
+              <ol className="list-decimal list-inside space-y-3 ml-2 bg-[var(--ui-surface)] p-4 rounded border border-amber-300">
                 <li className="font-medium">
                   Ve a tu proyecto en{' '}
                   <a 
@@ -297,14 +297,14 @@ export function DatabaseSetup() {
           </Card>
 
           {/* Quick Setup Card - Renamed */}
-          <Card className="p-6 border-2 border-[#2B7DE9]">
+          <Card className="p-6 border-2 border-[var(--ui-primary-2b7de9)]">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h2 className="text-xl font-semibold text-[#1A1D1F] mb-2 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2 flex items-center gap-2">
                   <span className="text-2xl">🚀</span>
                   PASO 2: Verificar Tablas
                 </h2>
-                <p className="text-[#6F767E] mb-4">
+                <p className="text-[color:var(--ui-text-muted-6f767e)] mb-4">
                   Después de ejecutar el script SQL en Supabase (Paso 1),
                   haz clic aquí para verificar que las tablas existan. La configuración
                   de plantas y usuarios debe hacerse explícitamente, no por semillas automáticas.
@@ -312,7 +312,7 @@ export function DatabaseSetup() {
                 <Button
                   onClick={handleFullSetup}
                   disabled={setupState.loading}
-                  className="bg-[#2B7DE9] hover:bg-[#1E5DB8] text-white font-semibold"
+                  className="bg-[var(--ui-primary-2b7de9)] hover:bg-[var(--ui-primary-hover-1e5db8)] text-white font-semibold"
                 >
                   {setupState.loading ? 'Procesando...' : '✓ Verificar Tablas'}
                 </Button>
@@ -332,11 +332,11 @@ export function DatabaseSetup() {
                 ¿Ves errores por columnas faltantes de agregados, como "Could not find the 'box_height_ft' column" o "Could not find the 'location_area' column"?
               </p>
               
-              <p className="bg-white p-3 rounded border border-red-300">
+              <p className="bg-[var(--ui-surface)] p-3 rounded border border-red-300">
                 <strong>Causa:</strong> Ejecutaste una versión antigua del schema.sql que no incluía todas las columnas necesarias.
               </p>
 
-              <div className="bg-white p-4 rounded border border-red-300">
+              <div className="bg-[var(--ui-surface)] p-4 rounded border border-red-300">
                 <p className="font-semibold mb-2">📋 SOLUCIÓN (Elige una opción):</p>
                 
                 <div className="ml-4 space-y-3">
@@ -368,17 +368,17 @@ export function DatabaseSetup() {
 
           {/* Manual Steps Card */}
           <Card className="p-6">
-            <h2 className="text-xl font-semibold text-[#1A1D1F] mb-4">
+            <h2 className="text-xl font-semibold text-[color:var(--ui-text-1a1d1f)] mb-4">
               🔧 Configuración Manual (Paso a Paso)
             </h2>
             
             <div className="space-y-6">
               {/* Step 1: Initialize */}
-              <div className="border-l-4 border-[#2B7DE9] pl-4">
-                <h3 className="font-semibold text-[#1A1D1F] mb-2">
+              <div className="border-l-4 border-[var(--ui-primary-2b7de9)] pl-4">
+                <h3 className="font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2">
                   Paso 1: Inicializar Esquema
                 </h3>
-                <p className="text-sm text-[#6F767E] mb-3">
+                <p className="text-sm text-[color:var(--ui-text-muted-6f767e)] mb-3">
                   Crea todas las tablas necesarias en la base de datos (configuración por planta, 
                   tablas mensuales, curvas de calibración, etc.)
                 </p>
@@ -392,10 +392,10 @@ export function DatabaseSetup() {
               </div>
 
               <div className="border-l-4 border-[#22C55E] pl-4">
-                <h3 className="font-semibold text-[#1A1D1F] mb-2">
+                <h3 className="font-semibold text-[color:var(--ui-text-1a1d1f)] mb-2">
                   Paso 2: Configurar Datos Reales
                 </h3>
-                <p className="text-sm text-[#6F767E] mb-3">
+                <p className="text-sm text-[color:var(--ui-text-muted-6f767e)] mb-3">
                   Registra usuarios, plantas, agregados, silos, catálogos y demás configuraciones
                   desde las pantallas administrativas. Ya no se cargan datos semilla automáticos.
                 </p>
@@ -569,7 +569,7 @@ export function DatabaseSetup() {
         </div>
         
         {/* Build Version Footer */}
-        <div className="mt-6 text-center text-xs text-[#6F767E]">
+        <div className="mt-6 text-center text-xs text-[color:var(--ui-text-muted-6f767e)]">
           Version de build: {BUILD_VERSION}
         </div>
       </div>
