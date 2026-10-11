@@ -33,6 +33,35 @@ test('detail requests have bounded concurrency and cancellation stops fetching',
 
 test('actual XLSX serialization preserves numeric zero and metadata',()=>{const model=buildInventoryReport(snapshot({productos:[{product_name:'Producto cero',quantity:0,uom:'unit',measure_mode:'COUNT'}]}));const workbook=createReportWorkbook([model],{year_month:'2026-10'});const reopened=XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'});assert.match(reopened.Sheets['Información'].B3.v,/2026-10/);assert.ok(Object.values(reopened.Sheets['Consolidado']).some(cell=>cell?.t==='n'&&cell.v===0));});
 
+const consolidatedRows=details=>{
+ const workbook=createReportWorkbook(details,{});
+ return XLSX.utils.sheet_to_json(XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'}).Sheets.Consolidado,{defval:null});
+};
+test('consolidated Excel includes saved conversion, original reading and sacks as numeric cells',()=>{
+ const model=buildInventoryReport(snapshot({silos:[{silo_name:'Silo 1',product_name:'Cemento',reading_value:0,reading_uom:'in',calculated_result:940,calculated_result_unit_id:'lb',presentation_sacks:10}]}));
+ const [row]=consolidatedRows([model]);
+ assert.equal(row['Cantidad convertida'],940);assert.equal(row['Unidad de conversión'],'lb');
+ assert.equal(row['Unidad de medida'],'in');assert.equal(row['Lectura / medición'],0);
+ assert.equal(row['Cantidad alterna'],10);assert.equal(row['Unidad alterna'],'sacos');
+});
+test('consolidated readings retain plant provenance and missing sacks do not become partial totals',()=>{
+ const silo={silo_name:'Silo 1',product_name:'Cemento',reading_value:12,reading_uom:'in',calculated_result:940,calculated_result_unit_id:'lb',presentation_sacks:10};
+ const a=buildInventoryReport(snapshot({silos:[silo]}));
+ const b=buildInventoryReport(snapshot({month:{...a.report,id:'b',plant_id:'B'},silos:[{...silo,reading_value:24,presentation_sacks:null}]}));
+ const [row]=consolidatedRows([a,b]);
+ assert.equal(row['Cantidad convertida'],1880);assert.equal(row['Cantidad alterna'],null);
+ assert.match(row['Lectura / medición'],/A \/ Silo 1: 12 in/);assert.match(row['Lectura / medición'],/B \/ Silo 1: 24 in/);
+ const [complete]=consolidatedRows([a,buildInventoryReport(snapshot({month:b.report,silos:[silo]}))]);
+ assert.equal(complete['Cantidad alterna'],20);
+});
+test('aggregate measurements retain dimensions and diesel consumption does not reuse tank reading',()=>{
+ const model=buildInventoryReport(snapshot({agregados:[{aggregate_name:'Arena',measurement_method:'BOX',box_width_ft:5,box_height_ft:0,box_length_ft:10,capture_unit_id:'ft',calculated_volume_cy:0,unit:'ft3'}],diesel:{reading_inches:12,reading_uom:'in',ending_inventory:30,consumption_gallons:5,purchases_gallons:7,unit:'gal_us'}}));
+ const rows=consolidatedRows([model]);
+ assert.equal(rows[0]['Unidad de medida'],'ft');assert.equal(rows[0]['Lectura / medición'],'Ancho: 5; Alto: 0; Largo: 10');
+ assert.equal(rows.find(r=>r.Sección==='Diésel'&&r.Métrica==='Existencia')['Lectura / medición'],12);
+ assert.equal(rows.find(r=>r.Sección==='Diésel'&&r.Métrica==='Consumo')['Lectura / medición'],null);
+});
+
 test('partial totals stay unknown and numeric overflow is rejected',()=>{const model=buildInventoryReport(snapshot({productos:[{product_name:'P',quantity:5,uom:'unit'},{product_name:'P',quantity:null,uom:'unit'}]}));assert.equal(model.metrics[0].value,null);assert.throws(()=>buildInventoryReport(snapshot({productos:[{product_name:'P',quantity:1e308,uom:'unit'},{product_name:'P',quantity:1e308,uom:'unit'}]})));});
 
 test('activity sorting accepts only asc or desc',()=>{assert.equal(parseReportingQuery({activity_order:'desc'}).filters.activity_order,'desc');assert.equal(parseReportingQuery({activity_order:'asc'}).filters.activity_order,'asc');assert.throws(()=>parseReportingQuery({activity_order:'newest'}),/Orden/);});

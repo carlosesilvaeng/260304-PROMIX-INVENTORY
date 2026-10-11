@@ -19,7 +19,7 @@ try{
  const rows=Array.from({length:251},(_,i)=>({id:`m${i}`,plant_id:i===1?'B':'A',plant_name:i===1?'Planta B':'Planta A',year_month:i<2?'2026-10':`2025-${String(i%12+1).padStart(2,'0')}`,status:i<2?'IN_PROGRESS':'APPROVED',write_revision:1,created_at:'2026-10-01T12:00:00Z',created_by:user.id,updated_at:'2026-10-04T18:10:00Z',activity_at:i===1?'2026-10-04T19:00:00Z':'2026-10-04T18:00:00Z',progress}));
  const detail=row=>buildInventoryReport({reporting_version:3,month:row,plant_name:row.plant_name,progress,previous:null,
   agregados:[{aggregate_name:'Agregado m3',material_type:'Arena',measurement_method:'BOX',box_width_ft:3,box_height_ft:2,box_length_ft:1,capture_unit_id:'m',calculated_volume_cy:6,unit:'m3'},{aggregate_name:'Agregado ft3',material_type:'Arena',calculated_volume_cy:2,unit:'ft3',capture_unit_id:'ft'}],
-  silos:[{silo_name:'Silo 1',product_name:'Cemento',reading_value:2,reading_uom:'ft',calculated_result:5,calculated_result_unit_id:'yd3'}],
+  silos:[{silo_name:'Silo 1',product_name:'Cemento',reading_value:2,reading_uom:'ft',calculated_result:5,calculated_result_unit_id:'yd3',presentation_sacks:10}],
   aditivos:[{product_name:'Aditivo',additive_type:'MANUAL',inventory_quantity:0,inventory_unit_id:'gal_us'}],
   diesel:{ending_inventory:3,purchases_gallons:7,consumption_gallons:5,unit:'gal_us'},
   productos:[{product_name:'Producto cero',quantity:0,uom:'unit',measure_mode:'COUNT',photo_url:'https://evidence.example.invalid/ok.png'},{product_name:'Envase',quantity:2,unit_count:2,total_volume:110,unit_volume:55,uom:'gal_us',measure_mode:'DRUM',photo_url:'https://evidence.example.invalid/missing.png'}],
@@ -55,6 +55,12 @@ try{
  await page.locator('select').nth(1).selectOption('2026');await page.getByText(/Mostrando 1–2 de 2/).waitFor();assert.ok(reportQueries.some(q=>q.year==='2026'));
  for(const width of [360,390,430]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`report page overflow at ${width}`);}
  await page.getByRole('button',{name:'Ver detalle y cronología'}).first().click();await page.locator('summary').filter({hasText:'Aceites y Productos'}).click();await page.getByText('Producto cero',{exact:true}).first().waitFor();await page.getByText(/Informado por el móvil:/).waitFor();assert.ok(await page.getByText('Sin comparación: período anterior no disponible').count());
+ await page.locator('summary').filter({hasText:'Cantidades y comparación'}).click();
+ const quantities=page.locator('details').filter({has:page.locator('summary').filter({hasText:'Cantidades y comparación'})});
+ for(const label of ['Cantidad convertida','Unidad de conversión','Unidad de medida','Lectura / medición','Cantidad alterna','Unidad alterna'])assert.equal(await quantities.getByRole('columnheader',{name:label,exact:true}).count(),1);
+ const cement=quantities.getByRole('row').filter({hasText:'Cemento'});
+ assert.equal(await cement.locator('td').nth(4).innerText(),'ft');assert.equal(await cement.locator('td').nth(5).innerText(),'2');
+ assert.equal(await cement.locator('td').nth(6).innerText(),'10');assert.equal(await cement.locator('td').nth(7).innerText(),'sacos');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'detail must not overflow outer viewport');await page.screenshot({path:'/private/tmp/promix-phase3-reports-mobile.png',fullPage:true});
  await page.keyboard.press('Escape');
  const xlsxDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Excel · todos los resultados',exact:true}).click();const xlsx=await xlsxDownload;await xlsx.saveAs('/private/tmp/promix-phase3-browser.xlsx');await page.getByText(/Archivo generado con todos/).waitFor();

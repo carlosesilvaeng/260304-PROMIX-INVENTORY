@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 import {consolidateInventoryReports,reportSectionLabel,unitLabel,type InventoryReport} from './inventoryReportModel';
 import {checkCancellation,loadReportDetails,type ReportOptions} from './reportTransport';
 import {createReportWorkbook,REPORT_STATUS,type PhotoAvailability} from './reportWorkbook';
+import {consolidatedMeasurementColumns} from './reportConsolidatedColumns';
 export interface ReportSummary {id:string;plant_id:string;year_month:string;status:'IN_PROGRESS'|'SUBMITTED'|'APPROVED';created_by:string;created_at:string;updated_at:string;approved_by?:string;approved_at?:string;write_revision?:number}
 async function loadPhoto(url:string,signal?:AbortSignal):Promise<PhotoAvailability['image']>{
  checkCancellation(signal);if(!/^(https?:\/\/|data:image\/(png|jpeg|webp);base64,|\/assets\/)/i.test(url))return undefined;
@@ -57,7 +58,12 @@ export async function exportToPDF(reports:ReportSummary[],base:string,token:stri
  text('Solo valores guardados. Las unidades y cantidades históricas no se recalculan con la configuración actual. La actividad sin conexión solo es conocida cuando llega al servidor.');
  table(['Planta','Período','Estado','Registros guardados','Con información','Completos','Pendientes','Último guardado recibido'],details.map(d=>[d.report.plant_name||d.report.plant_id,d.report.year_month,REPORT_STATUS[d.report.status],d.progress.saved_count,d.progress.captured_count??'Por verificar',d.progress.complete_count??'Por verificar',d.progress.pending_count??'Por verificar',d.progress.last_save_received_at||'Sin guardado confirmado']));
  text('Consolidado por período, material, métrica y unidad',11);
- table(['Período','Sección','Material / producto','Métrica','Cantidad','Unidad','Anterior','Diferencia','Comparación'],consolidateInventoryReports(details).map(m=>[m.period,reportSectionLabel(m.section),m.material,m.metric,m.value,unitLabel(m.unit),m.previous,m.difference,m.comparison]));
+ const consolidated=consolidateInventoryReports(details);
+ table(['Período','Sección','Material / producto','Métrica','Cantidad convertida','Unidad de conversión','Anterior','Diferencia','Comparación'],consolidated.map(m=>[m.period,reportSectionLabel(m.section),m.material,m.metric,m.value,unitLabel(m.unit),m.previous,m.difference,m.comparison]));
+ if(y>height-75){doc.addPage();y=14;}
+ text('Lecturas, mediciones y unidades alternas del consolidado',11);
+ text('Las lecturas múltiples se identifican por planta y registro. Las cantidades alternas incluyen solo totales con todos los datos guardados y una misma unidad.');
+ table(['Período','Sección','Material / producto','Métrica','Unidad de medida','Lectura / medición','Cantidad alterna','Unidad alterna','Plantas'],consolidated.map(m=>[m.period,reportSectionLabel(m.section),m.material,m.metric,...consolidatedMeasurementColumns(details,m),[...new Set(m.plants)].join(', ')]));
  for(const detail of details){checkCancellation(options.signal);doc.addPage();y=14;text(`${detail.report.plant_name||detail.report.plant_id} · ${detail.report.year_month} · ${REPORT_STATUS[detail.report.status]}`,12);
   text(`Iniciado: ${detail.report.created_at} · ${detail.report.created_by||'Sin usuario registrado'} · Revisión: ${detail.report.write_revision??'Sin registro'}`);
   text(`Primera captura recibida: ${detail.progress.first_capture_received_at||'Sin evento recibido'} · Primera captura informada por el móvil: ${detail.progress.first_capture_client_at||'Sin hora de origen registrada'}`);

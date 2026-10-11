@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import {consolidateInventoryReports,reportSectionLabel,unitLabel,type InventoryReport} from './inventoryReportModel';
+import {consolidatedMeasurementColumns} from './reportConsolidatedColumns';
 export const REPORT_STATUS:Record<string,string>={IN_PROGRESS:'En progreso',SUBMITTED:'Enviado',APPROVED:'Aprobado'};
 export function uniqueReportSheetName(label:string,names:Set<string>){
  const base=label.replace(/[\\/?*:\[\]\x00-\x1f]/g,' ').replace(/^'+|'+$/g,'').trim()||'Inventario';let name=base.slice(0,31),n=1;
@@ -14,6 +15,7 @@ export function createReportWorkbook(details:InventoryReport[],filters:Record<st
   ['Lectura','Solo valores persistidos; las celdas vacías indican ausencia de dato. No se suman unidades diferentes ni existencias entre períodos.'],
   ['Avance','Capturas y completitud provienen de recibos de guardado. Sin auditoría histórica suficiente, se indica por verificar.'],
   ['Fotografías','Las evidencias se incluyen como enlaces con disponibilidad verificada al generar el archivo.'],
+  ['Mediciones','El consolidado incluye lecturas originales y cantidades convertidas guardadas. Las lecturas múltiples se identifican por planta y registro. Las cantidades alternas solo se suman cuando todos los registros tienen dato y la misma unidad.'],
   ...details.flatMap(detail=>detail.warnings.map(warning=>['Advertencia',`${detail.report.plant_id} / ${detail.report.year_month}: ${warning}`])),
  ]);
  append('Resumen',[
@@ -21,8 +23,8 @@ export function createReportWorkbook(details:InventoryReport[],filters:Record<st
   ...details.map(({report:r,progress:p})=>[r.plant_name||r.plant_id,r.year_month,REPORT_STATUS[r.status]||r.status,r.created_by,r.created_at,p.saved_count,p.captured_count??'Por verificar',p.complete_count??'Por verificar',p.pending_count??'Por verificar',p.first_capture_received_at||'',p.first_capture_client_at||'',p.last_save_received_at||'',r.approved_by||'',r.approved_at||'']),
  ]);
  append('Consolidado',[
-  ['Período','Sección','Material / producto','Métrica','Cantidad','Unidad','Período anterior','Diferencia','Comparación','Plantas'],
-  ...consolidateInventoryReports(details).map(m=>[m.period,reportSectionLabel(m.section),m.material,m.metric,m.value,unitLabel(m.unit),m.previous,m.difference,m.comparison,[...new Set(m.plants)].join(', ')]),
+  ['Período','Sección','Material / producto','Métrica','Cantidad convertida','Unidad de conversión','Unidad de medida','Lectura / medición','Cantidad alterna','Unidad alterna','Período anterior','Diferencia','Comparación','Plantas'],
+  ...consolidateInventoryReports(details).map(m=>[m.period,reportSectionLabel(m.section),m.material,m.metric,m.value,unitLabel(m.unit),...consolidatedMeasurementColumns(details,m),m.previous,m.difference,m.comparison,[...new Set(m.plants)].join(', ')]),
  ]);
  for(const detail of details){const rows:any[][]=[['Planta',detail.report.plant_name||detail.report.plant_id],['Período',detail.report.year_month],['Estado',REPORT_STATUS[detail.report.status]],['Revisión guardada',detail.report.write_revision],[]];
   for(const section of detail.sections)rows.push([section.name],[section.note],section.headers,...section.rows,[]);
