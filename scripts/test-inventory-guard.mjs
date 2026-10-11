@@ -115,3 +115,42 @@ test('silo acknowledgement carries configured geometry for subsequent mobile edi
  const configured={...pack,silos:[{...pack.silos[0],diameter_in:144,total_height_in:300,cone_height_in:80,bottom_diameter_in:42,cylinder_height_mode:'FULL',slope_divisor_mode:'NONE',material_conversion_factor_id:'factor'}]};
  const saved=prepareInventoryRows('silos',[{silo_config_id:'silo',diameter_in:999}],configured)[0];assert.equal(saved.diameter_in,144);assert.equal(saved.total_height_in,300);assert.equal(saved.material_conversion_factor_id,'factor');assert.equal(saved.reading_value,null);
 });
+
+test('NO HAY FÍSICO overrides required product capture and photo for every method',()=>{
+ const requiredPack={...pack,products:pack.products.map(p=>({...p,requires_photo:true,calibration_table:null}))};
+ const rows=prepareInventoryRows('products',requiredPack.products.map(p=>({product_config_id:p.id,no_physical_stock:true,
+   quantity:999,unit_count:999,reading_value:999,photo_url:'old-photo',no_physical_stock_by:'forged-user',no_physical_stock_at:'2000-01-01'})),requiredPack);
+ for(const row of rows){
+  assert.equal(row.quantity,0);assert.equal(row.photo_url,null);assert.equal(row.reading_value,null);
+  assert.equal(row.no_physical_stock,true);assert.equal(row.no_physical_stock_by,undefined);assert.equal(row.no_physical_stock_at,undefined);
+ }
+ assert.equal(summarizeInventorySection('products',rows).complete_count,3);
+ assert.equal(validateInventorySubmissionSection('products',rows,requiredPack).complete,true);
+ assert.equal(validateInventorySubmissionSection('products',rows.slice(1),requiredPack).complete,false);
+ assert.throws(()=>prepare('products',{product_config_id:'count',no_physical_stock:'true'}));
+ assert.equal(summarizeInventorySection('products',prepareInventoryRows('products',[{product_config_id:'count',no_physical_stock:false}],requiredPack)).complete_count,0);
+});
+
+test('NO HAY FÍSICO overrides aggregates, geometric silos and every additive method without inventing readings',()=>{
+ const configs={...pack,
+  aggregates:[{id:'box',measurement_method:'BOX',box_width_ft:4},{id:'cone',measurement_method:'CONE'}],
+  silos:[{id:'geometry',calculation_method:'GEOMETRIC_CYLINDER_CONE',requires_photo:true,inventory_unit_id:'lb'},
+    {id:'curve',calculation_method:'CALIBRATION_CURVE',requires_photo:true}],
+  additives:['MANUAL','CURVE','CYLINDER_VERTICAL','RECTANGULAR_IBC'].map(method=>({id:method,measurement_method:method,requires_photo:true}))};
+ for(const section of ['aggregates','silos','additives']){
+  const key={aggregates:'aggregate_config_id',silos:'silo_config_id',additives:'additive_config_id'}[section];
+  const rows=prepareInventoryRows(section,configs[section].map(c=>({[key]:c.id,no_physical_stock:true,
+    reading_value:-99,quantity:-99,box_length_ft:-99,photo_url:'old',product_name:'old',calculated_volume:999})),configs);
+  for(const row of rows){assert.equal(row.no_physical_stock,true);assert.equal(row.photo_url,null);
+   assert.equal(row.no_physical_stock_by,undefined);assert.equal(row.reading_value??null,null);
+   assert.equal(row[{aggregates:'calculated_volume_cy',silos:'calculated_result_cy',additives:'inventory_quantity'}[section]],0);}
+  assert.equal(summarizeInventorySection(section,rows).complete_count,configs[section].length);
+  assert.equal(validateInventorySubmissionSection(section,rows,configs).complete,true);
+  assert.equal(validateInventorySubmissionSection(section,rows.slice(1),configs).complete,false);
+  assert.throws(()=>prepareInventoryRows(section,[{[key]:configs[section][0].id,no_physical_stock:'true'}],configs));
+  const restored=prepareInventoryRows(section,rows.map(row=>({...row,no_physical_stock:false,quantity:null,reading_value:null,reading:null})),configs);
+  assert.equal(summarizeInventorySection(section,restored).complete_count,0);
+ }
+ // The exception must not waive the required inputs of other sections.
+ assert.equal(summarizeInventorySection('diesel',[{no_physical_stock:true}]).complete_count,0);
+});

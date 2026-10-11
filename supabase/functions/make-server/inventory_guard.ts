@@ -101,7 +101,13 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
     seen.add(id);
     if (input.photo_url != null && typeof input.photo_url !== 'string') throw new InventoryError('Foto inválida.');
     if (input.notes != null && typeof input.notes !== 'string') throw new InventoryError('Observaciones inválidas.');
-    const base: any = { ...(input.id ? { id: input.id } : {}), photo_url: input.photo_url?.trim() || null, notes: input.notes?.trim() || null };
+    const supportsNoPhysical = ['aggregates', 'silos', 'additives', 'products'].includes(section);
+    if (supportsNoPhysical && input.no_physical_stock != null && typeof input.no_physical_stock !== 'boolean') throw new InventoryError('NO HAY FÍSICO debe ser una opción booleana.');
+    const noPhysical = supportsNoPhysical && input.no_physical_stock === true;
+    if (noPhysical) input = { ...input, photo_url: null, reading_value: null, reading: null,
+      product_name: null, product_in_silo: null, quantity: null, box_height_ft: null, box_length_ft: null,
+      ...Object.fromEntries(coneFields.map(key => [key, null])) };
+    const base: any = { ...(input.id ? { id: input.id } : {}), ...(supportsNoPhysical ? { no_physical_stock: noPhysical } : {}), photo_url: input.photo_url?.trim() || null, notes: input.notes?.trim() || null };
     const n = (key: string) => optionalNumber(input[key], key);
     switch (section) {
       case 'aggregates': {
@@ -110,6 +116,7 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
         const row: any = { ...base, aggregate_config_id: c.id, ...select(c, ['aggregate_name', 'material_type', 'location_area', 'measurement_method']),
           unit: display, capture_unit_id: capture, box_width_ft: optionalNumber(c.box_width_ft), box_height_ft: n('box_height_ft'), box_length_ft: n('box_length_ft'),
           ...Object.fromEntries(coneFields.map(key => [key, n(key)])), calculated_volume_cy: null };
+        if (noPhysical) return { ...row, calculated_volume_cy: 0 };
         let volume: number | null = null;
         if (c.measurement_method === 'BOX') {
           if ([row.box_width_ft, row.box_height_ft, row.box_length_ft].every(present)) volume = row.box_width_ft * row.box_height_ft * row.box_length_ft;
@@ -135,6 +142,9 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
           calculated_result: null, calculated_result_cy: null, calculated_volume: null, calculated_volume_ft3: null,
           calculated_result_unit_id: c.inventory_unit_id || null, presentation_lbs: null, presentation_sacks: null, presentation_metric_tons: null,
           calculation_metadata: null };
+        if (noPhysical) return { ...row, calculated_result: 0, calculated_result_cy: 0, calculated_volume: 0,
+          calculated_volume_ft3: 0, presentation_lbs: 0, presentation_sacks: 0, presentation_metric_tons: 0,
+          calculation_metadata: { no_physical_stock: true } };
         if (reading === null) return row;
         if (row.calculation_method === 'GEOMETRIC_CYLINDER_CONE') {
           const geometry = calculateSiloGeometry({ ...c, reading_in: reading });
@@ -173,6 +183,8 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
           conversion_table: method === 'CURVE' ? c.conversion_table : null,
           capture_unit_id: capture, calculation_unit_id: calculation, display_unit_id: display, inventory_unit_id: inventory,
           calculated_volume: null, calculated_gallons: null, inventory_percentage: null, display_volume: null, inventory_quantity: null };
+        if (noPhysical) return { ...row, quantity: method === 'MANUAL' ? 0 : null, calculated_volume: 0,
+          calculated_gallons: calculation === 'gal_us' ? 0 : null, display_volume: 0, inventory_quantity: 0, inventory_percentage: 0 };
         if ((method === 'MANUAL' ? quantity : reading) === null) return row;
         unit(pack, calculation);
         let measurement: any;
@@ -198,6 +210,13 @@ export function prepareInventoryRows(section: InventorySection, inputs: any[], p
           calibration_table: c.calibration_table, tank_capacity_gallons: c.tank_capacity_gallons };
       }
       case 'products': {
+        if (input.no_physical_stock != null && typeof input.no_physical_stock !== 'boolean') throw new InventoryError('NO HAY FÍSICO debe ser una opción booleana.');
+        if (input.no_physical_stock === true) return { ...base, product_config_id: c.id, producto_config_id: c.id,
+          ...select(c, ['product_name', 'category', 'measure_mode', 'requires_photo', 'reading_uom', 'calibration_table', 'tank_capacity']),
+          uom: c.uom || c.unit, unit_volume: optionalNumber(c.unit_volume), no_physical_stock: true,
+          reading_value: null, unit_count: ['DRUM', 'PAIL'].includes(c.measure_mode) ? 0 : null,
+          quantity: 0, total_volume: ['DRUM', 'PAIL'].includes(c.measure_mode) ? 0 : null,
+          calculated_quantity: c.measure_mode === 'TANK_READING' ? 0 : null, photo_url: null };
         const reading = n('reading_value'); const count = n('unit_count');
         const mode = c.measure_mode; const quantity = mode === 'TANK_READING' ? curveValue(reading, c.calibration_table) : ['DRUM', 'PAIL'].includes(mode) ? count : n('quantity');
         if (!['TANK_READING', 'DRUM', 'PAIL', 'COUNT'].includes(mode)) throw new InventoryError('Método de producto inválido.');
@@ -248,6 +267,7 @@ export function summarizeInventorySection(section: InventorySection, rows: any[]
   };
   let captured = 0; let complete = 0;
   for (const row of rows) {
+    if (['aggregates', 'silos', 'additives', 'products'].includes(section) && row.no_physical_stock === true) { captured++; complete++; continue; }
     const keys = required(row);
     if (keys.some(key => present(row[key])) || row.photo_url || row.notes) captured++;
     const requiresPhoto = ['aggregates', 'diesel', 'petty-cash'].includes(section) || (section === 'silos' ? row.requires_photo !== false : row.requires_photo);

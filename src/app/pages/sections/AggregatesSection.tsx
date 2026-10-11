@@ -1,3 +1,4 @@
+import { NoPhysicalStockControl } from '../../components/NoPhysicalStockControl';
 import React, { useEffect } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -262,6 +263,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
   // ============================================================================
 
   const isEntryComplete = (entry: any): boolean => {
+    if (entry.no_physical_stock === true) return true;
     // Has photo
     if (!entry.photo_url) return false;
 
@@ -386,7 +388,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
             <li><strong>Método Cajón:</strong> Captura alto y largo en {lengthUnitLabel}</li>
             <li><strong>Método Cono:</strong> Captura 6 medidas M y 2 diámetros D en {lengthUnitLabel}</li>
             <li><strong>Volumen calculado:</strong> Se actualiza automáticamente en {volumeUnitLabel}</li>
-            <li><strong>Agregado no usado:</strong> Si un agregado no se usó, ingresa 0 en largo o medidas</li>
+            <li><strong>Sin existencia física:</strong> Marca NO HAY FÍSICO y confirma para registrar inventario en cero sin mediciones ni foto.</li>
             <li><strong>Evidencia fotográfica:</strong> Requerida para cada agregado</li>
           </ul>
         </Card>
@@ -421,6 +423,9 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                 </div>
               </div>
 
+              <NoPhysicalStockControl section="aggregates" entry={entry} label={entry.aggregate_name || entry.material_type || `Agregado ${index + 1}`} disabled={saving}
+                onChange={updates => updateEntry('agregados', entry.id, updates)} />
+              {!entry.no_physical_stock && <>
               {/* BOX METHOD */}
               {entry.measurement_method === 'BOX' && (
                 <div className="space-y-4">
@@ -515,6 +520,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                 </div>
               )}
 
+              </>}
               {/* Notes */}
               <div className="mt-4">
                 <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">
@@ -530,6 +536,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                 />
               </div>
 
+              {!entry.no_physical_stock && <>
               {/* Photo Capture */}
               <div className="mt-4">
                 <PhotoCapture
@@ -540,6 +547,7 @@ export function AggregatesSection({ onBack }: AggregatesSectionProps) {
                   fit="contain"
                 />
               </div>
+              </>}
             </Card>
           ))}
         </div>

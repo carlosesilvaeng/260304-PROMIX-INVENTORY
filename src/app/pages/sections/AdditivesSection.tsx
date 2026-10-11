@@ -1,3 +1,4 @@
+import { NoPhysicalStockControl } from '../../components/NoPhysicalStockControl';
 import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -526,6 +527,7 @@ export function AdditivesSection() {
   const isValid = () => {
     // All tanks must have reading and photo
     for (const tank of tankEntries) {
+      if (tank.no_physical_stock === true) continue;
       if (tank.reading_value === null || tank.reading_value === undefined || tank.reading_value === '') {
         return false;
       }
@@ -536,6 +538,7 @@ export function AdditivesSection() {
 
     // All manual items must have a quantity (can be 0, but must be set)
     for (const manual of manualEntries) {
+      if (manual.no_physical_stock === true) continue;
       if (manual.quantity === null || manual.quantity === undefined || manual.quantity === '') {
         return false;
       }
@@ -652,6 +655,9 @@ export function AdditivesSection() {
                     </div>
                   </div>
 
+              <NoPhysicalStockControl section="additives" entry={entry} label={entry.tank_name || entry.product_name} disabled={saving}
+                onChange={updates => updateEntry('aditivos', entry.id, updates)} />
+              {!entry.no_physical_stock && <>
                   {!isCurve && (
                     <div className="rounded border border-[var(--ui-border-d7d9de)] bg-[var(--ui-background-f9fafb)] px-4 py-3 text-sm text-[color:var(--ui-text-muted-5f6773)]">
                       <span className="font-semibold text-[color:var(--ui-text-3b3a36)]">Dimensiones configuradas: </span>
@@ -755,6 +761,7 @@ export function AdditivesSection() {
                     </div>
                   )}
 
+              </>}
                   {/* NOTES */}
                   <div>
                     <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
@@ -816,6 +823,9 @@ export function AdditivesSection() {
                     </div>
                   </div>
 
+              <NoPhysicalStockControl section="additives" entry={entry} label={entry.tank_name || entry.product_name} disabled={saving}
+                onChange={updates => updateEntry('aditivos', entry.id, updates)} />
+                  {!entry.no_physical_stock && <>
                   {/* QUANTITY */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <NumericInput
@@ -861,6 +871,7 @@ export function AdditivesSection() {
                     </div>
                   </div>
 
+                  </>}
                   {/* NOTES */}
                   <div>
                     <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">

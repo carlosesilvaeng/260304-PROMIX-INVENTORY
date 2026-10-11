@@ -58,22 +58,24 @@ export function buildInventoryReport(snapshot:any):InventoryReport {
   const rows:ReportCell[][]=[];let headers:string[]=[];
   for(const row of records){
    const common=[row.notes||'',row.photo_url||''];
+   const physicalHeaders=['Estado físico','Registrado por','Fecha de declaración'];
+   const physicalCells=[row.no_physical_stock?'NO HAY FÍSICO':'',row.no_physical_stock_user_name||row.no_physical_stock_by||'',row.no_physical_stock_at||''];
    if(code==='aggregates'){
-    headers=['Nombre','Material','Método','Ancho','Alto','Largo','M1','M2','M3','M4','M5','M6','D1','D2','Unidad de medición','Existencia','Unidad de existencia','Observaciones','Foto'];
-    rows.push([nameOf(row,label),row.material_type||'',row.measurement_method||'',...['box_width_ft','box_height_ft','box_length_ft','cone_m1','cone_m2','cone_m3','cone_m4','cone_m5','cone_m6','cone_d1','cone_d2'].map(key=>num(row,key)),unitLabel(row.capture_unit_id),num(row,'calculated_volume_cy'),unitLabel(row.unit),...common]);
+    headers=['Nombre','Material','Método','Ancho','Alto','Largo','M1','M2','M3','M4','M5','M6','D1','D2','Unidad de medición','Existencia','Unidad de existencia',...physicalHeaders,'Observaciones','Foto'];
+    rows.push([nameOf(row,label),row.material_type||'',row.measurement_method||'',...['box_width_ft','box_height_ft','box_length_ft','cone_m1','cone_m2','cone_m3','cone_m4','cone_m5','cone_m6','cone_d1','cone_d2'].map(key=>num(row,key)),unitLabel(row.capture_unit_id),num(row,'calculated_volume_cy'),unitLabel(row.unit),...physicalCells,...common]);
    }else if(code==='silos'){
-    headers=['Silo','Producto','Método','Lectura','Unidad de lectura','Referencia','Existencia','Unidad de existencia','Libras','Sacos','Toneladas métricas','Observaciones','Foto'];
-    rows.push([nameOf(row,label),row.product_name||row.product_in_silo||'',row.calculation_method||'',storedNumber(row.reading_value??row.reading),unitLabel(row.reading_uom),row.reading_reference||'',storedNumber(row.calculated_result??row.calculated_result_cy??row.calculated_volume),unitLabel(row.calculated_result_unit_id),num(row,'presentation_lbs'),num(row,'presentation_sacks'),num(row,'presentation_metric_tons'),...common]);
+    headers=['Silo','Producto','Método','Lectura','Unidad de lectura','Referencia','Existencia','Unidad de existencia','Libras','Sacos','Toneladas métricas',...physicalHeaders,'Observaciones','Foto'];
+    rows.push([nameOf(row,label),row.product_name||row.product_in_silo||'',row.calculation_method||'',storedNumber(row.reading_value??row.reading),unitLabel(row.reading_uom),row.reading_reference||'',storedNumber(row.calculated_result??row.calculated_result_cy??row.calculated_volume),unitLabel(row.calculated_result_unit_id),num(row,'presentation_lbs'),num(row,'presentation_sacks'),num(row,'presentation_metric_tons'),...physicalCells,...common]);
    }else if(code==='additives'){
-    headers=['Producto','Tanque','Marca','Método','Lectura','Unidad de lectura','Existencia','Unidad de existencia','Observaciones','Foto'];
-    rows.push([row.product_name||'',row.tank_name||'',row.brand||'',row.measurement_method||row.additive_type||'',storedNumber(row.reading_value??row.reading),unitLabel(row.capture_unit_id||row.reading_uom),storedNumber(row.inventory_quantity??(row.additive_type==='MANUAL'?row.quantity:row.calculated_volume)),unitLabel(row.inventory_unit_id||row.capacity_unit_id||row.uom),...common]);
+    headers=['Producto','Tanque','Marca','Método','Lectura','Unidad de lectura','Existencia','Unidad de existencia',...physicalHeaders,'Observaciones','Foto'];
+    rows.push([row.product_name||'',row.tank_name||'',row.brand||'',row.measurement_method||row.additive_type||'',storedNumber(row.reading_value??row.reading),unitLabel(row.capture_unit_id||row.reading_uom),storedNumber(row.inventory_quantity??(row.additive_type==='MANUAL'?row.quantity:row.calculated_volume)),unitLabel(row.inventory_unit_id||row.capacity_unit_id||row.uom),...physicalCells,...common]);
    }else if(code==='diesel'){
     headers=['Lectura','Unidad de lectura','Inicial','Compras','Existencia final','Consumo','Unidad de volumen','Observaciones','Foto'];
     rows.push([storedNumber(row.reading_inches??row.reading),unitLabel(row.reading_uom),num(row,'beginning_inventory'),num(row,'purchases_gallons'),num(row,'ending_inventory'),num(row,'consumption_gallons'),unitLabel(row.unit),...common]);
    }else if(code==='products'){
-    headers=['Producto','Categoría','Método','Lectura','Unidad de lectura','Existencia directa','Unidad','Envases','Volumen por envase','Volumen total','Observaciones','Foto'];
+    headers=['Producto','Categoría','Método','Lectura','Unidad de lectura','Existencia directa','Unidad','Envases','Volumen por envase','Volumen total','Estado físico','Registrado por','Fecha de declaración','Observaciones','Foto'];
     const envases=['DRUM','PAIL'].includes(row.measure_mode);
-    rows.push([nameOf(row,label),row.category||'',row.measure_mode||'',num(row,'reading_value'),unitLabel(row.reading_uom),envases?null:storedNumber(row.quantity??row.calculated_quantity),unitLabel(row.uom),envases?storedNumber(row.unit_count??row.quantity):null,num(row,'unit_volume'),num(row,'total_volume'),...common]);
+    rows.push([nameOf(row,label),row.category||'',row.measure_mode||'',num(row,'reading_value'),unitLabel(row.reading_uom),envases?null:storedNumber(row.quantity??row.calculated_quantity),unitLabel(row.uom),envases?storedNumber(row.unit_count??row.quantity):null,num(row,'unit_volume'),num(row,'total_volume'),row.no_physical_stock?'NO HAY FÍSICO':'',row.no_physical_stock_user_name||row.no_physical_stock_by||'',row.no_physical_stock_at||'',...common]);
    }else if(code==='utilities'){
     headers=['Medidor','Tipo','Lectura anterior','Lectura actual','Consumo','Unidad','Observaciones','Foto'];
     rows.push([nameOf(row,label),row.utility_type||'',num(row,'previous_reading'),num(row,'current_reading'),num(row,'consumption'),unitLabel(row.uom),...common]);

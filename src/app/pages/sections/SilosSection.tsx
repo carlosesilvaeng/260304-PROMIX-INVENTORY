@@ -1,3 +1,4 @@
+import { NoPhysicalStockControl } from '../../components/NoPhysicalStockControl';
 import React, { useEffect } from 'react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -364,6 +365,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
   // ============================================================================
 
   const isEntryComplete = (entry: any): boolean => {
+    if (entry.no_physical_stock === true) return true;
     // Must have reading value and photo
     return !!(
       entry.reading_value !== null &&
@@ -489,7 +491,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                         ✓ Completo
                       </span>
                     )}
-                    {(entry.requires_photo ?? true) && !entry.photo_url && (
+                    {!entry.no_physical_stock && (entry.requires_photo ?? true) && !entry.photo_url && (
                       <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded">
                         ⚠️ Falta Foto
                       </span>
@@ -503,6 +505,9 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 </div>
               </div>
 
+              <NoPhysicalStockControl section="silos" entry={entry} label={entry.silo_name} disabled={saving}
+                onChange={updates => updateEntry('silos', entry.id, updates)} />
+              {!entry.no_physical_stock && <>
               {/* Reading and Result */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4 mb-4">
                 {entry.calculation_method === 'GEOMETRIC_CYLINDER_CONE' && (
@@ -605,6 +610,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 </div>
               </div>
 
+              </>}
               {/* Notes */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[color:var(--ui-text-1a1d1f)] mb-2">
@@ -620,6 +626,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                 />
               </div>
 
+              {!entry.no_physical_stock && <>
               {/* Photo Capture */}
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
                 <div>
@@ -630,7 +637,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                     currentPhoto={entry.photo_url}
                     fit="contain"
                   />
-                  {(entry.requires_photo ?? true) && !entry.photo_url && (
+                  {!entry.no_physical_stock && (entry.requires_photo ?? true) && !entry.photo_url && (
                     <p className="text-xs text-red-600 mt-2">
                       ⚠️ La foto del medidor es obligatoria
                     </p>
@@ -646,6 +653,7 @@ export function SilosSection({ onBack }: SilosSectionProps) {
                   />
                 </div>
               </div>
+              </>}
               </Card>
             );
           })}

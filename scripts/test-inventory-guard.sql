@@ -123,5 +123,51 @@ BEGIN
   RAISE EXCEPTION 'partial snapshot replaced missing inputs or explicit zero';
  END IF;
 END $$;
+-- Declaration metadata is server-owned and survives repeated saves and retries.
+DO $$
+DECLARE m text; reply jsonb; original_stamp text; op uuid := gen_random_uuid(); payload jsonb;
+BEGIN
+ SELECT id INTO m FROM inventory_month WHERE plant_id='PHASE1_A' AND year_month='2026-10';
+ payload := '[{"product_config_id":"phase1_product","product_name":"P","measure_mode":"COUNT","no_physical_stock":true,"quantity":999,"no_physical_stock_by":"forged","no_physical_stock_at":"2000-01-01"}]';
+ reply := save_inventory_section_guarded(m,'products',payload,'phase1_operator',1,op,'no-physical','{}');
+ original_stamp := reply->'data'->0->>'no_physical_stock_at';
+ IF reply->'data'->0->>'no_physical_stock_by'<>'phase1_operator' OR original_stamp IS NULL
+   OR (reply->'data'->0->>'quantity')::numeric<>0 THEN RAISE EXCEPTION 'declaration not server-owned'; END IF;
+ PERFORM save_inventory_section_guarded(m,'products',payload,'phase1_operator',1,op,'no-physical','{}');
+ reply := save_inventory_section_guarded(m,'products',payload,'phase1_operator',2,gen_random_uuid(),'no-physical-again','{}');
+ IF reply->'data'->0->>'no_physical_stock_at'<>original_stamp THEN RAISE EXCEPTION 'declaration timestamp changed'; END IF;
+ IF (SELECT count(*) FROM audit_logs WHERE inventory_month_id=m AND action='PRODUCT_NO_PHYSICAL_STOCK')<>1 THEN RAISE EXCEPTION 'declaration audit duplicated'; END IF;
+ reply := save_inventory_section_guarded(m,'products','[{"product_config_id":"phase1_product","no_physical_stock":false,"quantity":null}]','phase1_operator',3,gen_random_uuid(),'physical-restored','{}');
+ IF reply->'data'->0->>'no_physical_stock'<>'false' OR reply->'data'->0->>'no_physical_stock_at' IS NOT NULL THEN RAISE EXCEPTION 'declaration not cleared'; END IF;
+ IF (SELECT count(*) FROM audit_logs WHERE inventory_month_id=m AND action='PRODUCT_PHYSICAL_STOCK_RESTORED')<>1 THEN RAISE EXCEPTION 'restoration not audited'; END IF;
+END $$;
+DO $$
+DECLARE m text; section_name text; capture jsonb; reply jsonb; original_stamp text; op uuid; snapshot jsonb;
+BEGIN
+ SELECT id INTO m FROM inventory_month WHERE plant_id='PHASE1_A' AND year_month='2026-10';
+ FOR section_name,capture IN SELECT * FROM (VALUES
+  ('aggregates','[{"aggregate_config_id":"partial_box","aggregate_name":"Empty aggregate","no_physical_stock":true,"calculated_volume_cy":999}]'::jsonb),
+  ('silos','[{"silo_config_id":"partial_silo","silo_name":"Empty silo","no_physical_stock":true,"calculated_result_cy":999,"reading_value":999}]'::jsonb),
+  ('additives','[{"additive_config_id":"partial_additive","product_name":"Empty additive","measurement_method":"MANUAL","no_physical_stock":true,"quantity":999,"inventory_quantity":999}]'::jsonb)
+ ) AS fixtures(section,rows) LOOP
+  capture := jsonb_build_array(capture->0 || jsonb_build_object('no_physical_stock_by','forged','no_physical_stock_at','2000-01-01'));
+  op := gen_random_uuid();
+  reply := save_inventory_section_guarded(m,section_name,capture,'phase1_operator',1,op,'empty-'||section_name,'{}');
+  original_stamp := reply->'data'->0->>'no_physical_stock_at';
+  IF reply->'data'->0->>'no_physical_stock_by'<>'phase1_operator' OR original_stamp IS NULL
+   OR original_stamp LIKE '2000%' OR reply->'data'->0->>'no_physical_stock'<>'true' THEN RAISE EXCEPTION 'invalid declaration metadata: %',section_name; END IF;
+  IF (reply->'data'->0->>CASE section_name WHEN 'aggregates' THEN 'calculated_volume_cy' WHEN 'silos' THEN 'calculated_result_cy' ELSE 'inventory_quantity' END)::numeric<>0 THEN RAISE EXCEPTION 'nonzero empty stock: %',section_name; END IF;
+  PERFORM save_inventory_section_guarded(m,section_name,capture,'phase1_operator',1,op,'empty-'||section_name,'{}');
+  reply := save_inventory_section_guarded(m,section_name,capture,'phase1_operator',2,gen_random_uuid(),'empty-again-'||section_name,'{}');
+  IF reply->'data'->0->>'no_physical_stock_at'<>original_stamp THEN RAISE EXCEPTION 'declaration time changed: %',section_name; END IF;
+  IF (SELECT count(*) FROM audit_logs WHERE inventory_month_id=m AND action='INVENTORY_NO_PHYSICAL_STOCK' AND details->>'section'=section_name)<>1 THEN RAISE EXCEPTION 'duplicate declaration audit: %',section_name; END IF;
+  snapshot := get_inventory_snapshot(m);
+  IF snapshot->(CASE section_name WHEN 'aggregates' THEN 'agregados' WHEN 'silos' THEN 'silos' ELSE 'aditivos' END)->0->>'no_physical_stock_at'<>original_stamp THEN RAISE EXCEPTION 'declaration not retained by snapshot: %',section_name; END IF;
+  capture := jsonb_build_array(capture->0 || jsonb_build_object('no_physical_stock',false));
+  reply := save_inventory_section_guarded(m,section_name,capture,'phase1_operator',3,gen_random_uuid(),'restored-'||section_name,'{}');
+  IF reply->'data'->0->>'no_physical_stock'<>'false' OR reply->'data'->0->>'no_physical_stock_at' IS NOT NULL THEN RAISE EXCEPTION 'declaration not cleared: %',section_name; END IF;
+  IF (SELECT count(*) FROM audit_logs WHERE inventory_month_id=m AND action='INVENTORY_PHYSICAL_STOCK_RESTORED' AND details->>'section'=section_name)<>1 THEN RAISE EXCEPTION 'restore not audited: %',section_name; END IF;
+ END LOOP;
+END $$;
 SELECT 'guarded transactions, partial drafts, permissions, idempotency, snapshot and audit rollback: passed' AS result;
 ROLLBACK;

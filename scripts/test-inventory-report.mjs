@@ -81,3 +81,23 @@ test('delete API requires explicit confirmation of plant, period and revision',a
  const body={confirm:true,plant_id:'A',year_month:'2026-10',write_revision:0};
  assert.equal((await handler(context(body))).status,200);assert.equal(calls.length,1);assert.deepEqual(calls[0].options.confirmation,body);assert.equal(calls[0].options.auditAction,'REPORT_DELETED');
 });
+
+test('product reports retain NO HAY FÍSICO and server declaration metadata',()=>{
+ const section=buildInventoryReport(snapshot({productos:[{product_name:'P',quantity:0,uom:'unit',measure_mode:'COUNT',no_physical_stock:true,no_physical_stock_user_name:'Operator',no_physical_stock_at:'2026-10-11T21:00:00Z'}]})).sections.find(s=>s.code==='products');
+ const row=section.rows[0];assert.equal(row[section.headers.indexOf('Estado físico')],'NO HAY FÍSICO');
+ assert.equal(row[section.headers.indexOf('Registrado por')],'Operator');assert.equal(row[section.headers.indexOf('Fecha de declaración')],'2026-10-11T21:00:00Z');
+});
+
+test('aggregate, silo and additive reports preserve physical declaration and zero existence',()=>{
+ const metadata={no_physical_stock:true,no_physical_stock_user_name:'Operator',no_physical_stock_at:'2026-10-11T21:00:00Z'};
+ const report=buildInventoryReport(snapshot({agregados:[{...metadata,aggregate_name:'A',unit:'ft3',calculated_volume_cy:0}],
+  silos:[{...metadata,silo_name:'S',calculated_result:0,calculated_result_unit_id:'lb'}],
+  aditivos:[{...metadata,product_name:'D',inventory_quantity:0,inventory_unit_id:'gal_us'}]}));
+ for(const code of ['aggregates','silos','additives']){
+  const section=report.sections.find(s=>s.code===code),row=section.rows[0];
+  assert.equal(row[section.headers.indexOf('Estado físico')],'NO HAY FÍSICO');
+  assert.equal(row[section.headers.indexOf('Registrado por')],'Operator');
+  assert.equal(row[section.headers.indexOf('Fecha de declaración')],metadata.no_physical_stock_at);
+  assert.equal(report.metrics.find(m=>m.section===code).value,0);
+ }
+});

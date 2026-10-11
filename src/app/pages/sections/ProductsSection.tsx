@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '../../components/ui/alert-dialog';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { NumericInput } from '../../components/Input';
@@ -52,6 +53,7 @@ export function ProductsSection() {
   const { currentPlant } = useAuth();
   const { prefillData, loadPlantData, updateEntry, getCurrentYearMonth, getSectionRevision, markChangesSaved, saveSection } = usePlantPrefill();
   
+  const [pendingNoPhysical, setPendingNoPhysical] = React.useState<any>(null);
   const [saving, setSaving] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState<{ type: 'success' | 'error', text: string } | null>(null);
   const unitCatalog = (prefillData.config?.units || []) as UnitDefinition[];
@@ -222,6 +224,7 @@ export function ProductsSection() {
   // ============================================================================
 
   const isProductValid = (producto: any) => {
+    if (producto.no_physical_stock === true) return true;
     // Must have quantity > 0 or explicitly = 0
     if (producto.quantity === null || producto.quantity === undefined || producto.quantity === '') {
       return false;
@@ -234,6 +237,7 @@ export function ProductsSection() {
   };
 
   const isProductComplete = (producto: any) => {
+    if (producto.no_physical_stock === true) return true;
     return (
       producto.quantity !== null &&
       producto.quantity !== undefined &&
@@ -250,7 +254,7 @@ export function ProductsSection() {
       p.quantity !== undefined &&
       p.quantity !== '' &&
       Number(p.quantity) > 0
-    ) || p.photo_url
+    ) || p.photo_url || p.no_physical_stock
   );
 
   // ============================================================================
@@ -319,6 +323,24 @@ export function ProductsSection() {
               </div>
             </div>
           </div>
+          <label className="flex items-center gap-2 font-semibold cursor-pointer">
+            <input type="checkbox" checked={producto.no_physical_stock === true} disabled={saving}
+              onChange={(e) => {
+                if (e.target.checked) setPendingNoPhysical(producto);
+                else updateEntry('productos', producto.id, { no_physical_stock: false, no_physical_stock_by: null,
+                  no_physical_stock_at: null, no_physical_stock_user_name: null, quantity: null, unit_count: null,
+                  reading_value: null, calculated_quantity: null, total_volume: null });
+              }} />
+            NO HAY FÍSICO
+          </label>
+          {producto.no_physical_stock ? (
+            <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Sin existencia física. Se omiten la medición y la foto requerida.
+              {producto.no_physical_stock_at ? (
+                <p>Registrado por {producto.no_physical_stock_user_name || producto.no_physical_stock_by} · {new Date(producto.no_physical_stock_at).toLocaleString('es-PR')}</p>
+              ) : <p>El usuario y la fecha quedarán registrados al guardar.</p>}
+            </div>
+          ) : <>
           <UnitFlowSummary effectiveConfig={productUnits} />
 
           {/* INPUTS */}
@@ -400,6 +422,8 @@ export function ProductsSection() {
             />
           )}
 
+          </>}
+
           {/* NOTES */}
           <div>
             <label className="block text-sm font-semibold text-[color:var(--ui-text-3b3a36)] mb-1.5">
@@ -425,6 +449,29 @@ export function ProductsSection() {
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
+      <AlertDialog open={!!pendingNoPhysical} onOpenChange={(open) => { if (!open) setPendingNoPhysical(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar NO HAY FÍSICO</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Confirmas que no hay existencia física de {pendingNoPhysical?.product_name}?
+              La cantidad quedará en cero y se omitirán la lectura y la foto requerida.
+              Esta declaración se registrará con tu usuario y fecha al guardar el inventario.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (!pendingNoPhysical) return;
+              updateEntry('productos', pendingNoPhysical.id, { no_physical_stock: true, quantity: 0,
+                unit_count: ['DRUM', 'PAIL'].includes(pendingNoPhysical.measure_mode) ? 0 : null,
+                reading_value: null, calculated_quantity: pendingNoPhysical.measure_mode === 'TANK_READING' ? 0 : null,
+                total_volume: ['DRUM', 'PAIL'].includes(pendingNoPhysical.measure_mode) ? 0 : null, photo_url: null });
+              setPendingNoPhysical(null);
+            }}>Sí, confirmar NO HAY FÍSICO</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
