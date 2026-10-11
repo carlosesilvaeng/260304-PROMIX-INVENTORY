@@ -64,10 +64,27 @@ export async function exportToPDF(reports:ReportSummary[],base:string,token:stri
   for(const warning of detail.warnings)text(`Advertencia: ${warning}`);
   for(const section of detail.sections){if(y>height-65){doc.addPage();y=14;}text(section.name,10);if(section.note)text(section.note);
    table(section.headers,section.rows.map(row=>row.map((cell,index)=>section.headers[index]==='Foto'?(cell?'Evidencia vinculada':'Sin fotografía'):cell)));
-   for(const photo of photos.filter(p=>p.reportId===detail.report.id&&p.section===section.name)){
-    if(y+43>height-15){doc.addPage();y=14;}text(`Evidencia: ${photo.label}`);
-    if(!photo.image){text('Fotografía no disponible; no se pudo cargar.');continue;}
-    const scale=Math.min((width-20)/photo.image.width,30/photo.image.height);doc.addImage(photo.image.dataUrl,photo.image.format,10,y,photo.image.width*scale,photo.image.height*scale);y+=photo.image.height*scale+6;
+   const sectionPhotos=photos.filter(p=>p.reportId===detail.report.id&&p.section===section.name);
+   const columnGap=8,columnWidth=(width-20-columnGap)/2,lineHeight=3.2;
+   for(let index=0;index<sectionPhotos.length;index+=2){
+    // Measure both columns first so each evidence row stays together on one page.
+    doc.setFontSize(8);
+    const row=sectionPhotos.slice(index,index+2).map(photo=>{
+     const labelLines=doc.splitTextToSize(`Evidencia: ${photo.label}`,columnWidth);
+     const messageLines=photo.image?[]:doc.splitTextToSize('Fotografía no disponible; no se pudo cargar.',columnWidth);
+     const scale=photo.image?Math.min(columnWidth/photo.image.width,30/photo.image.height):0;
+     const imageWidth=photo.image?photo.image.width*scale:0,imageHeight=photo.image?photo.image.height*scale:0;
+     return {photo,labelLines,messageLines,imageWidth,imageHeight,labelHeight:labelLines.length*lineHeight+3};
+    });
+    const rowHeight=Math.max(...row.map(item=>item.labelHeight+(item.photo.image?item.imageHeight:item.messageLines.length*lineHeight)))+6;
+    if(y+rowHeight>height-15){doc.addPage();y=14;}
+    row.forEach((item,column)=>{
+     const x=10+column*(columnWidth+columnGap);
+     doc.text(item.labelLines,x,y);
+     if(item.photo.image)doc.addImage(item.photo.image.dataUrl,item.photo.image.format,x,y+item.labelHeight,item.imageWidth,item.imageHeight);
+     else doc.text(item.messageLines,x,y+item.labelHeight);
+    });
+    y+=rowHeight;
    }
   }
  }
