@@ -1,3 +1,4 @@
+import { canCapturePlantInventory } from '../utils/permissions';
 import { recordInventoryCaptureStarted, acceptInventorySnapshot, syncInventorySection, uploadPendingInventoryPhotos } from '../utils/api';
 import { appendConfiguredEntries } from '../utils/appendConfiguredEntries';
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
@@ -113,11 +114,12 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   currentUserRef.current = user?.id;
   const currentActorRef = useRef(user);
   currentActorRef.current = user;
+  const plantsRef = useRef(allPlants); plantsRef.current = allPlants;
 
   const installDrafts = useCallback(async (loaded: PrefillData, revisions: Record<string, number>, fresh = true, compatible = true) => {
     syncRef.current?.stop();
     syncRef.current = null;
-    if (!user || currentUserRef.current !== user.id || !loaded.inventoryMonth || !['plant_manager','operations_manager'].includes(user.role)) return loaded;
+    if (!user || currentUserRef.current !== user.id || !loaded.inventoryMonth || !canCapturePlantInventory(user, loaded.inventoryMonth.plant_id, plantsRef.current.find(p => p.id === loaded.inventoryMonth?.plant_id)?.isActive === true)) return loaded;
     const month = loaded.inventoryMonth;
     const scope = inventoryScopeKey(projectId, user.id, month.plant_id, month.year_month);
     setSyncStates({});
@@ -126,7 +128,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       unavailableReason: compatible ? undefined : 'El servidor debe actualizarse antes de sincronizar. El borrador permanece en este dispositivo.',
       ready: () => {
         const token = localStorage.getItem('promix_access_token');
-        if (!compatible || !token || !currentActorRef.current?.is_active || !['plant_manager','operations_manager'].includes(currentActorRef.current?.role || '') || currentUserRef.current !== user.id) return false;
+        if (!compatible || !token || !currentActorRef.current?.is_active || !canCapturePlantInventory(currentActorRef.current, month.plant_id, plantsRef.current.find(p => p.id === month.plant_id)?.isActive === true) || currentUserRef.current !== user.id) return false;
         try { const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return payload.exp * 1000 > Date.now(); } catch { return false; }
       },
       online: () => navigator.onLine,
@@ -533,7 +535,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
 
     // PETTY CASH: Single entry — use DB value (plants.petty_cash_established)
     // Fallback to local pettyCashConfig.ts if plant not yet loaded
-    const plantFromDB = allPlants.find(p => p.id === config.plant_id);
+    const plantFromDB = plantsRef.current.find(p => p.id === config.plant_id);
     const localPettyCashConfig = getPettyCashConfig(config.plant_id || '');
     const dbPettyCashConfig = config.petty_cash;
     const establishedAmount = Number(
@@ -1092,7 +1094,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
       } catch (error) {
         console.error('[PlantPrefill] Error loading plant data:', error);
         if (loadSequence !== loadSequenceRef.current || currentUserRef.current !== user?.id) return;
-        if (canRecoverOffline && user && ['plant_manager','operations_manager'].includes(user.role)) {
+        if (canRecoverOffline && user && canCapturePlantInventory(user, plantId, plantsRef.current.find(p => p.id === plantId)?.isActive === true)) {
           try {
             const scope = inventoryScopeKey(projectId, user.id, plantId, yearMonth);
             const cached = await inventoryDraftStore.get(`view:${scope}`);
@@ -1144,6 +1146,7 @@ export function PlantPrefillProvider({ children }: { children: React.ReactNode }
   const updateEntry = useCallback((section: string, entryId: string, data: any) => {
     const server = toServerSection(section);
     const field = sectionFields[server];
+    if (!canCapturePlantInventory(currentActorRef.current, prefillRef.current.inventoryMonth?.plant_id, plantsRef.current.find(p => p.id === prefillRef.current.inventoryMonth?.plant_id)?.isActive === true)) return;
     if (!field || prefillRef.current.loading || loadedByRef.current !== user?.id || prefillRef.current.inventoryMonth?.status !== 'IN_PROGRESS') return;
     const previous = prefillRef.current;
     const current = previous[field];

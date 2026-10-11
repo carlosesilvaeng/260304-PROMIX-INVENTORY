@@ -1,3 +1,4 @@
+import { canCaptureInventory } from './inventory_permissions.ts';
 import { calculateSiloGeometry, roundSiloResult } from './silo_geometry.ts';
 import { calculateSiloInventoryPresentation, resolveSiloProductFactor } from './silo_inventory.ts';
 import { calculateAdditiveMeasurement, normalizeAdditiveMeasurementMethod, roundAdditiveMeasurement } from './additive_measurement.ts';
@@ -10,7 +11,7 @@ export class InventoryError extends Error {
   constructor(message: string, status = 400, code = 'INVALID_INVENTORY') { super(message); this.status = status; this.code = code; }
 }
 export function requireInventoryWriter(user: any) {
-  if (!user?.is_active || !['plant_manager', 'operations_manager'].includes(user.role)) {
+  if (!canCaptureInventory(user)) {
     throw new InventoryError('No tienes permisos para registrar mediciones.', 403, 'INVENTORY_WRITE_FORBIDDEN');
   }
 }

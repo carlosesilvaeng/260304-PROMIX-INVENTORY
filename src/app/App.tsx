@@ -29,7 +29,7 @@ import { ReviewAndApproveSection } from "./pages/sections/ReviewAndApproveSectio
 import { InventorySyncStatus } from './components/InventorySyncStatus';
 import { ErrorBoundary } from "./utils/errorBoundary";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
-import { isPlantManagerLike } from "./utils/permissions";
+import { isPlantManagerLike, canCaptureInventory } from "./utils/permissions";
 
 // ============================================================================
 // AUTO-CLEANUP: Clear expired tokens on app start
@@ -73,7 +73,7 @@ function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
   const { hasPendingChanges, hasUnprotectedChanges, hasPendingChangesForSection, currentYearMonth } = usePlantPrefill();
-  const isOperationalUser = isPlantManagerLike(user?.role);
+  const isOperationalUser = canCaptureInventory(user);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
   const [currentSection, setCurrentSection] = useState<
@@ -222,8 +222,8 @@ function AppContent() {
   }
 
   // Plant-manager-like roles must select a plant before using operational screens
-  if (!currentPlant && isPlantManagerLike(user.role)) {
-    return <PlantSelection />;
+  if (!currentPlant && (isPlantManagerLike(user.role) || (isOperationalUser && currentView === 'inventory'))) {
+    return <PlantSelection operationalOnly={currentView === 'inventory'} onBack={user.role === 'admin' || user.role === 'super_admin' ? () => setCurrentView('dashboard') : undefined} />;
   }
 
   // Main application with sidebar

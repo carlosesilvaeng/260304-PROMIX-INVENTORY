@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { withTimeout } from '../utils/withTimeout';
 import { inventoryDraftStore } from '../utils/inventoryDraftStore';
-import { UserRole } from '../utils/permissions';
+import { UserRole, canCaptureInventory, canCapturePlantInventory } from '../utils/permissions';
 
 // DIAGNOSTIC LOG - Verificar que se carguen los valores correctos
 console.log('🔍 [AuthContext] Supabase Config Loaded:');
@@ -21,6 +21,7 @@ interface User {
   name: string;
   email: string;
   role: UserRole;
+  can_capture_inventory?: boolean;
   assigned_plants: string[]; // IDs de plantas asignadas
   is_active: boolean;
   auth_user_id?: string;
@@ -215,11 +216,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
           const token = localStorage.getItem('promix_access_token');
           const owner = JSON.parse(localStorage.getItem('promix_user') || 'null');
-          if (token && owner?.is_active && ['plant_manager','operations_manager'].includes(owner.role)) {
+          if (token && canCaptureInventory(owner)) {
             const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
             if (payload.exp * 1000 > Date.now()) {
               const cached = await inventoryDraftStore.get(`plants:${projectId}:${owner.id}`);
-              const plants = (cached?.plants || []).filter((plant: Plant) => plant.isActive && (owner.role === 'operations_manager' || owner.assigned_plants?.includes(plant.id)));
+              const plants = (cached?.plants || []).filter((plant: Plant) => canCapturePlantInventory(owner, plant.id, plant.isActive));
               setUser(normalizeUser(owner)); setAccessToken(token); setAllPlants(plants);
               const selected = JSON.parse(localStorage.getItem('promix_plant') || 'null');
               setCurrentPlant(plants.find((plant: Plant) => plant.id === selected?.id) || null);

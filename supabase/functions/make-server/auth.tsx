@@ -42,6 +42,7 @@ export interface User {
   name: string;
   email: string;
   role: 'plant_manager' | 'operations_manager' | 'admin' | 'super_admin';
+  can_capture_inventory?: boolean;
   assigned_plants: string[];
   is_active: boolean;
   auth_user_id?: string;
@@ -55,6 +56,7 @@ export interface SignupData {
   email: string;
   password: string;
   role: 'plant_manager' | 'operations_manager' | 'admin' | 'super_admin';
+  can_capture_inventory?: boolean;
   assigned_plants?: string[];
   created_by_id?: string; // ID del Super Admin que lo crea
 }
@@ -108,7 +110,7 @@ export interface ResetUserPasswordResponse {
 
 type UserRole = User['role'];
 
-const USER_UPDATE_FIELDS = new Set(['name', 'role', 'assigned_plants', 'is_active']);
+const USER_UPDATE_FIELDS = new Set(['name', 'role', 'assigned_plants', 'is_active', 'can_capture_inventory']);
 
 function isUserManager(role?: UserRole | null): boolean {
   return role === 'operations_manager' || role === 'admin' || role === 'super_admin';
@@ -180,6 +182,7 @@ async function createManagedUser(data: SignupData): Promise<AuthResult> {
       name: String(data.name || '').trim(),
       email: normalizedEmail,
       role: data.role,
+      can_capture_inventory: ['admin', 'super_admin'].includes(data.role) && data.can_capture_inventory === true,
       assigned_plants: data.assigned_plants || [],
       is_active: true,
       auth_user_id: authData.user.id,
@@ -349,6 +352,9 @@ export async function signup(data: SignupData, requestingUserId: string): Promis
       return { success: false, error: 'No tienes permisos para crear usuarios con ese rol' };
     }
     
+    if (data.can_capture_inventory !== undefined && typeof data.can_capture_inventory !== 'boolean') return { success: false, error: 'Permiso de supervisor inválido' };
+    if (data.can_capture_inventory && !['admin', 'super_admin'].includes(data.role)) return { success: false, error: 'El permiso adicional requiere un administrador' };
+    if (data.can_capture_inventory && !data.assigned_plants?.length) return { success: false, error: 'Asigna al menos una planta al supervisor' };
     const result = await createManagedUser(data);
     if (!result.success) {
       return result;
@@ -471,7 +477,7 @@ export async function updateUser(
 
     const { data: targetUser, error: targetUserError } = await supabase
       .from('users')
-      .select('id, role')
+      .select('id, role, can_capture_inventory, assigned_plants')
       .eq('id', userId)
       .single();
 
@@ -499,6 +505,11 @@ export async function updateUser(
       }
     }
     
+    const nextRole = sanitizedUpdates.role || targetUser.role;
+    if (sanitizedUpdates.can_capture_inventory !== undefined && typeof sanitizedUpdates.can_capture_inventory !== 'boolean') return { success: false, error: 'Permiso de supervisor inválido' };
+    if (!['admin', 'super_admin'].includes(nextRole)) sanitizedUpdates.can_capture_inventory = false;
+    const captures = sanitizedUpdates.can_capture_inventory ?? targetUser.can_capture_inventory;
+    if (captures && !(sanitizedUpdates.assigned_plants ?? targetUser.assigned_plants)?.length) return { success: false, error: 'Asigna al menos una planta al supervisor' };
     // Update user
     const { data: updatedUser, error } = await supabase
       .from('users')

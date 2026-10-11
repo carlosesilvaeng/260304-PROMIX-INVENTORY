@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { canAccessPhotosReport, canManageModules, isPlantManagerLike } from '../utils/permissions';
+import { canAccessPhotosReport, canManageModules, canCaptureInventory } from '../utils/permissions';
 
 interface SidebarProps {
   currentView: string;
@@ -11,7 +11,7 @@ interface SidebarProps {
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const isOperationalUser = isPlantManagerLike(user?.role);
+  const isOperationalUser = canCaptureInventory(user);
   
   const mainMenuItems = [
     { id: 'dashboard', label: t('sidebar.dashboard'), icon: '📊' },

@@ -143,3 +143,14 @@ test('metadata chunk boundaries preserve Unicode and source timestamps exactly',
   const short=await createConfigurationPackage(file.payload,'test'),shortBook=await createConfigurationWorkbook([short]);
   const [roundtrip]=await readConfigurationWorkbook(await shortBook.xlsx.writeBuffer());assert.equal(roundtrip.modified,false);assert.deepEqual(roundtrip.configuration,short);
 });
+
+test('missing configuration RPC shows one actionable error for all plants',async()=>{
+ const original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;return {ok:false,status:500,json:async()=>({success:false,error:'Could not find the function public.configuration_export(p_actor_id, p_plant_id) in the schema cache'})};};
+ try{
+  await assert.rejects(()=>exportPlantConfigurations(['A','B','C','D','E','F'].map(id=>({id,name:'Planta '+id})),{token:'synthetic'}),error=>{
+   assert.equal(error.code,'CONFIGURATION_UNAVAILABLE');assert.match(error.message,/actualización del servidor/);assert.doesNotMatch(error.message,/schema cache|Planta A|Planta B/);return true;
+  });
+  assert.ok(calls<=3,'Stop scheduling exports after the common missing-RPC error');
+ }finally{globalThis.fetch=original;}
+});

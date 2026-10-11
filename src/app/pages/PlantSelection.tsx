@@ -4,14 +4,15 @@ import { Card } from '../components/Card';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PromixLogo } from '../components/PromixLogo';
-import { getRoleLabelKey, hasGlobalPlantAccess } from '../utils/permissions';
+import { getRoleLabelKey, hasGlobalPlantAccess, canCapturePlantInventory } from '../utils/permissions';
 
-export function PlantSelection() {
+export function PlantSelection({ operationalOnly = false, onBack }: {operationalOnly?: boolean; onBack?: () => void}) {
   const { user, allPlants, selectPlant, logout } = useAuth();
   const { t, language, setLanguage } = useLanguage();
 
   // Filtrar plantas según usuario
   const availablePlants = allPlants.filter(plant => {
+    if (operationalOnly) return canCapturePlantInventory(user, plant.id, plant.isActive);
     if (hasGlobalPlantAccess(user?.role)) {
       return plant.isActive;
     }
@@ -35,6 +36,7 @@ export function PlantSelection() {
 
   return (
     <div className="min-h-screen bg-[var(--ui-background-f2f3f5)]">
+      {onBack && <Button variant="ghost" onClick={onBack}>Volver a Inicio</Button>}
       {/* Header */}
       <div className="bg-[var(--ui-text-3b3a36)] px-3 py-3 text-white shadow-md sm:p-4">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

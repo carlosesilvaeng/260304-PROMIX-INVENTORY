@@ -1,3 +1,4 @@
+import { CONFIGURATION_UNAVAILABLE, isConfigurationUnavailable } from '../../../supabase/functions/make-server/configuration_errors';
 import {projectId} from '/utils/supabase/info';
 import {checkCancellation} from './reportTransport';
 import {validateConfigurationPackage,type ConfigurationPackage} from './configurationPackages';
@@ -14,7 +15,10 @@ export async function configurationRequest(path:string,token:string,signal?:Abor
   try {
     const response=await fetch(`${configurationBase}${path}`,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${token}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:controller.signal});
     const reply=await response.json();
-    if(!response.ok||!reply.success)throw new Error(reply.error||`La consulta falló (${response.status}).`);
+    if(!response.ok||!reply.success){
+      if(reply.code==='CONFIGURATION_UNAVAILABLE'||isConfigurationUnavailable({code:reply.code,message:reply.error}))throw Object.assign(new Error(CONFIGURATION_UNAVAILABLE),{code:'CONFIGURATION_UNAVAILABLE'});
+      throw new Error(reply.error||`La consulta falló (${response.status}).`);
+    }
     if(reply.configuration_version!==1)throw new Error('Actualiza el servidor para exportar e importar configuraciones completas.');
     return reply.data;
   }catch(error){checkCancellation(signal);if(controller.signal.aborted)throw Error('La consulta tardó demasiado. Consulta la configuración antes de reintentar una aplicación.');throw error;}

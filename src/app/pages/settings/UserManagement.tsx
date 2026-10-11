@@ -19,6 +19,7 @@ interface User {
   name: string;
   email: string;
   role: UserRole;
+  can_capture_inventory: boolean;
   assigned_plants: string[];
   is_active: boolean;
   auth_user_id?: string;
@@ -32,12 +33,14 @@ interface CreateUserFormData {
   email: string;
   password: string;
   role: UserRole;
+  can_capture_inventory: boolean;
   assigned_plants: string[];
 }
 
 interface EditUserFormData {
   name: string;
   role: UserRole;
+  can_capture_inventory: boolean;
   assigned_plants: string[];
   is_active: boolean;
 }
@@ -106,7 +109,7 @@ async function callAPI(endpoint: string, method: string = 'GET', body?: any, tok
 // ============================================================================
 
 export function UserManagement() {
-  const { user: currentUser, accessToken, allPlants } = useAuth();
+  const { user: currentUser, accessToken, allPlants, refreshUser } = useAuth();
   const canManageUsers = canManagePlantManagers(currentUser?.role);
   const canDeleteUserAccounts = canDeleteUsers(currentUser?.role);
   const [users, setUsers] = useState<User[]>([]);
@@ -130,12 +133,14 @@ export function UserManagement() {
     email: '',
     password: '',
     role: 'plant_manager',
+    can_capture_inventory: false,
     assigned_plants: [],
   });
 
   const [editForm, setEditForm] = useState<EditUserFormData>({
     name: '',
     role: 'plant_manager',
+    can_capture_inventory: false,
     assigned_plants: [],
     is_active: true,
   });
@@ -218,6 +223,7 @@ export function UserManagement() {
           email: '',
           password: '',
           role: 'plant_manager',
+          can_capture_inventory: false,
           assigned_plants: [],
         });
         loadUsers(); // Recargar lista
@@ -240,6 +246,7 @@ export function UserManagement() {
     setEditForm({
       name: user.name,
       role: user.role,
+      can_capture_inventory: user.can_capture_inventory === true,
       assigned_plants: user.assigned_plants,
       is_active: user.is_active,
     });
@@ -258,6 +265,7 @@ export function UserManagement() {
 
       if (response.success) {
         setSuccess('Usuario actualizado exitosamente');
+        if (selectedUser.id === currentUser?.id) await refreshUser();
         setShowEditModal(false);
         setSelectedUser(null);
         loadUsers(); // Recargar lista
@@ -620,7 +628,7 @@ export function UserManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
-                          {getRoleDisplayName(user.role)}
+                          {getRoleDisplayName(user.role)}{user.can_capture_inventory && ' + Supervisor'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -744,7 +752,7 @@ export function UserManagement() {
               <Select
                 label="Rol"
                 value={createForm.role}
-                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as any })}
+                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as any, can_capture_inventory: false })}
                 required
               >
                 <option value="plant_manager">Gerente de Planta</option>
@@ -759,7 +767,13 @@ export function UserManagement() {
                 )}
               </Select>
 
-              {createForm.role === 'plant_manager' && (
+              {['admin', 'super_admin'].includes(createForm.role) && (
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={createForm.can_capture_inventory} onChange={e => setCreateForm({...createForm, can_capture_inventory: e.target.checked})} />
+                  También supervisor (captura y envío en plantas asignadas)
+                </label>
+              )}
+              {(createForm.role === 'plant_manager' || createForm.can_capture_inventory) && (
                 <div>
                   <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
                     Plantas Asignadas
@@ -845,7 +859,7 @@ export function UserManagement() {
               <Select
                 label="Rol"
                 value={editForm.role}
-                onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any })}
+                onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any, can_capture_inventory: false })}
                 required
               >
                 <option value="plant_manager">Gerente de Planta</option>
@@ -860,7 +874,13 @@ export function UserManagement() {
                 )}
               </Select>
 
-              {editForm.role === 'plant_manager' && (
+              {['admin', 'super_admin'].includes(editForm.role) && (
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={editForm.can_capture_inventory} onChange={e => setEditForm({...editForm, can_capture_inventory: e.target.checked})} />
+                  También supervisor (captura y envío en plantas asignadas)
+                </label>
+              )}
+              {(editForm.role === 'plant_manager' || editForm.can_capture_inventory) && (
                 <div>
                   <label className="block text-sm font-medium text-[color:var(--ui-text-3b3a36)] mb-2">
                     Plantas Asignadas

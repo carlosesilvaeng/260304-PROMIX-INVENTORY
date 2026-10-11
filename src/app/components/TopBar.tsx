@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useInventory } from '../contexts/InventoryContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from './Button';
-import { getRoleLabelKey, isPlantManagerLike } from '../utils/permissions';
+import { getRoleLabelKey, canCaptureInventory } from '../utils/permissions';
 
 interface TopBarProps {
   onChangePlant: () => void;
@@ -89,7 +89,7 @@ export function TopBar({ onChangePlant }: TopBarProps) {
             </div>
           )}
           
-          {(isPlantManagerLike(user?.role) || currentPlant) && (
+          {(canCaptureInventory(user) || currentPlant) && (
             <Button variant="ghost" size="sm" onClick={onChangePlant} className="self-start px-2 text-xs sm:px-3 sm:text-sm">
               {t('topbar.changePlant')}
             </Button>

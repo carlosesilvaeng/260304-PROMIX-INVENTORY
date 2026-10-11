@@ -490,6 +490,7 @@ export interface InventoryMonth {
   year_month: string;
   status: 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED';
   created_by: string;
+  submitted_by_user_id?: string | null;
   approved_by?: string;
   approved_at?: string;
   notes?: string;

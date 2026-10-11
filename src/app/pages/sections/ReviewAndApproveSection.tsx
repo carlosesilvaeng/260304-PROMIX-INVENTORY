@@ -17,7 +17,7 @@ import {
   saveInventoryDraft,
 } from '../../utils/api';
 import { formatYearMonthLabel } from '../../utils/dateFormatting';
-import { canApproveInventory, isPlantManagerLike } from '../../utils/permissions';
+import { canApproveInventory, canCapturePlantInventory, inventoryApprovalBlock } from '../../utils/permissions';
 import { hasInventorySectionConfiguration } from '../../utils/inventorySectionAvailability';
 
 interface ReviewAndApproveSectionProps {
@@ -230,6 +230,9 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
       return;
     }
 
+    const blocked = inventoryApprovalBlock(user.id, prefillData.inventoryMonth);
+    if (blocked) { setActionMessage({ type: 'error', text: blocked }); return; }
+
     if (!validation?.canApprove) {
       setActionMessage({ type: 'error', text: 'Hay datos obligatorios pendientes antes de aprobar' });
       return;
@@ -367,8 +370,9 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
     'Sin planta';
 
   // Check user permissions
-  const canSubmit = isInProgress && isPlantManagerLike(normalizedRole);
-  const canApprove = isSubmitted && canApproveInventory(normalizedRole);
+  const canSubmit = isInProgress && canCapturePlantInventory(user, reviewedPlantId, allPlants.find(plant => plant.id === reviewedPlantId)?.isActive === true);
+  const approvalBlock = inventoryApprovalBlock(user?.id, inventoryMonth);
+  const canApprove = isSubmitted && canApproveInventory(normalizedRole) && !approvalBlock;
   const canReject = isSubmitted && canApproveInventory(normalizedRole);
   const firstIncompleteSection = validation.allSections.find((section) => !section.isComplete) || null;
 
@@ -378,6 +382,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
   return (
     <div className="p-6 space-y-6">
+      {isSubmitted && canApproveInventory(normalizedRole) && approvalBlock && <Alert type="warning" message={approvalBlock} />}
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
@@ -594,7 +599,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
                 </div>
               </div>
 
-              {isInProgress && isPlantManagerLike(normalizedRole) && !section.isComplete && (
+              {isInProgress && canCapturePlantInventory(user, reviewedPlantId, allPlants.find(plant => plant.id === reviewedPlantId)?.isActive === true) && !section.isComplete && (
                 <div className="mt-4 flex justify-end">
                   <Button
                     size="sm"
@@ -671,7 +676,7 @@ export function ReviewAndApproveSection({ reportContext, onNavigate }: ReviewAnd
 
           {/* RIGHT SIDE: BUTTONS */}
           <div className="flex gap-3">
-            {isInProgress && isPlantManagerLike(normalizedRole) && firstIncompleteSection && (
+            {isInProgress && canCapturePlantInventory(user, reviewedPlantId, allPlants.find(plant => plant.id === reviewedPlantId)?.isActive === true) && firstIncompleteSection && (
               <Button
                 onClick={() => handleContinueSection(firstIncompleteSection)}
                 variant="secondary"

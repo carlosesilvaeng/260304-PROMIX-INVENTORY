@@ -1,3 +1,4 @@
+import { Alert } from '../components/Alert';
 import React, { useEffect } from 'react';
 import { Card, SectionCard } from '../components/Card';
 import { Button } from '../components/Button';
@@ -10,7 +11,7 @@ import { getInventoryMonth, getReports, ReportSummary } from '../utils/api';
 import { getSectionTranslation } from '../utils/sectionTranslations';
 import { validateAllSections } from '../utils/validation';
 import { PromixLogo } from '../components/PromixLogo';
-import { getRoleLabelKey, isPlantManagerLike } from '../utils/permissions';
+import { getRoleLabelKey, canCaptureInventory, canCapturePlantInventory } from '../utils/permissions';
 import { hasInventorySectionConfiguration } from '../utils/inventorySectionAvailability';
 
 interface DashboardProps {
@@ -24,7 +25,7 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const { t, language } = useLanguage();
   const { isModuleEnabled } = useModules();
   const { prefillData, setSelectedYearMonth, loadPlantData, getCurrentYearMonth } = usePlantPrefill();
-  const isPlantManager = isPlantManagerLike(user?.role);
+  const isPlantManager = canCapturePlantInventory(user, currentPlant?.id, currentPlant?.isActive === true);
   const [selectedStartMonth, setSelectedStartMonth] = React.useState<string>(getCurrentYearMonth());
   const [existingReport, setExistingReport] = React.useState<ReportSummary | null>(null);
   const [startingInventory, setStartingInventory] = React.useState(false);
@@ -305,6 +306,8 @@ export function Dashboard({ onNavigate, initialContext = null }: DashboardProps)
   const reviewButtonLabel = isPlantManager && overallProgress < 100
     ? t('dashboard.viewFeedback')
     : t('dashboard.reviewAndApprove');
+
+  if (currentPlant && canCaptureInventory(user) && !isPlantManager) return <div className="p-6"><Alert type="warning" message="Puedes consultar esta planta como administrador, pero no tienes permiso para capturar su inventario. Selecciona una planta asignada." /></div>;
 
   // If Admin/Super Admin without plant selected, show welcome screen
   if (!currentPlant && (user?.role === 'admin' || user?.role === 'super_admin')) {

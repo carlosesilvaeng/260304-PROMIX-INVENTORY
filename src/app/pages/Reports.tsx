@@ -10,7 +10,7 @@ import {projectId} from '/utils/supabase/info';
 import {exportToExcel,exportToPDF} from '../utils/exportReports';
 import {getReportPage,getAllReportRows,getInventoryReport,type ReportPage,type ReportFilters} from '../utils/reportTransport';
 import type {InventoryReport} from '../utils/inventoryReportModel';
-import {canApproveInventory,isPlantManagerLike} from '../utils/permissions';
+import {canApproveInventory,canCapturePlantInventory} from '../utils/permissions';
 const base=`https://${projectId}.supabase.co/functions/v1/make-server`;
 const statuses:Record<string,string>={IN_PROGRESS:'En progreso',SUBMITTED:'Enviado',APPROVED:'Aprobado'};
 const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -79,7 +79,7 @@ export function Reports({onNavigate}:ReportsProps){
     <td className="p-3"><p>{count(report.progress.captured_count)} con información</p><p>{count(report.progress.complete_count)} completos · {count(report.progress.pending_count)} pendientes</p><p className="text-xs text-slate-500">{report.progress.saved_count} registros guardados</p></td>
     <td className="p-3"><p className="font-semibold">Última actividad: {date(report.activity_at)}</p><p>Inicio: {date(report.created_at)}</p><p>Primera captura: {date(report.progress.first_capture_received_at)}</p><p>Guardado: {date(report.progress.last_save_received_at)}</p></td>
     <td className="p-3"><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={()=>openDetail(report)}>Ver detalle y cronología</Button>
-     {isPlantManagerLike(user?.role)&&report.status==='IN_PROGRESS'&&<Button variant="outline" size="sm" onClick={()=>onNavigate?.('inventory',undefined,{plantId:report.plant_id,yearMonth:report.year_month})}>Continuar</Button>}
+     {canCapturePlantInventory(user,report.plant_id,allPlants.find(plant=>plant.id===report.plant_id)?.isActive===true)&&report.status==='IN_PROGRESS'&&<Button variant="outline" size="sm" onClick={()=>onNavigate?.('inventory',undefined,{plantId:report.plant_id,yearMonth:report.year_month})}>Continuar</Button>}
      {canApproveInventory(user?.role)&&report.status==='SUBMITTED'&&<Button variant="outline" size="sm" onClick={()=>onNavigate?.('review',undefined,{plantId:report.plant_id,yearMonth:report.year_month})}>Revisar / Aprobar</Button>}
      <Button variant="outline" size="sm" disabled={!!exporting} onClick={()=>runExport('preview',report)}>Ver PDF</Button>
      {['admin','super_admin'].includes(user?.role||'')&&<Button variant="dangerOutline" size="sm" onClick={()=>setConfirmDelete(report)}>Eliminar</Button>}

@@ -11,8 +11,9 @@ export function downloadConfigurationJSON(file:ConfigurationPackage){
 function download(blob:Blob,name:string){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 export async function exportPlantConfigurations(plants:Plant[],options:{signal?:AbortSignal;token?:string}={}){
   if(!plants.length)throw Error('Selecciona al menos una planta para exportar.');
-  const files:ConfigurationPackage[]=new Array(plants.length),failures:string[]=[];let next=0;
-  await Promise.all(Array.from({length:Math.min(3,plants.length)},async()=>{while(next<plants.length){checkCancellation(options.signal);const index=next++,plant=plants[index];try{files[index]=await getConfigurationPackage(plant.id,options.token||localStorage.getItem('promix_access_token')||'',options.signal);}catch(error:any){checkCancellation(options.signal);failures.push(`${plant.name}: ${error.message}`);}}}));
+  const files:ConfigurationPackage[]=new Array(plants.length),failures:string[]=[];let next=0;let unavailable:Error|null=null;
+  await Promise.all(Array.from({length:Math.min(3,plants.length)},async()=>{while(next<plants.length&&!unavailable){checkCancellation(options.signal);const index=next++,plant=plants[index];try{files[index]=await getConfigurationPackage(plant.id,options.token||localStorage.getItem('promix_access_token')||'',options.signal);}catch(error:any){checkCancellation(options.signal);if(error.code==='CONFIGURATION_UNAVAILABLE')unavailable=error;else failures.push(`${plant.name}: ${error.message}`);}}}));
+  if(unavailable)throw unavailable;
   if(failures.length)throw Error(`No se generó el archivo. Falló la configuración de:\n${failures.join('\n')}`);
   checkCancellation(options.signal);const workbook=await createConfigurationWorkbook(files);const buffer=await workbook.xlsx.writeBuffer();checkCancellation(options.signal);
   if(buffer.byteLength>MAX_EXCEL_BYTES)throw Error('El Excel supera el máximo de 10 MB para cargarlo. Exporta menos plantas por archivo.');

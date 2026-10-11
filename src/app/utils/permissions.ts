@@ -1,3 +1,4 @@
+export { canCaptureInventory, canCapturePlantInventory, inventoryApprovalBlock } from '../../../supabase/functions/make-server/inventory_permissions';
 export { canManageAppearance } from '../../../supabase/functions/make-server/appearance_config';
 export type UserRole = 'plant_manager' | 'operations_manager' | 'admin' | 'super_admin';
 

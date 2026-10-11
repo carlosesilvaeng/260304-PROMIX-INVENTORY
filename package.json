@@ -31,7 +31,10 @@
     "test:configuration-package-db": "python3 scripts/test-configuration-package-db.py",
     "test:configuration-package-browser": "node --experimental-strip-types scripts/test-configuration-package-browser.mjs",
     "test:appearance": "node --experimental-strip-types scripts/test-appearance.mjs",
-    "test:appearance-browser": "node scripts/test-appearance-browser.mjs"
+    "test:appearance-browser": "node scripts/test-appearance-browser.mjs",
+    "test:admin-supervisor": "node --experimental-strip-types scripts/test-admin-supervisor.mjs",
+    "test:admin-supervisor-db": "python3 scripts/test-admin-supervisor-db.py",
+    "test:admin-supervisor-browser": "node --experimental-strip-types scripts/test-admin-supervisor-browser.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

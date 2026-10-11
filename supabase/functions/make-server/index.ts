@@ -1,3 +1,5 @@
+import { CONFIGURATION_UNAVAILABLE, isConfigurationUnavailable } from './configuration_errors.ts';
+import { canCaptureInventory } from './inventory_permissions.ts';
 import { createAppearanceHandlers } from './appearance_config.ts';
 import { Hono } from "npm:hono@4.6";
 import { cors } from "npm:hono@4.6/cors";
@@ -257,7 +259,7 @@ async function requireUserManagement(c: any, next: any) {
 }
 
 function isPlantManagerLike(user: any): boolean {
-  return user?.role === 'plant_manager' || user?.role === 'operations_manager';
+  return canCaptureInventory(user);
 }
 
 function canAccessAllPlants(user: any): boolean {
@@ -1180,6 +1182,8 @@ app.post("/make-server/auth/signup", requireUserManagement, async (c) => {
           target_user_id: result.user.id,
           target_user_email: result.user.email,
           target_user_role: result.user.role,
+          can_capture_inventory: result.user.can_capture_inventory === true,
+          assigned_plants: result.user.assigned_plants,
         },
       });
     }
@@ -1428,6 +1432,8 @@ app.put("/make-server/auth/users/:userId", async (c) => {
           target_user_id: result.user.id,
           target_user_email: result.user.email,
           target_user_role: result.user.role,
+          can_capture_inventory: result.user.can_capture_inventory === true,
+          assigned_plants: result.user.assigned_plants,
         },
       });
     }
@@ -1599,7 +1605,7 @@ app.get('/make-server/plants/:plantId/configuration-package', requireAdmin, asyn
     const file=await createConfigurationPackage(data,Deno.env.get('SUPABASE_URL')||'unknown');
     await validateConfigurationPackage(file);
     return c.json({success:true,configuration_version:1,data:file});
-  }catch(error){return inventoryErrorResponse(c,error);}
+  }catch(error){if(isConfigurationUnavailable(error))return c.json({success:false,error:CONFIGURATION_UNAVAILABLE,code:'CONFIGURATION_UNAVAILABLE'},503);return inventoryErrorResponse(c,error);}
 });
 for(const mode of ['preview','execute']) {
   app.post(`/make-server/plants/:plantId/configuration-package/${mode}`,requireAdmin,async c=>{
@@ -1620,7 +1626,7 @@ for(const mode of ['preview','execute']) {
       });
       if(error)throw error;
       return c.json({success:true,configuration_version:1,data});
-    }catch(error){return inventoryErrorResponse(c,error);}
+    }catch(error){if(isConfigurationUnavailable(error))return c.json({success:false,error:CONFIGURATION_UNAVAILABLE,code:'CONFIGURATION_UNAVAILABLE'},503);return inventoryErrorResponse(c,error);}
   });
 }
 
