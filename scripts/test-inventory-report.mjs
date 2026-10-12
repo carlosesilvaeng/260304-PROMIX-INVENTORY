@@ -33,6 +33,35 @@ test('detail requests have bounded concurrency and cancellation stops fetching',
 
 test('actual XLSX serialization preserves numeric zero and metadata',()=>{const model=buildInventoryReport(snapshot({productos:[{product_name:'Producto cero',quantity:0,uom:'unit',measure_mode:'COUNT'}]}));const workbook=createReportWorkbook([model],{year_month:'2026-10'});const reopened=XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'});assert.match(reopened.Sheets['Información'].B3.v,/2026-10/);assert.ok(Object.values(reopened.Sheets['Consolidado']).some(cell=>cell?.t==='n'&&cell.v===0));});
 
+test('large embedded photos export without inserting image bytes into Excel cells',()=>{
+ const url='data:image/jpeg;base64,'+'A'.repeat(100000);
+ const model=buildInventoryReport(snapshot({productos:[{product_name:'Foto integrada',quantity:0,uom:'unit',measure_mode:'COUNT',photo_url:url}]}));
+ const workbook=createReportWorkbook([model],{},[{reportId:'m',section:'Productos',label:'Foto integrada',url,available:true}]);
+ const reopened=XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'});
+ const cells=Object.values(reopened.Sheets['A-2026-10']);
+ assert.ok(cells.some(cell=>String(cell?.v).includes('Fotografía integrada')));
+ assert.ok(cells.some(cell=>cell?.t==='n'&&cell.v===0));
+ assert.match(reopened.Sheets.Evidencias.E2.v,/Fotografía integrada/);
+ assert.equal(model.sections.find(s=>s.code==='products').photos[0].url,url,'saved photo is untouched');
+ for(const sheet of Object.values(reopened.Sheets))assert.ok(Object.values(sheet).every(cell=>typeof cell?.v!=='string'||!cell.v.startsWith('data:image/')));
+});
+
+test('oversized notes and consolidated readings survive XLSX serialization in ordered parts',()=>{
+ const note='a'.repeat(32766)+'😀'+'b'.repeat(40000);
+ const model=buildInventoryReport(snapshot({productos:[{product_name:'P',quantity:0,uom:'unit',measure_mode:'COUNT',notes:note}]}));
+ const readings='lectura: 12 in; '.repeat(3000);
+ const silo=buildInventoryReport(snapshot({silos:[{silo_name:'Silo 1',product_name:'Cemento',reading_value:1,reading_uom:'in',calculated_result:940,calculated_result_unit_id:'lb'}]}));
+ silo.sections.find(s=>s.code==='silos').rows[0][3]=readings;
+ const workbook=createReportWorkbook([model,silo],{});
+ const reopened=XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'});
+ const parts=XLSX.utils.sheet_to_json(reopened.Sheets['Textos extensos']);
+ const noteParts=parts.filter(row=>row.Hoja==='A-2026-10').sort((a,b)=>a.Parte-b.Parte);
+ assert.equal(noteParts.map(row=>row.Texto).join(''),note);
+ assert.equal(parts.filter(row=>row.Hoja==='Consolidado').sort((a,b)=>a.Parte-b.Parte).map(row=>row.Texto).join(''),readings);
+ assert.match(reopened.Sheets['A-2026-10'][noteParts[0].Celda].v,/Textos extensos/);
+ for(const sheet of Object.values(reopened.Sheets))for(const cell of Object.values(sheet))if(typeof cell?.v==='string')assert.ok(cell.v.length<=32767);
+});
+
 const consolidatedRows=details=>{
  const workbook=createReportWorkbook(details,{});
  return XLSX.utils.sheet_to_json(XLSX.read(XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}),{type:'buffer'}).Sheets.Consolidado,{defval:null});

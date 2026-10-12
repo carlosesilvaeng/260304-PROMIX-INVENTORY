@@ -36,14 +36,24 @@ async function loadPhoto(url:string,signal?:AbortSignal):Promise<PhotoAvailabili
 export async function prepareExport(reports:ReportSummary[],base:string,token:string,options:ReportOptions={}){
  const details=options.details||await loadReportDetails(reports,base,token,options);
  if(details.length!==reports.length||details.some((detail,index)=>detail.report.id!==reports[index].id))throw Error('El detalle de exportación no coincide con los inventarios seleccionados.');
- const photos:PhotoAvailability[]=details.flatMap(detail=>detail.sections.flatMap(section=>section.photos.map(photo=>({reportId:detail.report.id,section:section.name,...photo,available:false}))));let next=0;
- await Promise.all(Array.from({length:Math.min(3,photos.length)},async()=>{while(next<photos.length){checkCancellation(options.signal);const photo=photos[next++];photo.image=await loadPhoto(photo.url,options.signal);photo.available=!!photo.image;}}));checkCancellation(options.signal);
+ const photos:PhotoAvailability[]=details.flatMap(detail=>detail.sections.flatMap(section=>section.photos.map(photo=>({reportId:detail.report.id,section:section.name,...photo,available:false}))));let next=0,checked=0;
+ options.onStage?.(`Verificando fotografías: 0 de ${photos.length}…`);
+ await Promise.all(Array.from({length:Math.min(3,photos.length)},async()=>{while(next<photos.length){checkCancellation(options.signal);const photo=photos[next++];photo.image=await loadPhoto(photo.url,options.signal);photo.available=!!photo.image;options.onStage?.(`Verificando fotografías: ${++checked} de ${photos.length}…`);}}));checkCancellation(options.signal);
  return {details,photos};
 }
 export async function exportToExcel(reports:ReportSummary[],base:string,token:string,options:ReportOptions={}){
  const {details,photos}=await prepareExport(reports,base,token,options);checkCancellation(options.signal);
+ options.onStage?.('Generando archivo Excel…');
  const workbook=createReportWorkbook(details,options.filters||{},photos);
- XLSX.writeFile(workbook,`PROMIX-Inventarios-${new Date().toISOString().slice(0,10)}.xlsx`);
+ const buffer=XLSX.write(workbook,{type:'array',bookType:'xlsx'});
+ checkCancellation(options.signal);
+ const fileName=`PROMIX-Inventarios-${new Date().toISOString().slice(0,10)}.xlsx`;
+ const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+ // Keep the URL alive for the visible download link if the browser blocks the automatic click.
+ const anchor=document.createElement('a');anchor.href=url;anchor.download=fileName;anchor.hidden=true;
+ try{document.body.appendChild(anchor);anchor.click();}catch{ /* The visible link allows a user-initiated retry. */ }
+ finally{anchor.remove();}
+ return {url,fileName};
 }
 export interface PdfExportOptions extends ReportOptions {mode?:'download'|'preview';fileName?:string}
 export async function exportToPDF(reports:ReportSummary[],base:string,token:string,generatedBy='Sistema',options:PdfExportOptions={}):Promise<string|void>{
