@@ -27,6 +27,7 @@ import { PettyCashSection } from "./pages/sections/PettyCashSection";
 import { ProductsSection } from "./pages/sections/ProductsSection";
 import { ReviewAndApproveSection } from "./pages/sections/ReviewAndApproveSection";
 import { InventorySyncStatus } from './components/InventorySyncStatus';
+import { AppUpdateNotice, useApplicationUpdate } from './components/AppUpdateNotice';
 import { ErrorBoundary } from "./utils/errorBoundary";
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { isPlantManagerLike, canCaptureInventory } from "./utils/permissions";
@@ -72,7 +73,12 @@ const BUILD_VERSION = '2609011514';
 function AppContent() {
   const { user, currentPlant, clearSelectedPlant, showMigrationMessage, dismissMigrationMessage, isLoading, isFirstTime, refreshFirstTimeCheck } = useAuth();
   const { clearCurrentInventory } = useInventory();
-  const { hasPendingChanges, hasUnprotectedChanges, hasPendingChangesForSection, currentYearMonth } = usePlantPrefill();
+  const { hasPendingChanges, hasUnprotectedChanges, hasPendingChangesForSection, currentYearMonth, prefillData, syncStates } = usePlantPrefill();
+  const update = useApplicationUpdate({
+    account: user?.id || 'guest', authLoading: isLoading,
+    pending: hasPendingChanges || hasUnprotectedChanges || Object.values(syncStates).some(state => state.state !== 'server'),
+    loading: prefillData.loading,
+  });
   const isOperationalUser = canCaptureInventory(user);
   const [currentView, setCurrentView] =
     useState<string>("dashboard");
@@ -200,7 +206,7 @@ function AppContent() {
   }, [isOperationalUser, currentView]);
 
   // Show loading screen while verifying session
-  if (isLoading) {
+  if (isLoading || update.checking) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[var(--ui-primary-2b7de9)] to-[var(--ui-primary-hover-1e5bb8)] flex items-center justify-center">
         <div className="text-center">
@@ -245,6 +251,7 @@ function AppContent() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <AppUpdateNotice update={update} />
         <InventorySyncStatus section={currentSection} />
         <div className={currentView === 'section' ? 'hidden lg:block' : ''}>
           <TopBar

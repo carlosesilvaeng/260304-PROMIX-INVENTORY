@@ -4,6 +4,8 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "test:app-update": "node --experimental-strip-types scripts/test-app-update.mjs",
+    "test:app-update-browser": "node scripts/test-app-update-browser.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "dev": "vite",

@@ -3,6 +3,7 @@ import { Button } from './Button';
 import { withTimeout } from '../utils/withTimeout';
 import { compressInventoryPhoto } from '../utils/imageCompression';
 import { useAuth } from '../contexts/AuthContext';
+import { beginUpdateProtectedPhoto } from '../utils/appUpdate';
 
 interface PhotoCaptureProps {
   label: string;
@@ -46,6 +47,7 @@ export function PhotoCapture({
     const file = e.target.files?.[0];
     if (!file || busy) return;
     const owner = ownerRef.current;
+    const finishProtectedPhoto = beginUpdateProtectedPhoto();
     setPhotoMessage('');
     setCompressing(true);
     try {
@@ -70,6 +72,7 @@ export function PhotoCapture({
       setPreview(currentPhoto);
       setPhotoMessage(error instanceof Error ? error.message : 'No se pudo procesar la foto. Intenta nuevamente.');
     } finally {
+      finishProtectedPhoto();
       setCompressing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }

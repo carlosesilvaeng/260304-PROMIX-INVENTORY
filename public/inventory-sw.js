@@ -2,7 +2,7 @@
 // this cache; authenticated drafts are isolated in IndexedDB instead.
 const CACHE = 'promix-inventory-shell-phase2-v1';
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.add('/')));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.add(new Request('/', { cache: 'no-store' }))));
 });
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
@@ -22,7 +22,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).then(async response => {
+    event.respondWith(fetch(new Request(event.request, { cache: 'no-store' })).then(async response => {
       if (response.ok) (await caches.open(CACHE)).put('/', response.clone());
       return response;
     }).catch(() => caches.match('/')));
